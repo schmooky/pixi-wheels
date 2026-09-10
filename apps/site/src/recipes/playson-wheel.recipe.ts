@@ -13,7 +13,7 @@ const wheel = new WheelBuilder()
   .pointer({
     angle: -90,
     tipInset: 30,
-    skin: new TexturePointerSkin({ texture: art.textures['wheel/stopper'], artDirection: 'down', pin: { x: 0.5, y: 0.12 }, scale: 250 / 297 }),
+    skin: new TexturePointerSkin({ texture: art.textures['wheel/stopper'], artDirection: 'down', pin: { x: 0.5, y: 0.3 }, scale: 250 / 297 }),
     flap: { maxAngle: 18, stiffness: 600, damping: 16 },
   })
   .skin(new PlaysonWheelSkin({ art }))

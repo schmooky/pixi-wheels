@@ -71,7 +71,8 @@ export { GraphicsPointerSkin } from './pointer/GraphicsPointerSkin.js';
 export type { GraphicsPointerSkinOptions } from './pointer/GraphicsPointerSkin.js';
 export { TexturePointerSkin } from './pointer/TexturePointerSkin.js';
 export type { TexturePointerSkinOptions } from './pointer/TexturePointerSkin.js';
-export type { PointerSkinConfigTexture, PointerSkinConfigGraphics } from './pointer/pointerSkinRegistry.js';
+export { registerBuiltinSkins } from './skins/builtins.js';
+export type { PointerSkinConfigTexture, PointerSkinConfigGraphics } from './skins/builtins.js';
 
 // Skins
 export type { RingSkin, RingSkinContext, AssetResolver } from './skins/RingSkin.js';

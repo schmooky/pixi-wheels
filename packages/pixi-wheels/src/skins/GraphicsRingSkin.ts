@@ -3,7 +3,6 @@ import type { ResolvedSection } from '../config/types.js';
 import { DEG_TO_RAD } from '../utils/angles.js';
 import { SectionLabels } from './labels.js';
 import type { RingSkin, RingSkinContext } from './RingSkin.js';
-import { registerRingSkin } from './skinRegistry.js';
 
 export interface GraphicsRingSkinOptions {
   /** Divider lines between sections. `false` for none. */
@@ -188,7 +187,3 @@ export function wedgePath(g: Graphics, s: ResolvedSection, outerRadius: number, 
   g.closePath();
 }
 
-registerRingSkin('graphics', (config) => {
-  const { type: _type, ...options } = config;
-  return new GraphicsRingSkin(options as GraphicsRingSkinOptions);
-});

@@ -1,4 +1,4 @@
-import { Assets, Container, Sprite, type Texture } from 'pixi.js';
+import { Assets, Container, Sprite, Text, type Texture } from 'pixi.js';
 import { DEG_TO_RAD, type ResolvedSection, type RingSkin, type RingSkinContext } from 'pixi-wheels';
 import { parseSpineAtlas, texturesFromAtlas } from './spineAtlas.ts';
 
@@ -55,15 +55,35 @@ export interface PlaysonWheelSkinOptions {
   bulbBlinkMs?: number;
 }
 
-const PLATE_REGION: Record<PlaysonPlate, { base: string; bevel?: string; title?: string }> = {
-  mini: { base: 'wheel/mini/mini_sector', title: 'wheel/mini/mini_title' },
-  minor: { base: 'wheel/minor/minor_sector', title: 'wheel/minor/minor_title' },
-  major: { base: 'wheel/major/major_sector', title: 'wheel/major/major_title' },
-  coin: { base: 'wheel/coin_sector_1' },
-  collect: { base: 'wheel/collect/collect_sector_bg', bevel: 'wheel/collect/collect_sector_bavel' },
-  multi: { base: 'wheel/multi/multi_sector_bg', bevel: 'wheel/multi/multi_sector_bavel' },
-  mystery: { base: 'wheel/mystery/mystery_sector_bg', bevel: 'wheel/mystery/mystery_sector_bavel' },
+type Apex = 'up' | 'down';
+
+/**
+ * The plates are wedges whose apex sits on the hub. The artists exported
+ * some with the apex at the top of the image and some at the bottom; the
+ * skeleton used to hide that with per-attachment rotation, so the table
+ * records it here.
+ */
+const PLATE_REGION: Record<PlaysonPlate, { base: string; baseApex: Apex; bevel?: string; bevelApex?: Apex; icon?: string; title?: string }> = {
+  mini: { base: 'wheel/mini/mini_sector', baseApex: 'up', title: 'wheel/mini/mini_title' },
+  minor: { base: 'wheel/minor/minor_sector', baseApex: 'down', title: 'wheel/minor/minor_title' },
+  major: { base: 'wheel/major/major_sector', baseApex: 'down', title: 'wheel/major/major_title' },
+  coin: { base: 'wheel/coin_sector_1', baseApex: 'down' },
+  collect: { base: 'wheel/collect/collect_sector_bg', baseApex: 'up', bevel: 'wheel/collect/collect_sector_bavel', bevelApex: 'up', icon: 'wheel/collect/collect_sector_bg_clover' },
+  multi: { base: 'wheel/multi/multi_sector_bg', baseApex: 'down', bevel: 'wheel/multi/multi_sector_bavel', bevelApex: 'down', icon: 'wheel/multi/multi_sector_bg_clover' },
+  mystery: { base: 'wheel/mystery/mystery_sector_bg', baseApex: 'down', bevel: 'wheel/mystery/mystery_sector_bavel', bevelApex: 'down', icon: 'wheel/mystery/mystery_sector_bg_clover' },
 };
+
+/** Seat a wedge sprite with its apex on the hub and its wide end out along `mid` (radians). */
+function seatWedge(sprite: Sprite, apex: Apex, mid: number, scale: number): void {
+  sprite.scale.set(scale);
+  if (apex === 'down') {
+    sprite.anchor.set(0.5, 1);
+    sprite.rotation = mid + Math.PI / 2;
+  } else {
+    sprite.anchor.set(0.5, 0);
+    sprite.rotation = mid - Math.PI / 2;
+  }
+}
 
 function defaultPlate(section: ResolvedSection): PlaysonPlate {
   const hay = `${section.id} ${String(section.value ?? '')} ${section.tags.join(' ')}`.toLowerCase();
@@ -113,34 +133,50 @@ export class PlaysonWheelSkin implements RingSkin {
       const def = PLATE_REGION[plate];
       const mid = s.midAngle * DEG_TO_RAD;
       const base = new Sprite(tex(def.base));
-      base.anchor.set(0.5, 1);
-      base.scale.set(k);
-      base.rotation = mid + Math.PI / 2;
+      seatWedge(base, def.baseApex, mid, k);
       this._plates.addChild(base);
       if (def.bevel) {
         const bevel = new Sprite(tex(def.bevel));
-        bevel.anchor.set(0.5, 1);
-        bevel.scale.set(k);
-        bevel.rotation = mid + Math.PI / 2;
+        seatWedge(bevel, def.bevelApex ?? 'down', mid, k);
         this._plates.addChild(bevel);
+      }
+      if (def.icon) {
+        const icon = new Sprite(tex(def.icon));
+        icon.anchor.set(0.5);
+        icon.scale.set(k * 0.9);
+        const r = R * 0.64;
+        icon.position.set(Math.cos(mid) * r, Math.sin(mid) * r);
+        icon.rotation = mid + Math.PI / 2;
+        this._titles.addChild(icon);
       }
       if ((this._opts.titles ?? true) && def.title) {
         const title = new Sprite(tex(def.title));
         title.anchor.set(0.5);
         title.scale.set(k * 0.95);
-        const r = R * 0.72;
+        const r = R * 0.66;
         title.position.set(Math.cos(mid) * r, Math.sin(mid) * r);
+        // The titles are letters stacked top to bottom; the first letter goes to the rim.
         title.rotation = mid + Math.PI / 2;
         this._titles.addChild(title);
       }
       if ((this._opts.titles ?? true) && plate === 'coin' && typeof s.value === 'number') {
+        // The game writes the multiplier with a bitmap font; a gold Text stands in for it.
         const x = new Sprite(tex('wheel/x'));
         x.anchor.set(0.5);
-        x.scale.set(k);
-        const r = R * 0.62;
-        x.position.set(Math.cos(mid) * r, Math.sin(mid) * r);
+        x.scale.set(k * 0.9);
+        const rx = R * 0.72;
+        x.position.set(Math.cos(mid) * rx, Math.sin(mid) * rx);
         x.rotation = mid + Math.PI / 2;
         this._titles.addChild(x);
+        const value = new Text({
+          text: String(s.value),
+          style: { fontFamily: 'Roboto Condensed, Arial Narrow, sans-serif', fontSize: Math.round(56 * k), fontWeight: '900', fill: 0xffd75e, stroke: { color: 0x3a2a00, width: Math.max(2, 5 * k) } },
+        });
+        value.anchor.set(0.5);
+        const rv = R * 0.5;
+        value.position.set(Math.cos(mid) * rv, Math.sin(mid) * rv);
+        value.rotation = mid + Math.PI / 2;
+        this._titles.addChild(value);
       }
     }
     // Dividers on every boundary.
@@ -219,11 +255,9 @@ export class PlaysonWheelSkin implements RingSkin {
     if (!sectionId || !ctx.geometry.has(sectionId)) return;
     const s = ctx.geometry.byId(sectionId);
     const glow = new Sprite(this._opts.art.textures['wheel/sector_glow']);
-    glow.anchor.set(0.5, 1);
     const k = ctx.outerRadius / PLAYSON_PLATE_RADIUS;
-    glow.scale.set(k);
-    glow.rotation = s.midAngle * DEG_TO_RAD + Math.PI / 2;
-    glow.blendMode = 'add';
+    seatWedge(glow, 'up', s.midAngle * DEG_TO_RAD, k);
+    glow.alpha = 0.55;
     this._titles.addChild(glow);
     this._highlight = glow;
   }

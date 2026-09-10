@@ -15,7 +15,7 @@ const wheel = new WheelBuilder()
     id: `p${i}`, label: String(v), value: v,
     style: { fill: i % 2 ? DARK : RED, labelColor: GOLD, labelSize: 30, labelWeight: '800' },
   })))
-  .pointer({ angle: -90, tipInset: 26, skin: new TexturePointerSkin({ texture: art.pointer, artDirection: 'down', pin: { x: 0.5, y: 0.1 }, scale: 0.7 }) })
+  .pointer({ angle: -90, tipInset: 26, skin: new TexturePointerSkin({ texture: art.pointer, artDirection: 'up', pin: { x: 0.5, y: 0.82 }, scale: 0.7 }) })
   .skin({ type: 'graphics', dividers: { width: 2, color: GOLD, alpha: 0.9 }, rim: false, hub: false, shading: true })
   .landing({ settle: 'center', mode: 'random' })
   .speed('normal', SpinPresets.NORMAL)
@@ -48,7 +48,9 @@ return {
   onSpin: async () => {
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 300));
-    wheel.setResult({ value: values[Math.floor(Math.random() * values.length)] }, { anticipation: { bait: 'p6' } });
+    // Always "almost the 1000": land on one of its neighbours and bait with it,
+    // so the tease creeps past it or overshoots into it and rolls back.
+    wheel.setResult({ section: Math.random() < 0.5 ? 'p5' : 'p7' }, { anticipation: { bait: 'p6' } });
     await spin;
   },
 };

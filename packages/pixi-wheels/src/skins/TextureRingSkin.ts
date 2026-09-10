@@ -2,7 +2,6 @@ import { Container, Sprite, type Texture } from 'pixi.js';
 import { DEG_TO_RAD } from '../utils/angles.js';
 import { SectionLabels } from './labels.js';
 import type { RingSkin, RingSkinContext } from './RingSkin.js';
-import { registerRingSkin } from './skinRegistry.js';
 
 export interface TextureRingDecoration {
   /** Section id this decoration belongs to. It follows the section when weights change. */
@@ -131,15 +130,6 @@ export class TextureRingSkin implements RingSkin {
   }
 }
 
-registerRingSkin('texture', (config, assets) => {
-  const { type: _type, face, frame, decorations, ...rest } = config as unknown as RingSkinConfigTexture;
-  return new TextureRingSkin({
-    ...rest,
-    face: assets.texture(face),
-    frame: frame ? assets.texture(frame) : undefined,
-    decorations: (decorations ?? []).map((d) => ({ ...d, texture: assets.texture(d.texture) })),
-  });
-});
 
 /** The serialised form of {@link TextureRingSkinOptions}: textures by asset key. */
 export interface RingSkinConfigTexture {

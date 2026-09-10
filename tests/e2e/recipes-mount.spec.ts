@@ -64,6 +64,8 @@ for (const path of PAGES) {
     for (let i = 0; i < count; i++) {
       await frames.nth(i).scrollIntoViewIfNeeded();
       await expect(frames.nth(i).locator('canvas')).toBeVisible({ timeout: 30_000 });
+      // A recipe that throws renders its error inside the frame and still has a canvas.
+      await expect(frames.nth(i).locator('.text-destructive')).toHaveCount(0);
     }
     // Every demo enables the debug handle; the last one wins the bare global.
     const state = await page.evaluate(() => {

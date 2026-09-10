@@ -31,10 +31,7 @@ import { Ring } from './Ring.js';
 import { RingGeometry } from './RingGeometry.js';
 import { Wheel } from './Wheel.js';
 import { assertWheelConfig, WHEEL_CONFIG_VERSION, type PointerConfigEntry, type RingConfig, type WheelConfig } from './WheelConfig.js';
-// Side-effect imports: the built-in skins register their config types.
-import '../skins/DebugRingSkin.js';
-import '../skins/TextureRingSkin.js';
-import '../pointer/pointerSkinRegistry.js';
+import { registerBuiltinSkins } from '../skins/builtins.js';
 
 /** A pointer as the builder accepts it: placement plus a skin instance or config. */
 export interface PointerSpec extends PointerConfig {
@@ -431,6 +428,7 @@ export class WheelBuilder {
   // ── Build ───────────────────────────────────────────────────────────────
 
   build(): Wheel {
+    registerBuiltinSkins();
     if (!this._ticker) {
       throw new Error('WheelBuilder: ticker(app.ticker) must be called. The wheel advances on the PixiJS ticker.');
     }

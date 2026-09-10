@@ -2,7 +2,6 @@ import { Container, Graphics, Text } from 'pixi.js';
 import { DEG_TO_RAD } from '../utils/angles.js';
 import { wedgePath } from './GraphicsRingSkin.js';
 import type { RingSkin, RingSkinContext } from './RingSkin.js';
-import { registerRingSkin } from './skinRegistry.js';
 
 /**
  * The plain skin: flat alternating fills, section index and id, the start
@@ -100,4 +99,3 @@ export class DebugRingSkin implements RingSkin {
   }
 }
 
-registerRingSkin('debug', () => new DebugRingSkin());

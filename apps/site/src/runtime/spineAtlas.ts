@@ -136,13 +136,17 @@ export function texturesFromAtlas(atlas: ParsedAtlas, pages: Record<string, Text
     const source: TextureSource = pageTex.source;
     // Spine's offset y is from the BOTTOM of the original image; PixiJS trim y is from the top.
     const trimY = r.origHeight - r.offsetY - r.height;
+    // A rotated Spine region is stored turned 90 degrees COUNTER-clockwise (the
+    // attachment's top edge runs up the packed rect's left side), the opposite
+    // of TexturePacker's convention, so PixiJS needs groupD8 6 (a 270 degree
+    // turn), not the usual 2.
     const frame = r.rotate ? new Rectangle(r.x, r.y, r.height, r.width) : new Rectangle(r.x, r.y, r.width, r.height);
     out[r.name] = new Texture({
       source,
       frame,
       orig: new Rectangle(0, 0, r.origWidth, r.origHeight),
       trim: new Rectangle(r.offsetX, trimY, r.width, r.height),
-      rotate: r.rotate ? 2 : 0,
+      rotate: r.rotate ? 6 : 0,
       label: r.name,
     });
   }
