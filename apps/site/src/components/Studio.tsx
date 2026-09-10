@@ -299,7 +299,8 @@ export default function Studio() {
       fitRef.current?.();
       return;
     }
-    overlayRef.current = debugOverlay(wheel, { layers: 'all', live: true, ticker: app.ticker, hud: 'bottom-left', screen: app.screen });
+    // Top-right: the speed radio sits bottom-left, the land/bait controls top-left, Spin bottom-right.
+    overlayRef.current = debugOverlay(wheel, { layers: 'all', live: true, ticker: app.ticker, hud: 'top-right', screen: app.screen });
     setDebugOn(true);
     fitRef.current?.();
   }

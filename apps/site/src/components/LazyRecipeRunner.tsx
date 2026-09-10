@@ -3,6 +3,7 @@ import { RecipeRunner } from './RecipeRunner.tsx';
 
 interface Props {
   code: string;
+  slug?: string;
   height?: number;
 }
 
@@ -14,7 +15,7 @@ interface Props {
  * unmount it (freeing the context) once it scrolls well away. A page can hold
  * any number of demos; only the few on screen are ever live.
  */
-export function LazyRecipeRunner({ code, height = 340 }: Props) {
+export function LazyRecipeRunner({ code, slug, height = 340 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(false);
 
@@ -43,7 +44,7 @@ export function LazyRecipeRunner({ code, height = 340 }: Props) {
   return (
     <div ref={ref} style={{ minHeight: height }}>
       {active ? (
-        <RecipeRunner code={code} height={height} />
+        <RecipeRunner code={code} slug={slug} height={height} />
       ) : (
         <Placeholder height={height} label="Scroll to load" />
       )}

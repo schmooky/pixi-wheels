@@ -257,7 +257,8 @@ export class PlaysonWheelSkin implements RingSkin {
     const glow = new Sprite(this._opts.art.textures['wheel/sector_glow']);
     const k = ctx.outerRadius / PLAYSON_PLATE_RADIUS;
     seatWedge(glow, 'up', s.midAngle * DEG_TO_RAD, k);
-    glow.alpha = 0.55;
+    glow.blendMode = 'add';
+    glow.alpha = 0.7;
     this._titles.addChild(glow);
     this._highlight = glow;
   }

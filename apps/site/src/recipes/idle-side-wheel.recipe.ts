@@ -53,7 +53,10 @@ return {
     await tween(wheel, STAGE_POS, 600);
     const spin = wheel.spin();                 // ramps from the idle speed
     await new Promise((r) => setTimeout(r, 400));
-    wheel.setResult({ value: [2, 3, 5, 10][Math.floor(Math.random() * 4)] }, { anticipation: { bait: 'x10' } });
+    // Bait with the section next to the target: a tease needs a neighbour, and never the target itself.
+    const ids = wheel.sections.map((s) => s.id);
+    const i = Math.floor(Math.random() * ids.length);
+    wheel.setResult({ section: ids[i] }, { anticipation: { bait: ids[(i + 1) % ids.length] } });
     await spin;
     await new Promise((r) => setTimeout(r, 900)); // present the win
     await tween(wheel, SEAT, 600);             // idle resumes on its own

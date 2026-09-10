@@ -46,3 +46,16 @@ Everything the overlay writes is drawn at a constant screen size, on dark pills,
 - the HUD panel: one per ring, in a corner of the canvas. `hud` takes `'top-left'` (default), `'top-right'`, `'bottom-left'`, `'bottom-right'`, an exact `{ x, y }`, or `false`. Corners on the right or bottom need `screen: app.screen`.
 
 Pick the layers with `layers: ['sections', 'target']` or `handle.setLayers([...])`; `fontSize` scales the text.
+
+## Poking at the demos on this site
+
+Every live demo on this site registers itself on `window.__pixiWheels` under its recipe name, so the console can reach it:
+
+```js
+const { wheel, spin } = __pixiWheels['playson-spine-wheel'];
+wheel.events.on('spin:landing', (e) => console.log(e.section.id, e.landingAngle));
+spin();                          // the same action as the Spin button
+debugArc(wheel);                 // via __PIXI_WHEELS_DEBUG, enabled on every demo
+```
+
+Each demo's frame carries `data-recipe="<name>"`, which is what the end-to-end sweep uses to spin, skip and re-spin every recipe and compare where the wheel says it landed with what sits under the pointer.

@@ -27,12 +27,15 @@
 interface Props {
   /** Canvas height in px. Must match RecipeRunner's `height` prop. */
   height?: number;
+  /** Recipe basename, exposed as `data-recipe` for tests and the console. */
+  slug?: string;
 }
-const { height = 340 } = Astro.props;
+const { height = 340, slug } = Astro.props;
 ---
 <div
   class="recipe-frame relative my-5 overflow-hidden rounded-xl border border-border bg-card"
   data-recipe-frame
+  data-recipe={slug}
 >
   <div
     class="recipe-frame__skeleton relative flex w-full items-center justify-center bg-background"

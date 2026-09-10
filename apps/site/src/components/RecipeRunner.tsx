@@ -31,10 +31,28 @@ export interface RunResult {
 
 interface RecipeRunnerProps {
   code: string;
+  /** Recipe basename. Registers the live demo on `window.__pixiWheels[slug]` for the console and tests. */
+  slug?: string;
   height?: number;
 }
 
-export function RecipeRunner({ code, height = 340 }: RecipeRunnerProps) {
+/** What a mounted demo exposes on `window.__pixiWheels[slug]`: poke at it from the console. */
+export interface LiveRecipe {
+  wheel: Wheel | null;
+  app: Application;
+  /** The Spin button's action: spins, or skips while spinning. */
+  spin: () => Promise<void>;
+  /** True while the runner considers the demo spinning. */
+  isSpinning: () => boolean;
+}
+
+declare global {
+  interface Window {
+    __pixiWheels?: Record<string, LiveRecipe>;
+  }
+}
+
+export function RecipeRunner({ code, slug, height = 340 }: RecipeRunnerProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
   const wheelRef = useRef<Wheel | null>(null);
@@ -47,7 +65,9 @@ export function RecipeRunner({ code, height = 340 }: RecipeRunnerProps) {
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [debugOn, setDebugOn] = useState(false);
+  const [spinError, setSpinError] = useState<string | null>(null);
   const [canDebug, setCanDebug] = useState(false);
+  const spinningRef = useRef(false);
   const showSkeleton = useMinDisplay(!ready, 250);
 
   useEffect(() => {
@@ -156,6 +176,7 @@ export function RecipeRunner({ code, height = 340 }: RecipeRunnerProps) {
       return;
     }
     setSpinning(true);
+    spinningRef.current = true;
     try {
       if (onSpinRef.current) {
         await onSpinRef.current();
@@ -169,10 +190,26 @@ export function RecipeRunner({ code, height = 340 }: RecipeRunnerProps) {
     } catch (err) {
       // eslint-disable-next-line no-console -- diagnostic surface
       console.error('[RecipeRunner] handleSpin threw:', err);
+      setSpinError((err as Error).message ?? String(err));
+      window.setTimeout(() => setSpinError(null), 6000);
     } finally {
       setSpinning(false);
+      spinningRef.current = false;
     }
   }
+
+  // Expose the live demo for the console and for tests: window.__pixiWheels['basic-wheel'].wheel
+  useEffect(() => {
+    if (!ready || !slug) return;
+    const app = appRef.current;
+    if (!app) return;
+    const registry = (window.__pixiWheels ??= {});
+    registry[slug] = { wheel: wheelRef.current, app, spin: () => handleSpin(), isSpinning: () => spinningRef.current };
+    return () => {
+      if (registry[slug]?.app === app) delete registry[slug];
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, slug]);
 
   function toggleDebug() {
     const wheel = wheelRef.current;
@@ -201,6 +238,11 @@ export function RecipeRunner({ code, height = 340 }: RecipeRunnerProps) {
       {showSkeleton && !error && <CanvasSkeleton label="Compiling recipe..." />}
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-card/90 p-6 font-mono text-xs text-destructive">{error}</div>
+      )}
+      {spinError && (
+        <div role="alert" className="absolute bottom-3 left-1/2 max-w-[80%] -translate-x-1/2 truncate rounded-md border border-destructive/50 bg-background/90 px-3 py-1.5 font-mono text-[11px] text-destructive backdrop-blur">
+          Spin failed: {spinError}
+        </div>
       )}
       <button
         type="button"

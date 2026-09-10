@@ -22,9 +22,9 @@ interface SpinProfile {
 
 | Preset | spinSpeed | accel | min spin | stop | turns |
 |---|---|---|---|---|---|
-| `NORMAL` | 540 | 900 | 1400 | 4200 `power3.out` | 2-8 |
-| `TURBO` | 720 | 400 | 600 | 1800 `power3.out` | 1-4 |
-| `CINEMATIC` | 450 | 1400 | 2200 | 6500 `power4.out` | 3-10 |
+| `NORMAL` | 540 | 900 | 1400 | 4200 `power3.out` | 1-8 |
+| `TURBO` | 720 | 400 | 600 | 2000 `power3.out` | 1-4 |
+| `CINEMATIC` | 450 | 1400 | 2200 | 8000 `power4.out` | 1-6 |
 | `QUICK` | 900 | 250 | 400 | 1300 `power2.out` | 1-3 |
 
 ## How the stop duration is chosen
@@ -36,3 +36,5 @@ The planner matches the ease's start slope to the cruise speed so the hand-off i
 ## Eases
 
 Names follow the GSAP vocabulary without depending on it: `none`, `linear`, `power1..4.in|out|inOut` (`quad`, `cubic`, `quart`, `quint` are aliases), `sine.*`, `expo.*`, `circ.*`, `back.in|out(1.7)`. Or pass a `(t) => number`. `EASE_NAMES` lists them; `resolveEase(name)` throws on a typo with the list.
+
+A stop leg whose ease starts at the cruise speed lasts `turns * 360 * slope / spinSpeed` seconds (`slope` is the ease's start slope: 3 for `power2.out`, 4 for `power3.out`, 5 for `power4.out`), so the planner can only choose among whole-turn durations. Keep `stopDuration` inside the range `minTurns..maxTurns` spans, or the nearest turn count wins silently; the presets are tested for it.

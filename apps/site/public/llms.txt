@@ -174,6 +174,19 @@ Everything the overlay writes is drawn at a constant screen size, on dark pills,
 
 Pick the layers with `layers: ['sections', 'target']` or `handle.setLayers([...])`; `fontSize` scales the text.
 
+## Poking at the demos on this site
+
+Every live demo on this site registers itself on `window.__pixiWheels` under its recipe name, so the console can reach it:
+
+```js
+const { wheel, spin } = __pixiWheels['playson-spine-wheel'];
+wheel.events.on('spin:landing', (e) => console.log(e.section.id, e.landingAngle));
+spin();                          // the same action as the Spin button
+debugArc(wheel);                 // via __PIXI_WHEELS_DEBUG, enabled on every demo
+```
+
+Each demo's frame carries `data-recipe="<name>"`, which is what the end-to-end sweep uses to spin, skip and re-spin every recipe and compare where the wheel says it landed with what sits under the pointer.
+
 ### Dynamic sections
 URL: https://pixi-wheels.schmooky.dev/guides/dynamic-sections/
 
@@ -945,9 +958,9 @@ interface SpinProfile {
 
 | Preset | spinSpeed | accel | min spin | stop | turns |
 |---|---|---|---|---|---|
-| `NORMAL` | 540 | 900 | 1400 | 4200 `power3.out` | 2-8 |
-| `TURBO` | 720 | 400 | 600 | 1800 `power3.out` | 1-4 |
-| `CINEMATIC` | 450 | 1400 | 2200 | 6500 `power4.out` | 3-10 |
+| `NORMAL` | 540 | 900 | 1400 | 4200 `power3.out` | 1-8 |
+| `TURBO` | 720 | 400 | 600 | 2000 `power3.out` | 1-4 |
+| `CINEMATIC` | 450 | 1400 | 2200 | 8000 `power4.out` | 1-6 |
 | `QUICK` | 900 | 250 | 400 | 1300 `power2.out` | 1-3 |
 
 ## How the stop duration is chosen
@@ -959,6 +972,8 @@ The planner matches the ease's start slope to the cruise speed so the hand-off i
 ## Eases
 
 Names follow the GSAP vocabulary without depending on it: `none`, `linear`, `power1..4.in|out|inOut` (`quad`, `cubic`, `quart`, `quint` are aliases), `sine.*`, `expo.*`, `circ.*`, `back.in|out(1.7)`. Or pass a `(t) => number`. `EASE_NAMES` lists them; `resolveEase(name)` throws on a typo with the list.
+
+A stop leg whose ease starts at the cruise speed lasts `turns * 360 * slope / spinSpeed` seconds (`slope` is the ease's start slope: 3 for `power2.out`, 4 for `power3.out`, 5 for `power4.out`), so the planner can only choose among whole-turn durations. Keep `stopDuration` inside the range `minTurns..maxTurns` spans, or the nearest turn count wins silently; the presets are tested for it.
 
 ### Wheel and Ring
 URL: https://pixi-wheels.schmooky.dev/docs/api-wheel/
@@ -1990,7 +2005,10 @@ return {
     await tween(wheel, STAGE_POS, 600);
     const spin = wheel.spin();                 // ramps from the idle speed
     await new Promise((r) => setTimeout(r, 400));
-    wheel.setResult({ value: [2, 3, 5, 10][Math.floor(Math.random() * 4)] }, { anticipation: { bait: 'x10' } });
+    // Bait with the section next to the target: a tease needs a neighbour, and never the target itself.
+    const ids = wheel.sections.map((s) => s.id);
+    const i = Math.floor(Math.random() * ids.length);
+    wheel.setResult({ section: ids[i] }, { anticipation: { bait: ids[(i + 1) % ids.length] } });
     await spin;
     await new Promise((r) => setTimeout(r, 900)); // present the win
     await tween(wheel, SEAT, 600);             // idle resumes on its own
@@ -2478,13 +2496,15 @@ return {
 
 ```ts
 // @ts-nocheck
-// Injected globals: WheelBuilder, WheelTemplates, app
+// Injected globals: WheelBuilder, WheelTemplates, SpinPresets, app
 
 // Templates are plain configs. Load one, add the ticker, build. Everything
 // the studio exports has this shape too.
 const config = WheelTemplates.jackpots();
 
-const wheel = WheelBuilder.fromConfig(config).ticker(app.ticker).build();
+// The jackpots template ships the cinematic profile (an eight-second stop);
+// a builder call after fromConfig() overrides any of it. NORMAL keeps the demo brisk.
+const wheel = WheelBuilder.fromConfig(config).speed('normal', SpinPresets.NORMAL).ticker(app.ticker).build();
 
 return {
   wheel,
