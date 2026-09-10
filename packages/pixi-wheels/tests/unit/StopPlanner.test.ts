@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SpinPresets } from '../../src/config/SpinPresets.js';
-import { defaultOvershootDeg, defaultReturnMs, pickTurns, planSettle, planSkip, planStop } from '../../src/spin/StopPlanner.js';
+import { pickTurns, planSettle, planSkip, planStop } from '../../src/spin/StopPlanner.js';
 import { resolveEase } from '../../src/utils/easing.js';
 
 const profile = SpinPresets.NORMAL;
@@ -66,11 +66,12 @@ describe('planStop', () => {
         baitEntryRotation: 40, // 60 deg before landing
         baitExitRotation: 80,
         baitArc: 40,
+        targetEntryRotation: 80,
+        targetArc: 45,
         creepSpeed: 40,
-        dwellMs: 700,
-        pushMs: 900,
-        overshootDeg: 6,
-        returnMs: 800,
+        hesitateSpeed: 2,
+        dwellMs: 600,
+        pushMs: 700,
       },
     });
     expect(plan.anticipation).toBe('creep');
@@ -82,7 +83,7 @@ describe('planStop', () => {
     expect(((end % 360) + 360) % 360).toBeCloseTo(100, 6);
   });
 
-  it('stutter: halts inside the bait, dwells, then pushes over the line', () => {
+  it('stutter: crawls into the bait, all but stalls short of the line, slips over it without ever stopping', () => {
     const plan = planStop({
       rotation: 0,
       speed: 540,
@@ -95,21 +96,41 @@ describe('planStop', () => {
         baitEntryRotation: 40,
         baitExitRotation: 90,
         baitArc: 50,
+        targetEntryRotation: 90,
+        targetArc: 45,
         creepSpeed: 40,
+        hesitateSpeed: 2,
         dwellMs: 500,
         pushMs: 800,
-        overshootDeg: 6,
-        returnMs: 800,
       },
     });
-    expect(plan.legs.map((l) => l.kind)).toEqual(['decel', 'dwell', 'push']);
-    expect(plan.legs[1].duration).toBe(500);
-    // halt 5 deg before exit (90) => at 85; push covers 85 -> 100 = 15 deg
-    expect(plan.legs[2].distance).toBeCloseTo(15, 6);
+    expect(plan.legs.map((l) => l.kind)).toEqual(['decel', 'creep', 'hesitate', 'push']);
+    const [, crawl, hesitate, push] = plan.legs;
+    // hesitation: 2 deg/s for 500 ms = 1 deg, ending 5 deg short of the line at 90
+    expect(hesitate.duration).toBeCloseTo(500, 6);
+    expect(hesitate.distance).toBeCloseTo(1, 6);
+    expect(crawl.distance).toBeCloseTo(50 - 5 - 1, 6);
+    expect(crawl.endSpeed).toBe(2);
+    // push: the 5 deg to the line plus 10 deg to the landing
+    expect(push.distance).toBeCloseTo(15, 6);
+    expect(push.startSpeed).toBe(2);
+    expect(push.landsAtEnd).toBe(true);
+    // the wheel never stops before the rest and never reverses
+    for (const l of plan.legs) {
+      expect(l.reverse).toBe(false);
+      if (!l.landsAtEnd) expect(l.endSpeed).toBeGreaterThan(0);
+    }
+    // the push ease takes over smoothly and is monotonic
+    let prev = 0;
+    for (let t = 0.05; t <= 1.0001; t += 0.05) {
+      const v = push.ease(Math.min(1, t));
+      expect(v).toBeGreaterThan(prev);
+      prev = v;
+    }
     expect(simulate(plan, 0, 'cw') % 360).toBeCloseTo(100, 6);
   });
 
-  it('overshoot: passes the landing, dwells in the bait, rolls back', () => {
+  it('stall: crawls across the target toward the line and dies short of it, no reverse leg', () => {
     const plan = planStop({
       rotation: 0,
       speed: 540,
@@ -117,55 +138,59 @@ describe('planStop', () => {
       landingRotation: 100,
       profile,
       anticipation: {
-        style: 'overshoot',
+        style: 'stall',
         baitId: 'bait',
-        baitEntryRotation: 120, // just after the landing
-        baitExitRotation: 160,
-        baitArc: 40,
+        baitEntryRotation: 106.75, // the line, 6.75 deg past the rest
+        baitExitRotation: 151.75,
+        baitArc: 45,
+        targetEntryRotation: 61.75,
+        targetArc: 45,
         creepSpeed: 40,
+        hesitateSpeed: 2,
         dwellMs: 600,
-        pushMs: 800,
-        overshootDeg: 6,
-        returnMs: 700,
-      },
-    });
-    expect(plan.legs.map((l) => l.kind)).toEqual(['decel', 'dwell', 'return']);
-    expect(plan.legs[2].reverse).toBe(true);
-    expect(plan.legs[2].distance).toBeCloseTo(26, 6); // 20 to the bait entry + 6 overshoot
-    expect(plan.legs[2].duration).toBe(700);
-    expect(simulate(plan, 0, 'cw') % 360).toBeCloseTo(100, 6);
-  });
-
-  it('overshoot defaults: only slightly over the line, and a roll back that scales with the distance', () => {
-    const plan = planStop({
-      rotation: 0,
-      speed: 540,
-      direction: 'cw',
-      landingRotation: 100,
-      profile,
-      anticipation: {
-        style: 'overshoot',
-        baitId: 'bait',
-        baitEntryRotation: 106.6, // the landing rests 6.6 deg inside a 30 deg target
-        baitExitRotation: 136.6,
-        baitArc: 30,
-        creepSpeed: 40,
-        dwellMs: 180,
         pushMs: 700,
       },
     });
-    const ret = plan.legs[2];
-    // a fifth of a 30 deg bait is 6, capped to 5
-    expect(defaultOvershootDeg(30)).toBe(5);
-    expect(defaultOvershootDeg(60)).toBe(5);
-    expect(defaultOvershootDeg(10)).toBe(2);
-    expect(ret.distance).toBeCloseTo(6.6 + 5, 6);
-    expect(ret.duration).toBeCloseTo(defaultReturnMs(11.6), 6);
-    expect(defaultReturnMs(11.6)).toBeCloseTo(814, 6);
-    expect(defaultReturnMs(1)).toBe(450);
-    expect(defaultReturnMs(40)).toBe(1200);
-    expect(plan.legs[1].duration).toBe(180);
+    expect(plan.anticipation).toBe('stall');
+    expect(plan.legs.map((l) => l.kind)).toEqual(['decel', 'creep']);
+    const [decel, crawl] = plan.legs;
+    expect(decel.endSpeed).toBe(40);
+    // the crawl starts where the pointer enters the target: 100 - 61.75
+    expect(crawl.distance).toBeCloseTo(38.25, 6);
+    expect(crawl.duration).toBeCloseTo((2 * 38.25 / 40) * 1000, 6);
+    expect(crawl.endSpeed).toBe(0);
+    expect(crawl.baitAtStart).toBe(true);
+    expect(crawl.landsAtEnd).toBe(true);
+    expect(plan.legs.every((l) => !l.reverse)).toBe(true);
     expect(simulate(plan, 0, 'cw') % 360).toBeCloseTo(100, 6);
+  });
+
+  it('stall: approachDeg shortens the crawl, and it never exceeds the room inside the target', () => {
+    const base = {
+      rotation: 0,
+      speed: 540,
+      direction: 'cw' as const,
+      landingRotation: 100,
+      profile,
+    };
+    const anticipation = {
+      style: 'stall' as const,
+      baitId: 'bait',
+      baitEntryRotation: 106.75,
+      baitExitRotation: 151.75,
+      baitArc: 45,
+      targetEntryRotation: 61.75,
+      targetArc: 45,
+      creepSpeed: 40,
+      hesitateSpeed: 2,
+      dwellMs: 600,
+      pushMs: 700,
+    };
+    expect(planStop({ ...base, anticipation: { ...anticipation, approachDeg: 20 } }).legs[1].distance).toBeCloseTo(20, 6);
+    expect(planStop({ ...base, anticipation: { ...anticipation, approachDeg: 200 } }).legs[1].distance).toBeCloseTo(38.25, 6);
+    // a wide target: the default crawl caps at 45 degrees
+    const wide = planStop({ ...base, anticipation: { ...anticipation, targetEntryRotation: 0, targetArc: 120, baitEntryRotation: 118, baitExitRotation: 160 } });
+    expect(wide.legs[1].distance).toBeCloseTo(45, 6);
   });
 });
 

@@ -134,3 +134,14 @@ export function constantAccelEase(v0: number, v1: number): EaseFn {
   const b = (2 * v1) / sum;
   return (t) => a * t + ((b - a) / 2) * t * t;
 }
+
+/**
+ * A stop curve that begins already moving: position goes 0 to 1 with initial
+ * slope `startSlope` (normalised: speed * duration / distance) and zero slope
+ * at the end. Monotonic for slopes in 0..3. Lets a leg take over from a slow
+ * crawl without a velocity step.
+ */
+export function hermiteStopEase(startSlope: number): EaseFn {
+  const s = Math.min(3, Math.max(0, startSlope));
+  return (t) => s * t + (3 - 2 * s) * t * t + (s - 2) * t * t * t;
+}

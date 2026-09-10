@@ -77,7 +77,7 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **Idle**: a slow continuous spin while nothing happens, for a wheel parked beside the reels. `startIdle()` / `stopIdle()`; a real `spin()` takes over from it. [Idle](/guides/idle/)
 
-**Leg**: one piece of a planned stop: a distance, a duration, an ease, forwards or reverse. Kinds: decel, creep, dwell, push, return, skip, settle, bounce, bounce-return.
+**Leg**: one piece of a planned stop: a distance, a duration, an ease, forwards or reverse. Kinds: decel, creep, hesitate, push, dwell, skip, settle, bounce, bounce-return.
 
 **Plan / planned stop**: the list of legs the engine computes the moment the result is known. Everything after that is playback, so the landing is exact and deterministic. [Spin lifecycle](/guides/spin-lifecycle/)
 
@@ -111,19 +111,19 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 ## Anticipation
 
-**Anticipation**: a planned near-miss. The pointer heads for the bait, lands on the target, and rests by the line the two share. `anticipation:start`, `anticipation:bait`, `anticipation:end`. [Anticipation](/guides/anticipation/)
+**Anticipation**: a planned near-miss. The pointer heads for the bait, lands on the target, and rests by the line the two share. The wheel comes to rest once, on the result. `anticipation:start`, `anticipation:bait`, `anticipation:end`. [Anticipation](/guides/anticipation/)
 
 **Bait**: the section the player is meant to hope for during a tease. Must be reachable within the anticipation's arc; the builder throws when it is not.
 
-**Creep**: the pointer crawls through the bait and barely crosses the line into the target.
+**Creep**: the pointer crawls through the bait and barely crosses the line into the target. **Crawl**: the slow constant-deceleration stretch every tease ends with.
 
-**Overshoot**: the wheel runs out of momentum with the pointer a few degrees past the line, into the bait, holds a beat and rolls softly back onto the target. Never more than a quarter of the bait, five degrees by default.
+**Stall**: the pointer enters the target, crawls toward the bait's line as if it will cross, and dies just short of it. For a bait that follows the target.
 
-**Rest**: where the pointer ends after a tease: a fraction of the target's arc (0.22 by default) from the divider it shares with the bait. `rest: 'keep'` leaves the landing mode in charge.
+**Rest**: where the pointer ends after a tease: a fraction of the target's arc from the divider it shares with the bait (0.22 after crossing it, 0.15 when it died short). `rest: 'keep'` leaves the landing mode in charge.
 
-**Stutter**: the wheel halts with the pointer a hair inside the bait, holds, then nudges over the line.
+**Stutter**: the crawl all but stalls a hair short of the line, still moving, then slips over it onto the target. **Hesitation**: that near-stall, at `hesitateSpeed` for `dwellMs`.
 
-**Auto**: picks creep, stutter or overshoot from the distance between bait and target.
+**Auto**: picks creep or stall from where the bait sits relative to the target.
 
 **Near-miss**: what the player sees. Anticipation is how the engine plans it.
 

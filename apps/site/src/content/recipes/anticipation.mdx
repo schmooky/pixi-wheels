@@ -1,7 +1,7 @@
 ---
 title: "Anticipation and near-miss"
 group: tension
-oneLiner: Bait the player with one section and land on another - creep, stutter, overshoot, and a tease that survives a skip.
+oneLiner: Bait the player with one section and land on another - creep, stutter, stall, and a tease that survives a skip.
 order: 30
 tags:
   - anticipation
@@ -10,7 +10,7 @@ tags:
   - skip
 ---
 
-The wheel knows where it will land the moment the result arrives. Anticipation spends that knowledge on the player: the pointer heads for the jackpot, slows on it, and does not quite get there. Whatever the style, it comes to rest on the result right next to the line it almost crossed.
+The wheel knows where it will land the moment the result arrives. Anticipation spends that knowledge on the player: the pointer heads for the jackpot, slows on it, and does not quite get there. One rule holds for every style: the wheel comes to rest once, on the result, right next to the line it almost crossed. It never stops on the jackpot and moves on, and it never rolls back.
 
 Every style is a set of planned legs. The bait must be a neighbour of the landing in the spin direction; the engine checks and warns rather than faking a tease that would not read.
 
@@ -22,24 +22,24 @@ Decelerate to a crawl exactly as the pointer enters the bait, keep slowing acros
 
 ## Stutter
 
-Stop with the pointer inside the jackpot, hold while everyone leans in, nudge over the line.
+Crawl into the jackpot, all but stall a hair short of the line while everyone leans in, still moving, then slip over it onto the result.
 
 <RecipeDemo code="bait-stutter" />
 
-## Overshoot and roll back
+## Stall before the line
 
-The bait sits just after the landing: the wheel runs out of momentum with the pointer a few degrees past the line, into the jackpot, holds a beat, and rolls softly back onto the result. "It was going to be GRAND." No options set; the defaults are the beat.
+The bait sits just after the landing: the pointer enters the result, crawls toward the jackpot's line as if it will cross, and dies just short of it. "It was going to be GRAND." No options set; the defaults are the beat.
 
-<RecipeDemo code="bait-overshoot" />
+<RecipeDemo code="bait-stall" />
 
 ## Auto style
 
-`'auto'` (the default) reads the geometry: bait before the landing creeps, bait after it overshoots, bait far away is dropped with a console warning.
+`'auto'` (the default) reads the geometry: bait before the landing creeps, bait after it stalls, bait far away is dropped with a console warning.
 
 <RecipeDemo code="bait-auto" />
 
 ## A tease the skip cannot hide
 
-With `protectAnticipation`, the first press jumps to the bait and lets the crawl play; the second press lands.
+With `protectAnticipation`, the first press jumps to the start of the crawl and lets it play; the second press lands.
 
 <RecipeDemo code="bait-protected-skip" />

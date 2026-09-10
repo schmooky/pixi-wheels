@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { EASE_NAMES, constantAccelEase, initialSlope, resolveEase } from '../../src/utils/easing.js';
+import { hermiteStopEase as hermiteStop } from '../../src/utils/easing.js';
 
 describe('easing', () => {
   it('every named ease is normalised: f(0) = 0 and f(1) = 1', () => {
@@ -45,5 +46,23 @@ describe('easing', () => {
       prev = g(t);
     }
     expect(g(1)).toBeCloseTo(1, 6);
+  });
+});
+
+describe('hermiteStopEase', () => {
+  it('starts at the given slope, ends flat at 1, and stays monotonic', () => {
+    const ease = hermiteStop(0.4);
+    expect(ease(0)).toBe(0);
+    expect(ease(1)).toBeCloseTo(1, 12);
+    expect((ease(1e-4) - ease(0)) / 1e-4).toBeCloseTo(0.4, 3);
+    expect((ease(1) - ease(1 - 1e-4)) / 1e-4).toBeCloseTo(0, 3);
+    let prev = 0;
+    for (let t = 0.02; t <= 1; t += 0.02) {
+      const v = ease(t);
+      expect(v).toBeGreaterThanOrEqual(prev);
+      prev = v;
+    }
+    // slopes are clamped into the monotonic band
+    expect(hermiteStop(9)(0.5)).toBe(hermiteStop(3)(0.5));
   });
 });

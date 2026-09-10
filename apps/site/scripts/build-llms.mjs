@@ -48,7 +48,7 @@ const recipeFiles = (await readdir(RECIPES_SRC)).filter((f) => f.endsWith('.reci
 const lines = [];
 lines.push(`# pixi-wheels`, '');
 lines.push(`pixi-wheels ${pkg.version} is a bonus wheel engine for PixiJS v8.`);
-lines.push('Fluent builder, typed events, velocity-matched planned stops, anticipation (creep / stutter / overshoot), dynamic sectors, rings, pointers with flap physics, idle spin, texture and Spine skins, a headless testing harness.');
+lines.push('Fluent builder, typed events, velocity-matched planned stops, anticipation (creep / stutter / stall), dynamic sectors, rings, pointers with flap physics, idle spin, texture and Spine skins, a headless testing harness.');
 lines.push('Outcome math, RTP and audio live in consumer code: the wheel lands where `setResult()` says.', '');
 lines.push(`Site: ${SITE_URL}`, 'Repo: https://github.com/schmooky/pixi-wheels', 'Package: https://www.npmjs.com/package/pixi-wheels', '');
 lines.push('## Quick start', '', '```ts', "import { WheelBuilder, SpinPresets } from 'pixi-wheels';", '', 'const wheel = new WheelBuilder()', "  .radius(240, 36)", "  .sections([{ id: 'x2', value: 2, weight: 3 }, { id: 'x5', value: 5, weight: 2 }, { id: 'x10', value: 10 }])", "  .speed('normal', SpinPresets.NORMAL)", '  .ticker(app.ticker)', '  .build();', 'app.stage.addChild(wheel);', 'const spin = wheel.spin();', "wheel.setResult({ value: 5 }, { anticipation: { bait: 'x10' } });", 'await spin;', '```', '');

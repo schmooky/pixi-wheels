@@ -31,8 +31,10 @@ The moment the stop may begin, the engine plans it as a list of legs and plays t
 
 - Plain stop: one leg to the landing angle.
 - Creep: a leg to the bait's entry edge ending at `creepSpeed`, then a crawl over the line to a rest just inside the landing section.
-- Stutter: a leg to a halt a hair inside the bait, a beat, a push over the line.
-- Overshoot: a leg a few degrees past the line into the bait, a beat, a soft roll back to a rest just inside the landing section.
+- Stutter: the same crawl, slowing to a near-stall a hair short of the line, then a slip over it to the rest.
+- Stall: a leg to the landing section's entry edge ending at `creepSpeed`, then a crawl toward the bait's line that dies just short of it.
+
+No plan ever contains a reverse leg or a stop before the rest: the segment the wheel stops on is the result.
 - Settle: a dwell and a glide to the centre, or a bounce out and back.
 
 `spin:stopping` reports the turn count and total duration; the debug overlay draws the current leg.

@@ -70,7 +70,7 @@ wheel.destroy()
 | | |
 |---|---|
 | **Planned stops** | The deceleration begins at the cruise speed and lands on the centre, a random spot, or an exact angle. Then `center` glide or `bounce`. |
-| **Anticipation** | `creep` past the jackpot, `stutter` on its edge, `overshoot` and roll back, or `auto`. Protected skips let the tease play. |
+| **Anticipation** | `creep` over the line, `stutter` on it, `stall` just short of it, or `auto`. The wheel stops once, on the result. Protected skips let the tease play. |
 | **Dynamic sectors** | Weights animate; labels re-centre; the landing never moves. Step lists or direct `setWeights`. |
 | **Rich labels** | A section's `content` is any container: text, sprite, bitmap text, Spine, a group. Placed radially, tangentially (top out or in) or upright, fitted to the wedge with `fitContainer` / `fitText` / `labelSlot`. |
 | **Rings** | Several rings around one centre, each with its own direction and pointers. An outer ring can trigger an inner one. |

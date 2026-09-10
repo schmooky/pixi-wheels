@@ -9,7 +9,7 @@ Wheel mechanics and presentation features, scored against what ships. Status: [d
 | Velocity-matched planned stop | [done] | `StopPlanner`; turn count picked to hit `stopDuration` |
 | Landing: center / random / exact offset / exact angle / position | [done] | |
 | Settle: center glide, bounce | [done] | |
-| Anticipation: creep, stutter, overshoot, auto | [done] | |
+| Anticipation: creep, stutter, stall, auto | [done] | |
 | Protected skip (tease survives first press) | [done] | |
 | Idle rotation with ramp, spin from idle, auto-resume | [done] | |
 | Result timeout guard | [done] | `spin({ resultTimeoutMs })` |

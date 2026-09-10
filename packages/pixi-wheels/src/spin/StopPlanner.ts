@@ -1,14 +1,14 @@
 import type { AnticipationStyle, SettleConfig, SpinDirection, SpinProfile } from '../config/types.js';
 import { arcDelta, directionSign, normalizeDeg, signedDeg } from '../utils/angles.js';
-import { constantAccelEase, plannerSlope, resolveEase, type EaseFn } from '../utils/easing.js';
+import { constantAccelEase, hermiteStopEase, plannerSlope, resolveEase, type EaseFn } from '../utils/easing.js';
 
 /** What one leg of a stop is for. Drives events and debug output; the motion is the same. */
 export type StopLegKind =
   | 'decel'
   | 'creep'
-  | 'dwell'
+  | 'hesitate'
   | 'push'
-  | 'return'
+  | 'dwell'
   | 'skip'
   | 'settle'
   | 'bounce'
@@ -57,23 +57,15 @@ export interface ResolvedAnticipation {
   /** Normalised rotation at which the pointer meets the bait's exit edge. */
   baitExitRotation: number;
   baitArc: number;
+  /** Normalised rotation at which the pointer meets the target's entry edge; `'stall'` crawls from there. */
+  targetEntryRotation: number;
+  targetArc: number;
   creepSpeed: number;
+  hesitateSpeed: number;
   dwellMs: number;
   pushMs: number;
-  /** Degrees past the line for `'overshoot'`. Undefined: {@link defaultOvershootDeg}. */
-  overshootDeg?: number;
-  /** Roll-back length for `'overshoot'`, ms. Undefined: {@link defaultReturnMs} of the distance. */
-  returnMs?: number;
-}
-
-/** How far past the line an overshoot goes when unspecified: a fifth of the bait, at most 5 degrees. */
-export function defaultOvershootDeg(baitArc: number): number {
-  return Math.max(1, Math.min(5, baitArc * 0.2));
-}
-
-/** Roll-back duration for a given distance: slow enough never to read as a snap. */
-export function defaultReturnMs(distanceDeg: number): number {
-  return Math.min(1200, Math.max(450, 350 + 40 * distanceDeg));
+  /** `'stall'`: crawl length before the rest, degrees. Undefined: the target's arc, at most 45. */
+  approachDeg?: number;
 }
 
 export interface PlanStopInput {
@@ -88,9 +80,6 @@ export interface PlanStopInput {
   anticipation?: ResolvedAnticipation | null;
 }
 
-const PUSH_EASE = resolveEase('sine.inOut');
-// The peg pushing the flapper back: starts gently, gathers, eases into rest.
-const RETURN_EASE = resolveEase('power2.inOut');
 const LINEAR: EaseFn = (t) => t;
 
 /**
@@ -194,82 +183,91 @@ export function planStop(input: PlanStopInput): StopPlan {
   }
 
   if (a.style === 'stutter') {
-    // Halt with the pointer inside the bait, a hair short of its exit edge.
-    const inside = Math.min(5, a.baitArc * 0.2);
-    const haltRotation = normalizeDeg(a.baitExitRotation - directionSign(direction) * inside);
-    const toHalt = arcDelta(current, haltRotation, direction);
-    const pick = pickTurns(toHalt, slope, speed, profile);
-    const pushDist = arcDelta(haltRotation, landing, direction);
+    // Crawl into the bait, all but stall a hair short of the line, slip over
+    // it. The wheel keeps moving throughout: the only stop is the rest.
+    const creepSpeed = Math.max(1, Math.min(a.creepSpeed, speed * 0.5));
+    const hesitateSpeed = Math.max(0.25, Math.min(a.hesitateSpeed, creepSpeed * 0.5));
+    const baitSpan = arcDelta(a.baitEntryRotation, a.baitExitRotation, direction);
+    const inside = Math.min(5, baitSpan * 0.2);
+    const hesitateDist = Math.min((hesitateSpeed * a.dwellMs) / 1000, Math.max(0, baitSpan - inside) * 0.5);
+    const hesitateMs = (hesitateDist / hesitateSpeed) * 1000;
+    const crawlDist = Math.max(0, baitSpan - inside - hesitateDist);
+    const pushDist = inside + arcDelta(a.baitExitRotation, landing, direction);
+    let base = delta - arcDelta(a.baitEntryRotation, landing, direction);
+    while (base < 180) base += 360;
+    const pick = pickTurnsForDuration(base, speed, creepSpeed, profile);
     const decel: StopLeg = {
       kind: 'decel',
       distance: pick.distance,
       reverse: false,
       duration: pick.duration,
-      ease,
+      ease: constantAccelEase(speed, creepSpeed),
       startSpeed: speed,
-      endSpeed: 0,
+      endSpeed: creepSpeed,
     };
-    const dwell: StopLeg = {
-      kind: 'dwell',
-      distance: 0,
+    const crawl: StopLeg = {
+      kind: 'creep',
+      distance: crawlDist,
       reverse: false,
-      duration: a.dwellMs,
-      ease: LINEAR,
-      startSpeed: 0,
-      endSpeed: 0,
+      duration: ((2 * crawlDist) / (creepSpeed + hesitateSpeed)) * 1000,
+      ease: constantAccelEase(creepSpeed, hesitateSpeed),
+      startSpeed: creepSpeed,
+      endSpeed: hesitateSpeed,
       baitAtStart: true,
     };
+    const hesitate: StopLeg = {
+      kind: 'hesitate',
+      distance: hesitateDist,
+      reverse: false,
+      duration: hesitateMs,
+      ease: LINEAR,
+      startSpeed: hesitateSpeed,
+      endSpeed: hesitateSpeed,
+    };
+    const pushMs = Math.max(1, a.pushMs);
     const push: StopLeg = {
       kind: 'push',
       distance: pushDist,
       reverse: false,
-      duration: a.pushMs,
-      ease: PUSH_EASE,
-      startSpeed: 0,
+      duration: pushMs,
+      // Takes over at the hesitation speed and eases to rest: no step in velocity.
+      ease: hermiteStopEase((hesitateSpeed * (pushMs / 1000)) / Math.max(1e-6, pushDist)),
+      startSpeed: hesitateSpeed,
       endSpeed: 0,
       landsAtEnd: true,
     };
-    return finish([decel, dwell, push], direction, 'stutter');
+    return finish([decel, crawl, hesitate, push], direction, 'stutter');
   }
 
-  // overshoot: run out of momentum a few degrees past the line, hold a beat,
-  // roll back over it. The decel ease already crawls into the apex, so the
-  // tongue is seen to barely cross before it comes back.
-  const over = Math.max(0.5, Math.min(a.overshootDeg ?? defaultOvershootDeg(a.baitArc), a.baitArc * 0.25));
-  const haltRotation = normalizeDeg(a.baitEntryRotation + directionSign(direction) * over);
-  const toHalt = arcDelta(current, haltRotation, direction);
-  const pick = pickTurns(toHalt, slope, speed, profile);
-  const back = arcDelta(landing, haltRotation, direction);
+  // stall: the pointer enters the target, crawls toward the bait's line as if
+  // it will cross, and dies just short of it. One deceleration, one stop.
+  const creepSpeed = Math.max(1, Math.min(a.creepSpeed, speed * 0.5));
+  const room = arcDelta(a.targetEntryRotation, landing, direction);
+  const approach = Math.max(0.5, Math.min(a.approachDeg ?? Math.min(45, a.targetArc), room));
+  let base = delta - approach;
+  while (base < 180) base += 360;
+  const pick = pickTurnsForDuration(base, speed, creepSpeed, profile);
   const decel: StopLeg = {
     kind: 'decel',
     distance: pick.distance,
     reverse: false,
     duration: pick.duration,
-    ease,
+    ease: constantAccelEase(speed, creepSpeed),
     startSpeed: speed,
-    endSpeed: 0,
+    endSpeed: creepSpeed,
   };
-  const dwell: StopLeg = {
-    kind: 'dwell',
-    distance: 0,
+  const crawl: StopLeg = {
+    kind: 'creep',
+    distance: approach,
     reverse: false,
-    duration: a.dwellMs,
-    ease: LINEAR,
-    startSpeed: 0,
+    duration: ((2 * approach) / creepSpeed) * 1000,
+    ease: constantAccelEase(creepSpeed, 0),
+    startSpeed: creepSpeed,
     endSpeed: 0,
     baitAtStart: true,
-  };
-  const ret: StopLeg = {
-    kind: 'return',
-    distance: back,
-    reverse: true,
-    duration: a.returnMs ?? defaultReturnMs(back),
-    ease: RETURN_EASE,
-    startSpeed: 0,
-    endSpeed: 0,
     landsAtEnd: true,
   };
-  return finish([decel, dwell, ret], direction, 'overshoot');
+  return finish([decel, crawl], direction, 'stall');
 }
 
 /**

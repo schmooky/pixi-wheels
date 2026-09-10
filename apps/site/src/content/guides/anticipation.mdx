@@ -2,22 +2,22 @@
 title: Anticipation
 order: 5
 eyebrow: Building blocks
-description: Creep, stutter and overshoot near-misses, how the bait must sit relative to the landing, and protected skips.
+description: Creep, stutter and stall near-misses, how the bait must sit relative to the landing, and protected skips.
 ---
 
-Anticipation baits the player with one section and lands on another. It is planned from the result, so it is deterministic, testable and always lands where the server said.
+Anticipation baits the player with one section and lands on another. It is planned from the result, so it is deterministic, testable and always lands where the server said. One rule holds for every style: **the wheel comes to rest exactly once, on the result.** It never stops on the bait and moves on, and it never rolls back.
 
 ```ts
 wheel.setResult({ value: 2 }, {
   anticipation: {
     bait: 'x50',              // section id, or { index }
-    style: 'auto',            // 'creep' | 'stutter' | 'overshoot' | 'auto'
+    style: 'auto',            // 'creep' | 'stutter' | 'stall' | 'auto'
     rest: 0.22,               // where the pointer rests: this far into the target from the shared line ('keep' to leave it)
-    creepSpeed: 40,           // deg/s entering the bait (creep)
-    dwellMs: 180,             // the beat at the apex (stutter, overshoot)
-    pushMs: 700,              // final nudge over the line (stutter)
-    overshootDeg: 5,          // how far past the line (overshoot); default a fifth of the bait, at most 5
-    returnMs: 800,            // roll back (overshoot); default scales with the distance
+    creepSpeed: 40,           // deg/s at which the crawl begins
+    hesitateSpeed: 2,         // stutter: the near-stall speed, deg/s
+    dwellMs: 600,             // stutter: how long the near-stall lasts
+    pushMs: 700,              // stutter: the slip over the line
+    approachDeg: 45,          // stall: crawl length before the rest (default the target's arc, at most 45)
     maxDistanceDeg: 150,      // how far the bait may be from the landing
     protectSkip: false,
   },
@@ -30,29 +30,29 @@ Set `.landing({ anticipation: { bait: 'x50' } })` on the builder to bait every s
 
 The feeling to hit is "it is going to be the jackpot... it is the one before it". Three things make it read:
 
-1. **The approach is slow.** The stop ease crawls into its last degrees, so the pointer takes its time reaching the line between the result and the bait.
-2. **The tongue only just crosses.** With `overshoot` the wheel runs out of momentum a few degrees past the line (a fifth of the bait, never more than five degrees), holds one beat (`dwellMs`, 180 ms), and rolls back over the line on a soft in-out curve whose length grows with the distance. Nothing snaps. With `creep` the pointer crawls through the bait and barely makes it over the line into the result.
-3. **It rests by the line.** Whatever the landing mode says, a tease puts the landing angle just inside the target, `rest` of its arc from the divider it shares with the bait. The pointer ends up hugging the line it almost crossed, which is where the eye expects it. Set `rest: 'keep'` to let the landing mode place it, or add `settle: 'center'` to glide to the middle once the beat has landed. A target with its own `offset`, an `angle` / `position` target, or `mode: 'exact'` is never moved.
+1. **The approach is a crawl.** Whatever the style, the wheel comes down to `creepSpeed` and crawls its last stretch with a constant deceleration, the way a real wheel dies against friction. The pointer takes its time reaching the line between the result and the bait.
+2. **It never stops early.** `creep` crawls through the bait and barely crosses the line. `stutter` all but stalls a hair short of the line, still moving at `hesitateSpeed`, then slips over it. `stall` enters the result and crawls toward the bait's line as if it will cross, and dies just short of it. In every case the first moment the wheel is still is the rest, and the segment under the pointer is the result. No dwell inside the bait, no roll back.
+3. **It rests by the line.** Whatever the landing mode says, a tease puts the landing angle just inside the target, `rest` of its arc from the divider it shares with the bait: 0.22 after crossing it, 0.15 when it died short of it. The pointer ends up hugging the line it almost crossed, which is where the eye expects it. Set `rest: 'keep'` to let the landing mode place it, or add `settle: 'center'` to glide to the middle once the beat has landed. A target with its own `offset`, an `angle` / `position` target, or `mode: 'exact'` is never moved.
 
-The roll back and the crawl both pass the divider under the pointer, so `pointer:tick` fires for them too, with `direction` reversed on the way back. Wire the flapper's kick and its click to that event and the miss sounds right as well.
+The crawls pass the divider under the pointer, so `pointer:tick` fires for them too, at crawl speed. Wire the flapper's kick and its click to that event and the miss sounds right as well.
 
 ## Geometry
 
 A clockwise wheel sweeps decreasing local angles under the pointer, so it meets the section *after* the landing (in layout order) first. In the spin direction:
 
 - **bait before landing** (the pointer passes the bait, then reaches the landing): `creep` or `stutter`.
-- **bait after landing** (the pointer would reach the landing first): `overshoot`.
+- **bait after landing** (the pointer reaches the landing first): `stall`.
 
-`'auto'` picks by distance. If the bait is farther than `maxDistanceDeg` on both sides the tease is dropped with a warning (`bait-too-far`) and the wheel lands plainly. An explicit style with the wrong geometry warns (`bait-order`) and is dropped too. Nothing ever moves the landing.
+`'auto'` picks by distance. If the bait is farther than `maxDistanceDeg` on both sides the tease is dropped with a warning (`bait-too-far`) and the wheel lands plainly. An explicit style with the wrong geometry warns (`bait-order`) and is dropped too. Nothing ever moves the landing off the result.
 
 ## Events
 
 | Event | When |
 |---|---|
 | `anticipation:start` | The stop was planned with a tease. Carries `bait` and `style`. |
-| `anticipation:bait` | The pointer reached the bait: creep begins, or the wheel halts inside it. |
+| `anticipation:bait` | The crawl begins: the pointer enters the bait (`creep`, `stutter`) or the result (`stall`). |
 | `anticipation:end` | The tease resolved, just before `spin:landing`. |
 
 ## Protected skip
 
-With `protectSkip: true` (or `.skip({ protectAnticipation: true })`) the first press fast-forwards to the bait and lets the tease play; the second press lands. `skip:requested` carries `protectedByAnticipation` so audio can tell the two apart.
+With `protectSkip: true` (or `.skip({ protectAnticipation: true })`) the first press fast-forwards to the start of the crawl and lets the tease play; the second press lands. `skip:requested` carries `protectedByAnticipation` so audio can tell the two apart.

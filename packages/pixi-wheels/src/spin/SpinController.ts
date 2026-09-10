@@ -604,7 +604,7 @@ export class SpinController {
     let style = options.style ?? 'auto';
     if (style === 'auto') {
       if (baitThenTarget <= maxDistance) style = 'creep';
-      else if (targetThenBait <= maxDistance) style = 'overshoot';
+      else if (targetThenBait <= maxDistance) style = 'stall';
       else {
         noticeWarn(
           'bait-too-far',
@@ -618,14 +618,14 @@ export class SpinController {
       noticeWarn(
         'bait-order',
         `Ring "${this._host.ringId}": "${style}" needs the bait just BEFORE the landing in the spin direction, ` +
-          `but "${bait.id}" is ${Math.round(baitThenTarget)} deg ahead of it. Use style 'overshoot' or another bait.`,
+          `but "${bait.id}" is ${Math.round(baitThenTarget)} deg ahead of it. Use style 'stall' or another bait.`,
       );
       return null;
     }
-    if (style === 'overshoot' && targetThenBait > maxDistance) {
+    if (style === 'stall' && targetThenBait > maxDistance) {
       noticeWarn(
         'bait-order',
-        `Ring "${this._host.ringId}": "overshoot" needs the bait just AFTER the landing in the spin direction, ` +
+        `Ring "${this._host.ringId}": "stall" needs the bait just AFTER the landing in the spin direction, ` +
           `but "${bait.id}" is ${Math.round(targetThenBait)} deg before it. Use style 'creep' or another bait.`,
       );
       return null;
@@ -636,11 +636,13 @@ export class SpinController {
       baitEntryRotation: entry,
       baitExitRotation: exit,
       baitArc: bait.arc,
+      targetEntryRotation: rotationForLocalAngle(geometry.entryAngle(target.section, dir), pointer),
+      targetArc: target.section.arc,
       creepSpeed: options.creepSpeed ?? DEFAULT_ANTICIPATION.creepSpeed,
+      hesitateSpeed: options.hesitateSpeed ?? DEFAULT_ANTICIPATION.hesitateSpeed,
       dwellMs: options.dwellMs ?? DEFAULT_ANTICIPATION.dwellMs,
       pushMs: options.pushMs ?? DEFAULT_ANTICIPATION.pushMs,
-      overshootDeg: options.overshootDeg,
-      returnMs: options.returnMs,
+      approachDeg: options.approachDeg,
     };
   }
 
@@ -657,15 +659,15 @@ export class SpinController {
     target: WheelTarget,
     mode: LandingMode,
   ): ResolvedTarget {
-    const rest = options.rest ?? DEFAULT_ANTICIPATION.rest;
+    const rest = options.rest ?? DEFAULT_ANTICIPATION.rest[tease.style];
     if (rest === 'keep' || mode === 'exact') return resolved;
     if ('angle' in target || 'position' in target || target.offset !== undefined) return resolved;
     const frac = Math.min(0.5, Math.max(0.05, rest));
     const s = resolved.section;
     const geometry = this._host.geometry;
     // creep / stutter: the pointer has just crossed the target's entry edge.
-    // overshoot: it rolled back over the target's exit edge.
-    const edge = tease.style === 'overshoot' ? geometry.exitAngle(s, this._direction) : geometry.entryAngle(s, this._direction);
+    // stall: it died short of the target's exit edge.
+    const edge = tease.style === 'stall' ? geometry.exitAngle(s, this._direction) : geometry.entryAngle(s, this._direction);
     const fromStart = edge === s.startAngle;
     const landingAngle = normalizeDeg(edge + (fromStart ? 1 : -1) * frac * s.arc);
     return { ...resolved, landingAngle, offset: fromStart ? frac : 1 - frac };

@@ -1,9 +1,10 @@
 // @ts-nocheck
 // Injected globals: WheelBuilder, SpinPresets, app
 
-// Stutter: the wheel STOPS with the pointer inside the jackpot, holds for
-// 800 ms while everyone leans in, then nudges over the edge into the real
-// result. Same geometry as creep (bait before landing).
+// Stutter: like creep, but the crawl all but stalls a hair short of the line,
+// still moving at two degrees a second while everyone leans in, then slips
+// over it onto the result. The wheel never stops until it rests: the segment
+// it stops on is the result.
 const wheel = new WheelBuilder()
   .radius(240, 34)
   .sections([
@@ -23,7 +24,7 @@ return {
   onSpin: async () => {
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 300));
-    wheel.setResult({ section: 'mini' }, { anticipation: { bait: 'grand', style: 'stutter', dwellMs: 600, pushMs: 800 } });
+    wheel.setResult({ section: 'mini' }, { anticipation: { bait: 'grand', style: 'stutter', dwellMs: 700 } });
     await spin;
   },
 };

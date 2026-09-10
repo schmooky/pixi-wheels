@@ -2,7 +2,7 @@
 // Injected globals: WheelBuilder, SpinPresets, app
 
 // 'auto' (the default style) reads the geometry: bait before the landing
-// creeps, bait after it overshoots, bait far away is dropped with a console
+// creeps, bait after it stalls, bait far away is dropped with a console
 // warning and the wheel just lands. Every spin here lands on a random
 // section and baits with the jackpot next to it.
 const wheel = new WheelBuilder()
@@ -27,7 +27,7 @@ return {
   onSpin: async () => {
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 300));
-    // x2 (before the jackpot, clockwise) creeps; x5 (after it) overshoots; x3 is too far.
+    // x2 (before the jackpot, clockwise) creeps; x5 (after it) stalls; x3 is too far.
     const pick = ['x2', 'x5', 'x3'][Math.floor(Math.random() * 3)];
     wheel.setResult({ section: pick });
     await spin;

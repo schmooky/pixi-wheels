@@ -39,13 +39,13 @@ describe('anticipation', () => {
     }
   });
 
-  it('auto picks overshoot when the bait follows the target', async () => {
+  it('auto picks stall when the bait follows the target', async () => {
     const h = createTestWheel({ sections: 8, startAngle: 0 });
     try {
       let style = '';
       h.wheel.events.on('anticipation:start', (i) => (style = i.style));
       const r = await h.spinAndLand({ section: 's2' }, { anticipation: { bait: 's1' } });
-      expect(style).toBe('overshoot');
+      expect(style).toBe('stall');
       expect(r.section.id).toBe('s2');
       expectPointerOn(h.wheel, 's2');
     } finally {
@@ -53,16 +53,28 @@ describe('anticipation', () => {
     }
   });
 
-  it('stutter lands too, with a dwell in the middle', async () => {
+  it('stutter: all but stalls inside the bait, never stops, slips over the line to rest', () => {
+    // s5 is 225..270, the bait s6 is 270..315 and comes first. The shared line is 270.
     const h = createTestWheel({ sections: 8, startAngle: 0, profile: SpinPresets.QUICK });
     try {
-      let dwellSeen = false;
-      h.wheel.events.on('anticipation:bait', () => {
-        dwellSeen = true;
-        expect(Math.abs(h.wheel.main.speed)).toBeLessThan(1); // halted
-      });
-      await h.spinAndLand({ section: 's5' }, { anticipation: { bait: 's6', style: 'stutter', dwellMs: 300 } });
-      expect(dwellSeen).toBe(true);
+      void h.wheel.spin();
+      h.wheel.setResult({ section: 's5' }, { anticipation: { bait: 's6', style: 'stutter', dwellMs: 500 } });
+      const { after } = traceFrom(h, 'anticipation:bait');
+      let slowest = Number.POSITIVE_INFINITY;
+      let crossed = -1;
+      for (let i = 1; i < after.length - 1; i++) {
+        const step = after[i - 1] - after[i];
+        expect(step).toBeGreaterThan(0); // always moving on, never back, never still
+        slowest = Math.min(slowest, step / 0.016);
+        if (crossed < 0 && after[i] < 270) crossed = i;
+      }
+      expect(slowest).toBeLessThan(3); // the hesitation: barely moving
+      expect(slowest).toBeGreaterThan(0);
+      expect(crossed).toBeGreaterThan(0);
+      // The hesitation happens before the line, inside the bait.
+      const slowIndex = after.findIndex((v, i) => i > 0 && (after[i - 1] - v) / 0.016 < 3);
+      expect(slowIndex).toBeLessThan(crossed);
+      expect(after[after.length - 1]).toBeCloseTo(270 - 0.22 * 45, 3);
       expectPointerOn(h.wheel, 's5');
     } finally {
       h.destroy();
@@ -98,37 +110,38 @@ describe('anticipation', () => {
     }
   });
 
-  it('overshoot: only a few degrees over the line, a beat, a soft roll back, rest by the line', () => {
+  it('stall: crawls across the target toward the line, never crosses, dies once, rests short of it', () => {
     // s2 is 90..135. Clockwise the pointer meets s2 then s1, so the bait s1
-    // sits after the landing: overshoot. The shared line is 90.
+    // sits after the landing: stall. The shared line is 90.
     const h = createTestWheel({ sections: 8, startAngle: 0 });
     try {
       let resolved: ResolvedTarget | null = null;
       h.wheel.events.on('spin:resultSet', ({ target }) => (resolved = target));
       void h.wheel.spin();
       h.wheel.setResult({ section: 's2' }, { anticipation: { bait: 's1' } });
-      // Rest 0.22 of a 45 deg section inside the line at 90.
-      expect(resolved!.offset).toBeCloseTo(0.22, 6);
-      expect(resolved!.landingAngle).toBeCloseTo(90 + 0.22 * 45, 6);
+      // Rest 0.15 of a 45 deg section short of the line at 90.
+      expect(resolved!.offset).toBeCloseTo(0.15, 6);
+      expect(resolved!.landingAngle).toBeCloseTo(90 + 0.15 * 45, 6);
 
       const { before, after } = traceFrom(h, 'anticipation:bait');
-      // The bait event fires at the apex: a fifth of the bait, capped at 5 deg past the line.
-      const apex = after[0];
-      expect(apex).toBeLessThan(90);
-      expect(apex).toBeGreaterThan(90 - 5 - 0.6);
-      // The last second before the apex only ever moves toward it: no wobble, no deeper.
-      const approach = before.slice(-60);
-      for (let i = 1; i < approach.length; i++) expect(approach[i]).toBeLessThanOrEqual(approach[i - 1] + 1e-6);
-      expect(Math.min(...approach)).toBeGreaterThanOrEqual(apex - 1e-6);
-      // After the beat the pointer rolls back over the line, monotonically, and never fast.
-      let peakBack = 0;
+      // The crawl starts as the pointer enters the target at 135.
+      expect(after[0]).toBeLessThanOrEqual(135);
+      expect(after[0]).toBeGreaterThan(134);
+      // From the bait event on, the pointer only ever moves toward the line, never over it, never backwards.
       for (let i = 1; i < after.length; i++) {
-        const step = after[i] - after[i - 1];
-        expect(step).toBeGreaterThanOrEqual(-1e-6);
-        peakBack = Math.max(peakBack, step / 0.016);
+        expect(after[i]).toBeLessThanOrEqual(after[i - 1] + 1e-9);
+        expect(after[i]).toBeGreaterThan(90);
       }
-      expect(peakBack).toBeLessThan(60); // deg/s: a push, not a snap
-      expect(after[after.length - 1]).toBeCloseTo(90 + 0.22 * 45, 3);
+      // It is moving right up to the last frame: a single stop, at the rest.
+      const tail = after.slice(-4);
+      expect(tail[0] - tail[tail.length - 1]).toBeGreaterThan(0);
+      expect(after[after.length - 1]).toBeCloseTo(90 + 0.15 * 45, 3);
+      // Nothing before the crawl reversed either.
+      const lastTurn = before.slice(-30);
+      for (let i = 1; i < lastTurn.length; i++) {
+        const d = lastTurn[i - 1] - lastTurn[i];
+        expect(d > -1e-9 || d < -300).toBe(true); // decreasing, or wrapped past 0
+      }
       expectPointerOn(h.wheel, 's2');
     } finally {
       h.destroy();

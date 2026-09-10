@@ -1,11 +1,10 @@
 // @ts-nocheck
 // Injected globals: WheelBuilder, SpinPresets, app
 
-// Overshoot: the bait sits just AFTER the landing. The wheel runs out of
-// momentum with the pointer a few degrees past the line, into the jackpot,
-// holds a beat, and rolls softly back over it. It rests on the result next to
-// that line: "it was going to be GRAND". Every default is tuned for that
-// beat; the wheel spins the same with no options at all.
+// Stall: the bait sits just AFTER the landing. The pointer enters the result,
+// crawls toward the jackpot's line as if it will cross, and dies just short
+// of it, resting on the result right by the line. One deceleration, one stop:
+// the segment it stops on is the result. "It was going to be GRAND."
 const wheel = new WheelBuilder()
   .radius(240, 34)
   .sections([
@@ -26,7 +25,7 @@ return {
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 300));
     // Clockwise the pointer meets minor, then grand: the bait comes AFTER the
-    // landing, so 'auto' picks overshoot. Land minor, bait grand.
+    // landing, so 'auto' picks stall. Land minor, bait grand.
     wheel.setResult({ section: 'minor' }, { anticipation: { bait: 'grand' } });
     await spin;
   },

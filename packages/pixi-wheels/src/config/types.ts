@@ -182,55 +182,54 @@ export interface LandingOptions {
 }
 
 /**
- * The shape of a near-miss. Every style rests the pointer just inside the
- * target, next to the divider it shares with the bait (`rest`), so the miss
- * reads as "by a hair" rather than "and then it moved to the middle".
+ * The shape of a near-miss. The wheel decelerates once and comes to rest
+ * once, on the result: no style stops somewhere else and moves on. The
+ * pointer rests just inside the target, next to the divider it shares with
+ * the bait (`rest`), so the miss reads as "by a hair".
  *
  *   - `'creep'`: the wheel slows to a crawl exactly as the pointer enters the
- *     bait section, keeps slowing across it, and barely crosses the line into
- *     the target. The bait must sit right before the target in the direction
- *     of spin.
- *   - `'stutter'`: the wheel halts with the pointer inside the bait, a few
- *     degrees short of the target's edge, holds for `dwellMs`, then nudges
- *     over the line. Same geometry as `'creep'`.
- *   - `'overshoot'`: the wheel runs out of momentum with the pointer only a
- *     few degrees past the target's edge, into the bait, holds a beat, and
- *     rolls softly back over the line. The bait must sit right after the
- *     target. The "it was going to be the jackpot" miss.
+ *     bait, keeps slowing across it, and barely crosses the line into the
+ *     target. The bait must sit right before the target in the spin direction.
+ *   - `'stutter'`: like `'creep'`, but the crawl all but stalls a hair short
+ *     of the line (`hesitateSpeed` for `dwellMs`) before slipping over it.
+ *     Same geometry as `'creep'`.
+ *   - `'stall'`: the pointer enters the target and crawls toward the bait's
+ *     line as if it will cross, and dies just short of it. The bait must sit
+ *     right after the target. The "it was going to be the jackpot" miss.
  *   - `'auto'` (default): `'creep'` when the bait precedes the target,
- *     `'overshoot'` when it follows, otherwise no anticipation and a warning.
+ *     `'stall'` when it follows, otherwise no anticipation and a warning.
  */
-export type AnticipationStyle = 'creep' | 'stutter' | 'overshoot' | 'auto';
+export type AnticipationStyle = 'creep' | 'stutter' | 'stall' | 'auto';
 
 export interface AnticipationOptions {
   /** The section to bait with: an id, or `{ index }`. */
   bait: string | { index: number };
   style?: AnticipationStyle;
-  /** `'creep'`: speed (deg/s) at which the pointer enters the bait. Default 40. */
+  /**
+   * Speed (deg/s) at which the crawl begins: entering the bait (`'creep'`,
+   * `'stutter'`) or starting the approach (`'stall'`). Default 40.
+   */
   creepSpeed?: number;
-  /** `'stutter'` / `'overshoot'`: how long the wheel holds at the apex, ms. Default 180: a beat, not a stop. */
+  /** `'stutter'`: the near-stall speed a hair short of the line, deg/s. Default 2: still moving, barely. */
+  hesitateSpeed?: number;
+  /** `'stutter'`: how long the near-stall lasts, ms. Default 600. */
   dwellMs?: number;
-  /** `'stutter'`: length of the final nudge over the line, ms. Default 700. */
+  /** `'stutter'`: length of the slip over the line, ms. Default 700. */
   pushMs?: number;
   /**
-   * `'overshoot'`: how far past the line the pointer goes, in degrees.
-   * Default a fifth of the bait's arc, at most 5. Always capped to a quarter
-   * of the bait, so the tongue is only ever slightly over.
+   * `'stall'`: how far before the rest the crawl begins, in degrees. Default
+   * the target's arc (the crawl starts as the pointer enters the result), at
+   * most 45.
    */
-  overshootDeg?: number;
-  /**
-   * `'overshoot'`: length of the roll back over the line, ms. Default scales
-   * with the distance (350 + 40 per degree, within 450..1200) so a longer
-   * roll never turns into a snap.
-   */
-  returnMs?: number;
+  approachDeg?: number;
   /**
    * Where the pointer rests after the tease, as a fraction of the target's
-   * arc measured from the divider it shares with the bait. Default 0.22: on
-   * the target, hugging the line. `'keep'` leaves the landing angle to the
-   * landing mode. Ignored when the target carries its own `offset`, is an
-   * `angle` / `position`, or the landing mode is `'exact'`. Add
-   * `settle: 'center'` to glide to the middle afterwards.
+   * arc measured from the divider it shares with the bait. Default 0.22 for
+   * `'creep'` and `'stutter'` (just over the line), 0.15 for `'stall'` (died
+   * just short of it). `'keep'` leaves the landing angle to the landing
+   * mode. Ignored when the target carries its own `offset`, is an `angle` /
+   * `position`, or the landing mode is `'exact'`. Add `settle: 'center'` to
+   * glide to the middle afterwards.
    */
   rest?: number | 'keep';
   /**
