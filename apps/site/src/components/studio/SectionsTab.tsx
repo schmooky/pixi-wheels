@@ -76,6 +76,7 @@ export function SectionsTab({ ring, onChange }: Props) {
                 <select className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs" value={s.style?.labelOrientation ?? 'radial'} onChange={(e) => setStyle(i, { labelOrientation: e.target.value as 'radial' })}>
                   <option value="radial">radial</option>
                   <option value="tangential">tangential</option>
+                  <option value="tangential-in">tangential-in</option>
                   <option value="upright">upright</option>
                 </select>
               </Field>

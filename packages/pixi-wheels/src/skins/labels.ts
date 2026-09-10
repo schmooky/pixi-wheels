@@ -1,15 +1,29 @@
-import { Text, TextStyle, type Container } from 'pixi.js';
-import type { ResolvedSection } from '../config/types.js';
+import { type Container, Text, TextStyle } from 'pixi.js';
+import type { LabelContent, LabelContext, ResolvedSection } from '../config/types.js';
 import { DEG_TO_RAD } from '../utils/angles.js';
+import { fitContainer, labelSlot } from '../utils/fit.js';
+
+interface LabelItem {
+  view: Container;
+  /** The text object when the label is plain text; null for rich content. */
+  text: Text | null;
+  /** The `content` the view was built from, to notice a swap. */
+  source: LabelContent | null;
+}
 
 /**
- * One `Text` per section, placed at the section's middle angle. Shared by
- * the graphics and texture skins so labels behave the same on both: radial
- * or tangential, auto-fitted to the room the section has, and re-centred
- * every time a dynamic section moves.
+ * One label per section, placed at the section's middle angle. Shared by the
+ * graphics, texture and Spine skins so labels behave the same everywhere:
+ * radial, tangential or upright, fitted to the room the section has, and
+ * re-centred every time a dynamic section moves.
+ *
+ * A label is the section's `label` string as a `Text`, or its `content`: any
+ * container (an icon, a bitmap text, a Spine instance, a group). Content is
+ * built once per section, fitted with `labelFit`, and rebuilt when the
+ * section is given a different `content`.
  */
 export class SectionLabels {
-  private readonly _texts = new Map<string, Text>();
+  private readonly _items = new Map<string, LabelItem>();
   private _uprightIds = new Set<string>();
   private _discRotation = 0;
 
@@ -19,51 +33,71 @@ export class SectionLabels {
     const seen = new Set<string>();
     for (const s of sections) {
       seen.add(s.id);
-      if (s.label === '') {
+      const rich = s.content !== undefined;
+      if (!rich && s.label === '') {
         this._remove(s.id);
         continue;
       }
-      let text = this._texts.get(s.id);
-      if (!text) {
-        text = new Text({ text: s.label, style: new TextStyle({ align: 'center' }) });
-        text.anchor.set(0.5);
-        text.label = `pixi-wheels:label:${s.id}`;
-        this._parent.addChild(text);
-        this._texts.set(s.id, text);
-      }
-      text.text = s.label;
       const st = s.style;
-      text.style.fontFamily = st.labelFont;
-      text.style.fontSize = st.labelSize;
-      text.style.fill = st.labelColor;
-      text.style.fontWeight = st.labelWeight as TextStyle['fontWeight'];
-      const radius = outerRadius * st.labelRadius;
-      const mid = s.midAngle * DEG_TO_RAD;
-      text.position.set(Math.cos(mid) * radius, Math.sin(mid) * radius);
-      // Fit: radial text has the radial room, tangential text the chord at its radius.
-      const chord = 2 * radius * Math.sin(Math.min(Math.PI, (s.arc * DEG_TO_RAD) / 2));
-      const radialRoom = Math.max(8, (outerRadius - innerRadius) * 0.82);
-      text.scale.set(1);
-      const w = text.width;
-      const h = text.height;
-      if (st.labelOrientation === 'radial') {
-        text.rotation = mid;
-        const fit = Math.min(1, radialRoom / Math.max(1, w), (chord * 0.92) / Math.max(1, h));
-        text.scale.set(fit);
-        this._uprightIds.delete(s.id);
-      } else if (st.labelOrientation === 'tangential') {
-        text.rotation = mid + Math.PI / 2;
-        const fit = Math.min(1, (chord * 0.92) / Math.max(1, w), radialRoom / Math.max(1, h));
-        text.scale.set(fit);
-        this._uprightIds.delete(s.id);
-      } else {
-        const fit = Math.min(1, (chord * 0.92) / Math.max(1, w), radialRoom / Math.max(1, h));
-        text.scale.set(fit);
-        this._uprightIds.add(s.id);
-        text.rotation = -this._discRotation * DEG_TO_RAD;
+      const slot = labelSlot(s, outerRadius, innerRadius, { radius: st.labelRadius, orientation: st.labelOrientation });
+      let item = this._items.get(s.id);
+      if (item && (rich ? item.source !== s.content : item.text === null)) {
+        this._remove(s.id);
+        item = undefined;
       }
+      if (!item) {
+        let view: Container;
+        let text: Text | null = null;
+        if (rich) {
+          const content = s.content as LabelContent;
+          const ctx: LabelContext = {
+            section: s,
+            outerRadius,
+            innerRadius,
+            slot,
+            fit: (obj, options) => fitContainer(obj, slot, options),
+          };
+          view = typeof content === 'function' ? content(ctx) : content;
+        } else {
+          text = new Text({ text: s.label, style: new TextStyle({ align: 'center' }) });
+          text.anchor.set(0.5);
+          view = text;
+        }
+        if (!view.label) view.label = `pixi-wheels:label:${s.id}`;
+        this._parent.addChild(view);
+        item = { view, text, source: rich ? (s.content as LabelContent) : null };
+        this._items.set(s.id, item);
+      }
+      const { view, text } = item;
+      if (text) {
+        text.text = s.label;
+        text.style.fontFamily = st.labelFont;
+        text.style.fontSize = st.labelSize;
+        text.style.fill = st.labelColor;
+        text.style.fontWeight = st.labelWeight as TextStyle['fontWeight'];
+      }
+      const mid = s.midAngle * DEG_TO_RAD;
+      view.position.set(Math.cos(mid) * slot.radius, Math.sin(mid) * slot.radius);
+      switch (st.labelOrientation) {
+        case 'radial':
+          view.rotation = mid;
+          this._uprightIds.delete(s.id);
+          break;
+        case 'tangential':
+          view.rotation = mid + Math.PI / 2;
+          this._uprightIds.delete(s.id);
+          break;
+        case 'tangential-in':
+          view.rotation = mid - Math.PI / 2;
+          this._uprightIds.delete(s.id);
+          break;
+        default:
+          this._uprightIds.add(s.id);
+          view.rotation = -this._discRotation * DEG_TO_RAD;
+      }
+      fitContainer(view, slot, { mode: st.labelFit });
     }
-    for (const id of [...this._texts.keys()]) if (!seen.has(id)) this._remove(id);
+    for (const id of [...this._items.keys()]) if (!seen.has(id)) this._remove(id);
   }
 
   /** Keep `'upright'` labels upright as the disc turns. */
@@ -72,25 +106,31 @@ export class SectionLabels {
     if (this._uprightIds.size === 0) return;
     const rot = -discRotationDeg * DEG_TO_RAD;
     for (const id of this._uprightIds) {
-      const t = this._texts.get(id);
-      if (t) t.rotation = rot;
+      const item = this._items.get(id);
+      if (item) item.view.rotation = rot;
     }
   }
 
-  get(id: string): Text | undefined {
-    return this._texts.get(id);
+  /** The label view of a section: its `Text`, or the content container. */
+  get(id: string): Container | undefined {
+    return this._items.get(id)?.view;
+  }
+
+  /** The `Text` of a plain text label; undefined for rich content. */
+  text(id: string): Text | undefined {
+    return this._items.get(id)?.text ?? undefined;
   }
 
   private _remove(id: string): void {
-    const t = this._texts.get(id);
-    if (!t) return;
-    this._parent.removeChild(t);
-    t.destroy();
-    this._texts.delete(id);
+    const item = this._items.get(id);
+    if (!item) return;
+    this._parent.removeChild(item.view);
+    item.view.destroy({ children: true });
+    this._items.delete(id);
     this._uprightIds.delete(id);
   }
 
   destroy(): void {
-    for (const id of [...this._texts.keys()]) this._remove(id);
+    for (const id of [...this._items.keys()]) this._remove(id);
   }
 }

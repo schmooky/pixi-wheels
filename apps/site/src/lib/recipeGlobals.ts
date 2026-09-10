@@ -21,8 +21,12 @@ import {
   debugOverlay,
   debugSnapshot,
   enableDebug,
+  fitContainer,
+  fitText,
+  labelSlot,
   normalizeDeg,
   resolveTarget,
+  scaleToFit,
   DEFAULT_PALETTE,
 } from 'pixi-wheels';
 import { NO_ASSETS, type AssetResolver } from 'pixi-wheels';
@@ -46,18 +50,32 @@ async function loadPlaysonGlobals(): Promise<Record<string, unknown>> {
     PLAYSON_SECTIONS: m.PLAYSON_SECTIONS,
     PLAYSON_PLATES: m.PLAYSON_PLATES,
     PLAYSON_PLATE_RADIUS: m.PLAYSON_PLATE_RADIUS,
+    loadPlaysonSpine: m.loadPlaysonSpine,
+    PLAYSON_SPINE: m.PLAYSON_SPINE,
   };
 }
 
 async function loadPragmaticGlobals(): Promise<Record<string, unknown>> {
   const m = await import('../runtime/pragmaticWheel.ts');
-  return { loadPragmaticWheel: m.loadPragmaticWheel };
+  return {
+    loadPragmaticWheel: m.loadPragmaticWheel,
+    PragmaticWheelSkin: m.PragmaticWheelSkin,
+    PRAGMATIC_SECTIONS: m.PRAGMATIC_SECTIONS,
+    PRAGMATIC_RADIUS: m.PRAGMATIC_RADIUS,
+    pragmaticPlateLabel: m.pragmaticPlateLabel,
+  };
+}
+
+async function loadAudioGlobals(): Promise<Record<string, unknown>> {
+  const [zvuk, playson] = await Promise.all([import('@schmooky/zvuk'), import('../runtime/playsonAudio.ts')]);
+  return { createEngine: zvuk.createEngine, zvuk, loadPlaysonAudio: playson.loadPlaysonAudio, PLAYSON_SOUNDS: playson.PLAYSON_SOUNDS };
 }
 
 const LAZY_GROUPS: Array<{ test: RegExp; load: () => Promise<Record<string, unknown>> }> = [
   { test: /[Ss]pine|SPINE/, load: loadSpineGlobals },
   { test: /Playson|PLAYSON/, load: loadPlaysonGlobals },
   { test: /Pragmatic|PRAGMATIC/, load: loadPragmaticGlobals },
+  { test: /createEngine|zvuk|PlaysonAudio|PLAYSON_SOUNDS/, load: loadAudioGlobals },
 ];
 
 /** Per-runtime values. Everything else is the same in both. */
@@ -88,6 +106,10 @@ export function buildRecipeGlobals(env: RecipeGlobalsEnv, lazy: Record<string, u
     debugOverlay,
     normalizeDeg,
     arcDelta,
+    scaleToFit,
+    fitContainer,
+    fitText,
+    labelSlot,
     DEFAULT_PALETTE,
 
     // Host environment

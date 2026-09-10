@@ -46,10 +46,11 @@ pixi-wheels/
 │   │   ├── spin/        SpinController (state machine), StopPlanner (pure legs)
 │   │   ├── adapter/     resolveTarget, createTargetAdapter
 │   │   ├── pointer/     Pointer (crossings + flap), Graphics / Texture pointer skins
-│   │   ├── skins/       RingSkin contract, Graphics / Debug / Texture / Headless skins, registry, labels
+│   │   ├── skins/       RingSkin contract, Graphics / Debug / Texture / Headless skins, registry, labels (text or rich `content`)
 │   │   ├── config/      types, SpinPresets, defaults
 │   │   ├── events/      EventEmitter, WheelEvents
-│   │   ├── utils/       Disposable, TickerRef, angles, easing, notify
+│   │   ├── utils/       Disposable, TickerRef, notify, angles, easing, fit (scaleToFit / fitContainer / fitText / labelSlot)
+│   │   │          Disposable, TickerRef, angles, easing, notify
 │   │   ├── debug/       debugSnapshot, debugArc, enableDebug, debugOverlay
 │   │   ├── testing/     FakeTicker, createTestWheel        -> subpath
 │   │   ├── spine/       SpineRingSkin, SpinePointerSkin    -> subpath

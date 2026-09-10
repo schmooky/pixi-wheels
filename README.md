@@ -72,6 +72,7 @@ wheel.destroy()
 | **Planned stops** | The deceleration begins at the cruise speed and lands on the centre, a random spot, or an exact angle. Then `center` glide or `bounce`. |
 | **Anticipation** | `creep` past the jackpot, `stutter` on its edge, `overshoot` and roll back, or `auto`. Protected skips let the tease play. |
 | **Dynamic sectors** | Weights animate; labels re-centre; the landing never moves. Step lists or direct `setWeights`. |
+| **Rich labels** | A section's `content` is any container: text, sprite, bitmap text, Spine, a group. Placed radially, tangentially (top out or in) or upright, fitted to the wedge with `fitContainer` / `fitText` / `labelSlot`. |
 | **Rings** | Several rings around one centre, each with its own direction and pointers. An outer ring can trigger an inner one. |
 | **Pointers** | Any angle, inward or outward, several per ring, spring flap, `pointer:tick` per divider with the speed. |
 | **Skins** | `GraphicsRingSkin` (default), `DebugRingSkin`, `TextureRingSkin`, `SpineRingSkin` (`pixi-wheels/spine`), or yours. |
@@ -86,7 +87,7 @@ import 'pixi-wheels/spine';
 import { SpineRingSkin, SpinePointerSkin } from 'pixi-wheels/spine';
 ```
 
-Install the peer: `pnpm add @esotericsoftware/spine-pixi-v8`. Spine 3.8 exports convert with `tools/spine-3.8-to-4.2/`.
+Install the peer: `pnpm add @esotericsoftware/spine-pixi-v8`. Spine 3.8 exports convert with `tools/spine-3.8-to-4.2/`, 3.7 JSON with `tools/spine-3.7-to-4.2/`. `tools/playson-wheel/build_spine.py` authors a wheel skeleton over a bare atlas (sector effects included) and `tools/pragmatic-wheel/build_fx_atlas.py` rebuilds a Spine atlas from UI-atlas sprite rectangles; both feed the studio-art recipes on the docs site.
 
 ## Debug mode
 
@@ -104,7 +105,7 @@ __PIXI_WHEELS_DEBUG.overlay()   // dividers, angles, landing marker, HUD
 
 ## Recipes and studio
 
-Thirty live demos under [`/recipes`](https://pixi-wheels.schmooky.dev/recipes/), each with its source beside it: gamble wheels, stopping modes, every anticipation style, dynamic sectors, rings, idle wheels, textured and Spine skins with studio art, server adapters, sound hooks, the debug view. The [studio](https://pixi-wheels.schmooky.dev/studio/) edits a wheel in forms, takes your assets, and exports a config or a project.
+Thirty-two live demos under [`/recipes`](https://pixi-wheels.schmooky.dev/recipes/), each with its source beside it: gamble wheels, stopping modes, every anticipation style, dynamic sectors, rings, idle wheels, rich labels, textured and Spine skins with studio art and the games' own effects, server adapters, sound hooks on a real audio engine, the debug view. The [studio](https://pixi-wheels.schmooky.dev/studio/) edits a wheel in forms, takes your assets, and exports a config or a project.
 
 ```bash
 pnpm site:dev     # the whole thing, locally
@@ -112,7 +113,7 @@ pnpm site:dev     # the whole thing, locally
 
 ## Studio art
 
-The textured and Spine wheels on the docs site use production art provided by [Playson](https://playson.com) (Four Charged Clovers: Super Wheel) and [Pragmatic Play](https://www.pragmaticplay.com) (Wheel of Happiness), with permission. That art belongs to its studio and is not covered by this repository's MIT licence.
+The textured and Spine wheels on the docs site use production art and sounds provided by [Playson](https://playson.com) (Four Charged Clovers: Super Wheel) and [Pragmatic Play](https://www.pragmaticplay.com) (Wheel of Happiness), with permission. That art belongs to its studio and is not covered by this repository's MIT licence.
 
 ## Peer dependencies
 

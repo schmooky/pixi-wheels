@@ -31,3 +31,32 @@ wheel.events.on('spin:start', ({ ring, fromIdle }) => ...);
 `resultSet` comes before `cruise` when the server is faster than the wind-up; it does not matter, the stop begins only once both the result and the minimum times are in.
 
 Wire audio to events, never to method calls: a skip, a slam and a normal stop all reach `spin:landing`.
+
+## Wiring a real audio engine
+
+The [sound hooks recipe](/recipes/integration/#sound-hooks) uses [`@schmooky/zvuk`](https://zvuk.schmooky.dev), a small Web Audio engine with buses, voices and fades. The shape is the same for any engine: load once, listen to events, play voices, keep the handles you need to stop.
+
+```ts
+import { createEngine } from '@schmooky/zvuk';
+
+const engine = createEngine({ buses: { music: { level: 0.4 }, sfx: { level: 1 } } });
+await engine.loadSound('spin', '/audio/wheel_spin.mp3');
+await engine.loadSound('tick', '/audio/click.mp3');
+await engine.loadSound('win', '/audio/sector_win.mp3');
+
+let spinVoice;
+wheel.events.on('spin:start', () => { spinVoice = engine.sound('spin').play(); });
+wheel.events.on('pointer:tick', ({ speed }) =>
+  engine.sound('tick').play({ volume: Math.min(1, speed / 900), pitch: { base: 0.9 + speed / 1400, jitter: 0.04 } }));
+wheel.events.on('spin:landing', () => { spinVoice?.stop({ fade: 0.25 }); engine.sound('win').play(); });
+wheel.events.on('destroyed', () => engine.close());
+
+// Browsers need a gesture before sound: unlock from the click that starts the spin.
+button.onclick = async () => { await engine.unlock(); await wheel.spin(); };
+```
+
+Three habits that keep audio honest:
+
+- **Stop by voice, not by name.** `spin:landing` can arrive from a skip or a slam; keep the voice handle and stop that.
+- **Drive the ratchet from `pointer:tick`'s `speed`**, never from a timer. A creep, a stutter and a bounce all tick at their own rate.
+- **Close on `destroyed`.** A wheel that is torn down should not leave a music loop behind.

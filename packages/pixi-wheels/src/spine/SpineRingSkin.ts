@@ -1,6 +1,8 @@
 import { Spine, type Bone } from '@esotericsoftware/spine-pixi-v8';
+import { Container } from 'pixi.js';
 import type { ResolvedSection } from '../config/types.js';
 import type { RingSkin, RingSkinContext } from '../skins/RingSkin.js';
+import { SectionLabels } from '../skins/labels.js';
 import { registerRingSkin } from '../skins/skinRegistry.js';
 import { noticeWarnOnce } from '../utils/notify.js';
 
@@ -34,6 +36,12 @@ export interface SpineRingSkinOptions {
   animations?: SpineRingSkinAnimations;
   /** Track the wheel animations play on. Default 0. Landing one-shots use track 1. */
   track?: number;
+  /**
+   * Also draw the sections' labels (text or `content`) on the disc, above the
+   * skeleton. Default false: authored art usually carries its own. Turn it on
+   * for values the skeleton cannot know, like server-driven multipliers.
+   */
+  labels?: boolean;
 }
 
 /**
@@ -48,6 +56,8 @@ export class SpineRingSkin implements RingSkin {
   private readonly _opts: SpineRingSkinOptions;
   private readonly _anims: Required<Omit<SpineRingSkinAnimations, 'stopping' | 'winBySection'>> & Pick<SpineRingSkinAnimations, 'stopping' | 'winBySection'>;
   private _bone: Bone | null = null;
+  private _labels: SectionLabels | null = null;
+  private readonly _labelLayer = new Container();
   private _rotation = 0;
   private _ctx: RingSkinContext | null = null;
   private _isDestroyed = false;
@@ -84,15 +94,33 @@ export class SpineRingSkin implements RingSkin {
     this._ctx = ctx;
     if (this._bone) ctx.overlay.addChildAt(this.spine, 0);
     else ctx.disc.addChild(this.spine);
+    if (this._opts.labels) {
+      this._labelLayer.label = 'pixi-wheels:labels';
+      // A bone-driven skeleton sits on the overlay, above the disc; the labels
+      // go above it and are turned by hand so they stay on their plates.
+      if (this._bone) ctx.overlay.addChild(this._labelLayer);
+      else ctx.disc.addChild(this._labelLayer);
+      this._labels = new SectionLabels(this._labelLayer);
+      this.layout();
+    }
     this._play(this._anims.idle, true);
   }
 
   layout(): void {
-    // Spine art is authored; dynamic sections are not reflected in the skeleton.
+    // Spine art is authored; dynamic sections are not reflected in the skeleton, labels follow them.
+    const ctx = this._ctx;
+    if (ctx && this._labels) this._labels.layout(ctx.geometry.sections, ctx.outerRadius, ctx.innerRadius);
   }
 
   syncRotation(rotationDeg: number): void {
     this._rotation = rotationDeg;
+    if (this._bone) this._labelLayer.angle = rotationDeg;
+    this._labels?.syncRotation(rotationDeg);
+  }
+
+  /** The label layer, when `labels` is on. */
+  get labels(): SectionLabels | null {
+    return this._labels;
   }
 
   onSpinStart(): void {
@@ -139,6 +167,9 @@ export class SpineRingSkin implements RingSkin {
   destroy(): void {
     if (this._isDestroyed) return;
     this._isDestroyed = true;
+    this._labels?.destroy();
+    this._labelLayer.parent?.removeChild(this._labelLayer);
+    this._labelLayer.destroy();
     this.spine.parent?.removeChild(this.spine);
     this.spine.destroy();
     void this._ctx;

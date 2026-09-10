@@ -314,3 +314,40 @@ export const PLAYSON_SECTIONS = [
   { id: 'multi', label: 'MULTI', tags: ['multi'] },
   { id: 'x8', label: 'x8', value: 8, tags: ['coin'] },
 ];
+
+/**
+ * The Spine build of the same wheel: skeletons authored over the atlas by
+ * `tools/playson-wheel/build_spine.py`, with the game's sector sweep, sector
+ * glow, gold sparkle, shockwave and bulb chase as animations. Assets are
+ * registered under these aliases for `SpineRingSkin` / `SpinePointerSkin`.
+ */
+export const PLAYSON_SPINE = {
+  skeleton: 'playsonWheelSkeleton',
+  stopper: 'playsonStopperSkeleton',
+  atlas: 'playsonWheelAtlas',
+  /** The bone the engine turns. */
+  bone: 'wheel',
+  /** Authored radius of the skeleton, px: the plates' height. */
+  radius: PLAYSON_PLATE_RADIUS,
+  /** Pin-to-tip length of the stopper at scale 1. */
+  stopperLength: 0.7 * 141,
+  /** Section id -> landing animation, in the game's section order. */
+  winBySection: Object.fromEntries(PLAYSON_SECTIONS.map((s, i) => [s.id, `win_${String(i).padStart(2, '0')}`])) as Record<string, string>,
+} as const;
+
+let spineCached: Promise<typeof PLAYSON_SPINE> | null = null;
+
+export function loadPlaysonSpine(base = '/playson-wheel/'): Promise<typeof PLAYSON_SPINE> {
+  if (spineCached) return spineCached;
+  spineCached = (async () => {
+    // The spine-pixi atlas loader must be registered before the atlas loads.
+    await import('@esotericsoftware/spine-pixi-v8');
+    await Assets.load([
+      { alias: PLAYSON_SPINE.skeleton, src: `${base}wheel-skeleton.json` },
+      { alias: PLAYSON_SPINE.stopper, src: `${base}stopper-skeleton.json` },
+      { alias: PLAYSON_SPINE.atlas, src: `${base}wheel.atlas` },
+    ]);
+    return PLAYSON_SPINE;
+  })();
+  return spineCached;
+}

@@ -4,10 +4,21 @@ import type { Ease } from '../utils/easing.js';
  * Which way a ring turns. `'cw'` is the direction of increasing PixiJS
  * rotation, which reads as clockwise on screen because y points down.
  */
+import type { Container } from 'pixi.js';
+import type { FitMode, FitOptions, LabelSlot } from '../utils/fit.js';
+
 export type SpinDirection = 'cw' | 'ccw';
 
 /** How a label sits inside its section. */
-export type LabelOrientation = 'radial' | 'tangential' | 'upright';
+/**
+ * How a label sits in its wedge.
+ *
+ *   - `'radial'`: reads from the hub to the rim.
+ *   - `'tangential'`: follows the arc, top of the content toward the rim. Reads upright at twelve o'clock.
+ *   - `'tangential-in'`: follows the arc, top toward the hub. Reads upright at six o'clock, for wheels read from below.
+ *   - `'upright'`: stays upright on screen as the disc turns.
+ */
+export type LabelOrientation = 'radial' | 'tangential' | 'tangential-in' | 'upright';
 
 /**
  * Per-section look. Everything is optional: a section with no style gets the
@@ -34,7 +45,30 @@ export interface SectionStyle {
   labelOrientation?: LabelOrientation;
   /** Where along the radius the label sits, as a fraction of the outer radius (0..1). */
   labelRadius?: number;
+  /** How the label (text or `content`) is fitted into the room it has. Default `'contain'`. */
+  labelFit?: FitMode;
 }
+
+/** What a `content` factory receives: the section, its geometry and the room it has. */
+export interface LabelContext {
+  section: ResolvedSection;
+  outerRadius: number;
+  innerRadius: number;
+  /** The fit box at the label radius, oriented like the label. */
+  slot: LabelSlot;
+  /** Scale `obj` into the slot (or a fraction of it via `padding`) and return the factor. */
+  fit: (obj: Container, options?: FitOptions) => number;
+}
+
+/**
+ * Anything a section shows instead of a text label: a `Text`, a `Sprite`, a
+ * `BitmapText`, a Spine instance, a whole `Container` of them. Pass the
+ * object, or a factory that builds it once from the section's context. The
+ * label layer positions, rotates and fits it like a text label; it is
+ * re-fitted whenever the geometry changes. Code only: `toConfig()` keeps
+ * `label` and drops `content`.
+ */
+export type LabelContent = Container | ((ctx: LabelContext) => Container);
 
 /** One section as the consumer authors it. */
 export interface WheelSectionConfig {
@@ -42,6 +76,11 @@ export interface WheelSectionConfig {
   id: string;
   /** Text drawn by skins that draw labels. Defaults to the id. Pass `''` for none. */
   label?: string;
+  /**
+   * Rich label: any container, or a factory that builds one. Replaces the
+   * text label on skins that draw labels. See `LabelContent`.
+   */
+  content?: LabelContent;
   /** Payload the section stands for (a multiplier, a prize code). Used by `setResult({ value })`. */
   value?: number | string;
   /**
@@ -67,6 +106,7 @@ export interface ResolvedSectionStyle {
   labelWeight: string;
   labelOrientation: LabelOrientation;
   labelRadius: number;
+  labelFit: FitMode;
 }
 
 /**
@@ -92,6 +132,8 @@ export interface ResolvedSection {
   arc: number;
   style: ResolvedSectionStyle;
   tags: readonly string[];
+  /** Rich label content, when the section has one. */
+  content?: LabelContent;
 }
 
 /**

@@ -28,7 +28,7 @@ const SVG_BY_LOGO: Record<string, string> = {
           <li>
             <a href={p.url} target="_blank" rel="noopener noreferrer" aria-label={p.blurb} class="flex flex-col items-center gap-2 opacity-80 transition-opacity hover:opacity-100">
               {svg
-                ? <span role="img" aria-label={`${p.name} logo`} class="block text-foreground [&>svg]:h-10 [&>svg]:w-auto" set:html={svg} />
+                ? <span role="img" aria-label={`${p.name} logo`} class="block text-foreground [&>svg]:h-7 [&>svg]:w-auto" set:html={svg} />
                 : <span class="font-semibold tracking-tight text-foreground text-xl">{p.name}</span>}
               <span class="text-xs text-muted-foreground">Assets provided by {p.name}</span>
             </a>

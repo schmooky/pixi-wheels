@@ -16,12 +16,12 @@ export const ASSET_PARTNERS: AssetPartner[] = [
     name: 'Playson',
     logo: '/credits/playson.svg',
     url: 'https://playson.com',
-    blurb: 'The Four Charged Clovers: Super Wheel art set behind the textured and Spine wheel recipes.',
+    blurb: 'The Four Charged Clovers: Super Wheel art and sounds behind the composed and Spine wheel recipes and the sound hooks.',
   },
   {
     name: 'Pragmatic Play',
     logo: null,
     url: 'https://www.pragmaticplay.com',
-    blurb: 'The Wheel of Happiness pointer, frame and logo behind the prize-wheel recipes.',
+    blurb: 'The Wheel of Happiness plates, dragon hub, pointer, bitmap font and selection effects skeleton behind the prize-wheel recipe.',
   },
 ];

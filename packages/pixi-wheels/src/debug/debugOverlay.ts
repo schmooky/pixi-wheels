@@ -20,6 +20,12 @@ export interface DebugOverlayOptions {
   live?: boolean;
   /** Ticker for the live redraw. Default `Ticker.shared`; pass the wheel's own to stay in step. */
   ticker?: Ticker;
+  /**
+   * Where the HUD text sits. `'inside'` (default) pins it to the top-left of
+   * the ring's bounding square, so a canvas fitted to the wheel never crops
+   * it. `'below'` puts it under the wheel; re-fit the canvas after enabling.
+   */
+  hud?: 'inside' | 'below';
 }
 
 export interface DebugOverlayHandle extends Disposable {
@@ -43,7 +49,7 @@ export function debugOverlay(wheel: Wheel, options: DebugOverlayOptions = {}): D
     const fixed = new Graphics();
     fixed.label = `${OVERLAY_LABEL}:fixed:${ring.id}`;
     const labels = new Container();
-    const hud = new Text({ text: '', style: { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11, fill: 0xffffff, lineHeight: 13 } });
+    const hud = new Text({ text: '', style: { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13, fill: 0xffffff, lineHeight: 16 } });
     const hudBack = new Graphics();
     ring.disc.addChild(disc, labels);
     ring.overlay.addChild(fixed, hudBack, hud);
@@ -104,9 +110,15 @@ export function debugOverlay(wheel: Wheel, options: DebugOverlayOptions = {}): D
       ].filter((l) => l !== '');
       hud.text = lines.join('\n');
       hud.visible = true;
-      hud.position.set(-R, R + 16);
+      const pad = 6;
+      // A fixed plate width keeps the overlay's bounds stable while the lines change length.
+      const plateW = Math.max(hud.width + pad * 2, Math.min(2 * R, 300));
+      const plateH = hud.height + pad * 2;
+      const x = -R;
+      const y = (options.hud ?? 'inside') === 'below' ? R + 16 : -R;
+      hud.position.set(x + pad, y + pad);
       hudBack.clear();
-      hudBack.rect(-R - 4, R + 12, hud.width + 8, hud.height + 8).fill({ color: 0x000000, alpha: 0.65 });
+      hudBack.roundRect(x, y, plateW, plateH, 6).fill({ color: 0x000000, alpha: 0.72 });
     } else {
       hud.visible = false;
       hudBack.clear();

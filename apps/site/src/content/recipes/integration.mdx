@@ -19,9 +19,11 @@ Three shapes of response, one adapter each. An adapter is a small serialisable c
 
 ## Sound hooks
 
-Every audio cue as an event listener. Replace `console.log` with your audio layer; the tick volume and pitch follow the ring speed.
+Every audio cue as an event listener, on a real audio engine: [`@schmooky/zvuk`](https://zvuk.schmooky.dev) plays the Super Wheel's own sounds (Playson, used with permission): the activation hit, the spin, the anticipation riser, the landing and one win sting per prize tier. The tick volume and pitch follow the ring speed. Sound needs a click: press Spin.
 
 <RecipeDemo code="sound-hooks" />
+
+<AssetCredit studio="Playson" />
 
 ## Debug view
 

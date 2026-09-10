@@ -56,6 +56,9 @@ importers:
       '@radix-ui/react-switch':
         specifier: ^1.3.7
         version: 1.3.7(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@schmooky/zvuk':
+        specifier: ^1.14.1
+        version: 1.14.1
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@8.2.2(@types/node@22.20.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
@@ -1285,6 +1288,11 @@ packages:
     peerDependenciesMeta:
       rollup:
         optional: true
+
+  '@schmooky/zvuk@1.14.1':
+    resolution: {integrity: sha512-x1ESQNee/nHItpJMN/ICxH1Y2qpHMBFGv1yEYEgX5G4UKq9jSckBbCbjnmBpchS3imG/fI0NMB59FFOV8iAZmg==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   '@shikijs/core@4.4.3':
     resolution: {integrity: sha512-QCR4q2ZO/ILJEuwiBMel4wdcTDb1JGwfjKTxPDF6x8ixOaluPrVqIn06C99AcRPhmYlBR56d/Fb+GN58GzExpg==}
@@ -4727,6 +4735,8 @@ snapshots:
       '@types/estree': 1.0.9
       estree-walker: 2.0.2
       picomatch: 4.0.7
+
+  '@schmooky/zvuk@1.14.1': {}
 
   '@shikijs/core@4.4.3':
     dependencies:

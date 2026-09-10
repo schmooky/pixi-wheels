@@ -158,6 +158,7 @@ export class RingGeometry {
         arc,
         style: this._resolveStyle(c, index),
         tags: c.tags ?? [],
+        ...(c.content !== undefined ? { content: c.content } : {}),
       });
     });
     // Close the ring exactly: rounding may leave the last end a hair off.
@@ -181,6 +182,7 @@ export class RingGeometry {
       labelWeight: s.labelWeight ?? DEFAULT_LABEL_STYLE.labelWeight,
       labelOrientation: s.labelOrientation ?? DEFAULT_LABEL_STYLE.labelOrientation,
       labelRadius: s.labelRadius ?? DEFAULT_LABEL_STYLE.labelRadius,
+      labelFit: s.labelFit ?? DEFAULT_LABEL_STYLE.labelFit,
     };
   }
 }

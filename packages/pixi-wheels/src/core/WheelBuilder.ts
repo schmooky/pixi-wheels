@@ -240,7 +240,12 @@ export class RingBuilder {
       outerRadius: this._outerRadius ?? 0,
       innerRadius: this._innerRadius,
       startAngle: this._startAngle,
-      sections: this._sections.map((s) => ({ ...s })),
+      sections: this._sections.map(({ content, ...s }) => {
+        if (content !== undefined) {
+          noticeWarn('config-label-content', `Ring "${this.id}": section "${s.id}" has rich label content; toConfig() keeps its text label only.`);
+        }
+        return { ...s };
+      }),
     };
     if (this._direction) cfg.direction = this._direction;
     if (pointers.length > 0) cfg.pointers = pointers;

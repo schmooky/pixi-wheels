@@ -26,6 +26,8 @@ export {
 export type {
   SpinDirection,
   LabelOrientation,
+  LabelContext,
+  LabelContent,
   SectionStyle,
   WheelSectionConfig,
   ResolvedSectionStyle,
@@ -104,6 +106,8 @@ export { TickerRef } from './utils/TickerRef.js';
 export type { TickerCallback } from './utils/TickerRef.js';
 export { normalizeDeg, signedDeg, arcDelta, directionSign, isAngleInArc, DEG_TO_RAD, RAD_TO_DEG } from './utils/angles.js';
 export { resolveEase, initialSlope, constantAccelEase, EASE_NAMES } from './utils/easing.js';
+export { scaleToFit, fitContainer, fitText, chordAt, labelSlot } from './utils/fit.js';
+export type { FitMode, FitOptions, Size, LabelSlot, LabelSlotOptions } from './utils/fit.js';
 export type { Ease, EaseFn } from './utils/easing.js';
 export { setLogLevel, getLogLevel } from './utils/notify.js';
 export type { LogLevel } from './utils/notify.js';

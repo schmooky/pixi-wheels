@@ -222,6 +222,35 @@ wheel.events.on('spin:start', ({ ring, fromIdle }) => ...);
 
 Wire audio to events, never to method calls: a skip, a slam and a normal stop all reach `spin:landing`.
 
+## Wiring a real audio engine
+
+The [sound hooks recipe](/recipes/integration/#sound-hooks) uses [`@schmooky/zvuk`](https://zvuk.schmooky.dev), a small Web Audio engine with buses, voices and fades. The shape is the same for any engine: load once, listen to events, play voices, keep the handles you need to stop.
+
+```ts
+import { createEngine } from '@schmooky/zvuk';
+
+const engine = createEngine({ buses: { music: { level: 0.4 }, sfx: { level: 1 } } });
+await engine.loadSound('spin', '/audio/wheel_spin.mp3');
+await engine.loadSound('tick', '/audio/click.mp3');
+await engine.loadSound('win', '/audio/sector_win.mp3');
+
+let spinVoice;
+wheel.events.on('spin:start', () => { spinVoice = engine.sound('spin').play(); });
+wheel.events.on('pointer:tick', ({ speed }) =>
+  engine.sound('tick').play({ volume: Math.min(1, speed / 900), pitch: { base: 0.9 + speed / 1400, jitter: 0.04 } }));
+wheel.events.on('spin:landing', () => { spinVoice?.stop({ fade: 0.25 }); engine.sound('win').play(); });
+wheel.events.on('destroyed', () => engine.close());
+
+// Browsers need a gesture before sound: unlock from the click that starts the spin.
+button.onclick = async () => { await engine.unlock(); await wheel.spin(); };
+```
+
+Three habits that keep audio honest:
+
+- **Stop by voice, not by name.** `spin:landing` can arrive from a skip or a slam; keep the voice handle and stop that.
+- **Drive the ratchet from `pointer:tick`'s `speed`**, never from a timer. A creep, a stutter and a bounce all tick at their own rate.
+- **Close on `destroyed`.** A wheel that is torn down should not leave a music loop behind.
+
 ### Getting started
 URL: https://pixi-wheels.schmooky.dev/guides/getting-started/
 
@@ -481,6 +510,54 @@ wheel.main.localAngleUnderPointer();         // wheel-local degrees under the po
 
 Angles are wheel-local: they turn with the disc. A point at local angle `a` is on screen at `a + rotation`, so the pointer at screen angle `p` reads local `p - rotation`. A clockwise spin therefore sweeps *decreasing* local angles under the pointer: it enters a section through its `endAngle` and leaves through its `startAngle`. `geometry.entryAngle(section, direction)` spells this out; the anticipation planner relies on it.
 
+## Rich labels
+
+A label is not only a string. Give a section `content`: any container, or a factory that builds one. The label layer of every label-drawing skin (`GraphicsRingSkin`, `TextureRingSkin` with `labels: true`, `SpineRingSkin` with `labels: true`, the studio skins on this site) places it at the label radius, rotates it by `labelOrientation` and fits it into the section's room.
+
+```ts
+import { Sprite, Text, Container } from 'pixi.js';
+
+.sections([
+  // A ready-made object.
+  { id: 'x2', value: 2, content: new Sprite(coinTexture) },
+  // A factory: built once, from the section and the room it has.
+  { id: 'jackpot', weight: 2, content: (ctx) => {
+      const view = new Container();
+      const icon = new Sprite(crownTexture);
+      const text = new Text({ text: 'JACKPOT', style: { fontSize: 40, fontWeight: '800', fill: 0xffd23f } });
+      text.anchor.set(0.5); text.position.y = icon.height / 2 + 24;
+      view.addChild(icon, text);
+      ctx.fit(view, { padding: 0.1 });   // scale into the slot, 10% free around
+      return view;
+    },
+    style: { labelOrientation: 'tangential', labelRadius: 0.62 } },
+  // A Spine instance works the same way: it keeps animating after placement.
+  { id: 'bonus', content: () => Spine.from({ skeleton: 'bonusSkeleton', atlas: 'fxAtlas' }) },
+])
+```
+
+The factory receives a `LabelContext`: the resolved `section`, `outerRadius`, `innerRadius`, the `slot` (see below) and a bound `fit()`. Content is built once per section and rebuilt only when the section is given a different `content`. `toConfig()` keeps the text `label` and drops `content`; rich labels are code.
+
+Orientation applies to content as to text. `'tangential'` puts the top of the content toward the rim (upright at twelve o'clock); `'tangential-in'` toward the hub (upright at six o'clock, for a wheel read from below, like the Pragmatic recipe); `'upright'` counter-rotates every frame.
+
+## Fitting content
+
+The room a section offers is a **slot**: the chord across the wedge at the label radius, and the radial room around that point inside the ring band. `labelSlot()` computes it; the label layer fits every label into it with `labelFit` (`'contain'` by default, also `'cover'`, `'width'`, `'height'`, `'none'`).
+
+```ts
+import { labelSlot, scaleToFit, fitContainer, fitText } from 'pixi-wheels';
+
+const slot = labelSlot(section, outerRadius, innerRadius, { radius: 0.68, orientation: 'radial' });
+// slot.width / slot.height: the box, oriented like the label. slot.chord, slot.radial: the raw room.
+
+fitContainer(view, slot);                       // sets view.scale so its local bounds fit; returns the factor
+fitContainer(view, slot, { mode: 'width', max: Infinity }); // match the width, allowed to grow
+fitText(text, { width: slot.width * 0.8, height: slot.height * 0.8 }); // lowers fontSize instead: crisp glyphs
+scaleToFit({ width: 400, height: 80 }, slot);   // the pure number, no PixiJS
+```
+
+Content is re-fitted whenever the geometry changes, so dynamic sections shrink and grow their labels with their arcs. Scaling never enlarges by default (`max: 1`): author content at the size it should have on a full-size wedge and let the fit only take it down.
+
 ### Skins, textures and Spine
 URL: https://pixi-wheels.schmooky.dev/guides/skins/
 
@@ -517,7 +594,9 @@ import { SpineRingSkin, SpinePointerSkin } from 'pixi-wheels/spine';
 .pointer({ skin: new SpinePointerSkin({ skeleton: 'stopperData', atlas: 'wheelAtlas', length: 80, tickAnimation: 'tick' }) })
 ```
 
-Spine 3.8 exports need converting to 4.2 first: `tools/spine-3.8-to-4.2/` in the repo does binary `.skel` and JSON.
+`labels: true` on `SpineRingSkin` draws the sections' text or rich `content` on the disc above the skeleton, for values the art cannot know (server-driven multipliers). `winBySection` maps section ids to landing animations, so a skeleton can carry one celebration per plate.
+
+Spine 3.8 exports need converting to 4.2 first: `tools/spine-3.8-to-4.2/` in the repo does binary `.skel` and JSON; `tools/spine-3.7-to-4.2/` does 3.7 JSON. When a game packs a skeleton's images into its UI atlases instead of a Spine atlas, `tools/pragmatic-wheel/build_fx_atlas.py` rebuilds a Spine atlas from the sprite rectangles. When the skeleton itself is lost but the atlas survives, `tools/playson-wheel/build_spine.py` shows how to author one over the atlas, sector effects included. The [Playson Spine recipe](/recipes/skins/#playson-the-super-wheel-as-a-spine-skeleton) and the [Pragmatic recipe](/recipes/skins/#pragmatic-play-wheel-of-happiness) run on those outputs.
 
 ## Your own
 
@@ -912,47 +991,221 @@ ring.update(deltaMS)                // called by the ticker; call by hand with a
 ### Glossary
 URL: https://pixi-wheels.schmooky.dev/docs/glossary/
 
-**Anticipation**: a planned near-miss. The pointer heads for the *bait* and lands on the *target*. Styles: creep, stutter, overshoot.
+Terms are grouped by what they describe. Within a group they are alphabetical. Code names are in `monospace`; the guide that covers a term is linked at the end of its entry.
 
-**Arc**: a section's angular size in degrees, its weight's share of 360.
+## The wheel and its parts
 
-**Bait**: the section the player is meant to hope for during a tease.
+**Arc**: a section's angular size in degrees, its weight's share of 360. Arcs need not be uniform. [Sections](/guides/sections/)
 
-**Cruise**: the constant-speed phase between the wind-up and the stop, while the result is awaited.
+**Bezel**: the decorated frame around the rim. Authored art (the Playson wheel has twelve bezel pieces); the graphics skin draws a plain rim instead.
 
-**Disc**: the rotating container of a ring. **Overlay**: the fixed one.
+**Bulbs**: the lights on a bezel. Skins animate them (alternate at rest, chase while spinning, strobe on a win); the engine knows nothing about them.
 
-**Dynamic sections**: weights that change at run time, animated, with labels re-centring. Cosmetic.
+**Disc**: the container of a ring that rotates. Sections, labels and a face texture live here. The **overlay** is the ring's fixed container: rim decoration, hub caps and pointers.
 
-**Entry edge**: the boundary of a section a pointer meets first for a given spin direction. Clockwise, that is the section's `endAngle`.
+**Divider**: the boundary between two sections. Every divider a pointer crosses fires `pointer:tick`. [Pointers](/guides/pointers/)
 
-**Facing**: `inward` seats a pointer on the rim with the tip toward the hub; `outward` seats it at the hub pointing out.
+**Face**: a single painted texture of the whole disc, for `TextureRingSkin`. [Skins](/guides/skins/)
 
-**Flap**: the pointer's spring deflection on each divider crossing.
+**Hub**: the centre of the wheel. `innerRadius` is its radius; sections start there.
 
-**Landing angle**: the wheel-local angle that ends under the pointer. Fixed when the result arrives.
+**Inner radius / outer radius**: the ring band, from the hub edge to the rim. `radius(outer, inner)` on the builder. Labels and pointers are placed relative to both.
 
-**Leg**: one piece of a planned stop: a distance, a duration, an ease, forwards or reverse.
+**Main ring**: the ring the wheel's shortcut methods (`spin`, `setResult`, `sections`) address. `'main'` by default. [Rings](/guides/rings/)
 
-**Local angle**: an angle on the disc, rotating with it. Screen angle = local + rotation.
+**Plate**: an authored wedge image for one section, seated with its apex on the hub. Studio art usually ships one plate per prize type.
 
-**Pointer**: the fixed mark a ring is read against. Also tongue, flapper, stopper.
+**Rim**: the outer edge of the disc.
 
-**Profile**: a `SpinProfile`, the timing of a spin. Registered by name; switched with `setSpeed`.
+**Ring**: one spinning disc with its sections, pointers and skin. A wheel has one or more; rings share one event stream. Also **subwheel** when it sits inside another ring. [Rings](/guides/rings/)
 
-**Ring**: one spinning disc with its sections, pointers and skin. A wheel has one or more.
+**Section**: one wedge of a ring: `id`, `label`, `value`, `weight`, `style`, `tags`, optional rich `content`. Also called a sector or a segment. [Sections](/guides/sections/)
 
-**Section**: one wedge: id, label, value, weight, style. Also sector.
+**Start angle**: where section 0 begins, wheel-local degrees. Default -90, twelve o'clock. Sections lay out clockwise from there.
 
-**Settle**: the move after landing: a glide to the centre or a bounce.
+**Wheel**: the `Container` the builder returns: its rings, its event emitter, the shortcuts to the main ring.
 
-**Skin**: what a ring looks like. Graphics, debug, texture, Spine, or your own.
+## Labels and content
 
-**Slam**: `slamStop()`: snap to the final position now. **Skip**: a short fast-forward to the landing.
+**Content**: a section's rich label: any `Container` (a `Text`, a `Sprite`, a `BitmapText`, a Spine instance, a group), or a factory that builds one from a `LabelContext`. Placed, rotated and fitted like a text label. [Sections](/guides/sections/#rich-labels)
 
-**Target**: a `WheelTarget`: where a spin lands, as the server decides it.
+**Fit / fit mode**: how a label meets the room it has. `'contain'` (default), `'cover'`, `'width'`, `'height'`, `'none'`. Helpers: `scaleToFit`, `fitContainer`, `fitText`. [Sections](/guides/sections/#fitting-content)
 
-**Weight**: a section's relative arc share.
+**Label**: the text a label-drawing skin writes for a section. Defaults to the id; `''` draws nothing.
+
+**Label context**: what a `content` factory receives: the resolved section, the radii, the slot, and a bound `fit()`.
+
+**Label orientation**: `'radial'` reads from the hub to the rim; `'tangential'` follows the arc with the top toward the rim (upright at twelve o'clock); `'tangential-in'` follows the arc with the top toward the hub (upright at six o'clock, for wheels read from below); `'upright'` stays upright on screen as the disc turns.
+
+**Label radius**: where along the radius a label sits, as a fraction of the outer radius. Default 0.68.
+
+**Slot**: the box a section offers a label at its label radius: the chord across the wedge there and the radial room around it. `labelSlot()` computes it.
+
+**Chord**: the straight-line width across an arc at a radius. The tangential room a label has.
+
+## Sizes, weights and states
+
+**Dynamic sections**: weights that change at run time, animated, with labels and plates re-centring. Purely cosmetic: the server's outcome is applied by `setResult`, never by the geometry. [Dynamic sections](/guides/dynamic-sections/)
+
+**Step**: one authored set of weights in a `dynamic` config; `setStep(i)` / `nextStep()` move between them.
+
+**Weight**: a section's relative arc share. Default 1. `{ weight: 0.5 }` is half a default section.
+
+**Weight transition**: the animation from one weight set to another: `durationMs`, `ease`, and `sections:transition:start` / `:end` around it.
+
+## Spinning
+
+**Cruise**: the constant-speed phase between the wind-up and the stop, while the result is awaited. `spin:cruise` marks its start.
+
+**Direction**: `'cw'` (clockwise, the default) or `'ccw'`. Per wheel or per ring.
+
+**Ease**: the curve a leg follows. GSAP-style names (`power3.out`, `back.out`, `sine.inOut`) or a function. The stop's ease is matched to the cruise speed so the wheel never jerks. [Spin lifecycle](/guides/spin-lifecycle/)
+
+**Idle**: a slow continuous spin while nothing happens, for a wheel parked beside the reels. `startIdle()` / `stopIdle()`; a real `spin()` takes over from it. [Idle](/guides/idle/)
+
+**Leg**: one piece of a planned stop: a distance, a duration, an ease, forwards or reverse. Kinds: decel, creep, dwell, push, return, skip, settle, bounce, bounce-return.
+
+**Plan / planned stop**: the list of legs the engine computes the moment the result is known. Everything after that is playback, so the landing is exact and deterministic. [Spin lifecycle](/guides/spin-lifecycle/)
+
+**Profile**: a `SpinProfile`: cruise speed, wind-up, stop duration, ease, turn range. Registered under a name (`speed('turbo', ...)`) and switched with `setSpeed`. Presets: `NORMAL`, `TURBO`, `CINEMATIC`, `QUICK`. [Profiles](/docs/api-profiles/)
+
+**Result timeout**: how long a spin cruises without a result before rejecting (`resultTimeoutMs`), so a lost server response does not spin forever.
+
+**Speed**: cruise speed in degrees per second. `pointer:tick` reports the instantaneous speed for sound.
+
+**Spin**: `spin()` starts one; it resolves with a `WheelSpinResult` once the wheel has landed and settled.
+
+**Turns**: full rotations in the stop leg. `minTurns` / `maxTurns` bound them; the planner picks the count that best matches `stopDuration`.
+
+**Wind-up**: the acceleration from rest to cruise speed at the start of a spin.
+
+## Landing
+
+**Entry edge / exit edge**: the boundary of a section a pointer meets first and last for a given spin direction. Clockwise, the entry edge is the section's `endAngle`.
+
+**Landing angle**: the wheel-local angle that ends under the pointer. Fixed when the result arrives and never changed by skips or slams. [Landing](/guides/landing/)
+
+**Landing mode**: where inside the section the pointer stops: `'center'`, `'random'` (with `margin` from the dividers), or `'exact'` at an `offset` (0..1 across the section). [Landing](/guides/landing/)
+
+**Margin**: the fraction of a section kept clear at both dividers in `'random'` mode, so a landing never looks like a divider.
+
+**Settle**: the move after landing: `'none'`, `'center'` (glide to the middle after `delayMs`), or `'bounce'` (overshoot and spring back). `spin:settle:start` / `:end` around it. [Landing](/guides/landing/)
+
+**Target**: a `WheelTarget`: where a spin lands, as the server decides it. `{ section }`, `{ index }`, `{ value }`, `{ angle }`, each with an optional `offset` or `position`. [Adapters](/guides/adapters/)
+
+**Resolved target**: a target turned into a section and a landing angle.
+
+## Anticipation
+
+**Anticipation**: a planned near-miss. The pointer heads for the bait and lands on the target. `anticipation:start`, `anticipation:bait`, `anticipation:end`. [Anticipation](/guides/anticipation/)
+
+**Bait**: the section the player is meant to hope for during a tease. Must be reachable within the anticipation's arc; the builder throws when it is not.
+
+**Creep**: the pointer crawls past the bait and stops one section later.
+
+**Overshoot**: the pointer runs into the bait, stops, and rolls back onto the target.
+
+**Stutter**: the pointer twitches at the bait before finishing.
+
+**Auto**: picks creep, stutter or overshoot from the distance between bait and target.
+
+**Near-miss**: what the player sees. Anticipation is how the engine plans it.
+
+## Skipping and stopping early
+
+**Protected skip**: a skip that arrives during an anticipation and is delayed until the bait moment has played (`protectSkip: true`). `skip:completed` reports `protectedByAnticipation`.
+
+**Skip**: `skip()`: a short fast-forward to the landing, over `skip.durationMs`, at least `skip.minArc` degrees so it still reads as motion. Needs the result to be known. [Landing](/guides/landing/)
+
+**Slam**: `slamStop()`: snap to the final position now. For turbo modes and tests.
+
+**Skip config**: `skip({ durationMs, minArc, protectSkip, ease })` on the builder.
+
+## Pointers
+
+**Art direction**: which way a pointer texture or skeleton points in its own pixels (`'up'`, `'right'`, `'down'`, `'left'`), so the ring can turn it toward the hub or the rim.
+
+**Facing**: `'inward'` seats a pointer on the rim with the tip toward the hub; `'outward'` seats it at the hub pointing out (the inner ring's arrow in a two-ring wheel). [Pointers](/guides/pointers/)
+
+**Flap**: the pointer's spring deflection on each divider crossing: `maxAngle`, `stiffness`, `damping`. Also **kick**.
+
+**Pin**: the point a pointer pivots around. A skin's local origin. For a texture, `pin: { x, y }` as fractions of the image.
+
+**Pointer**: the fixed mark a ring is read against. Also tongue, flapper, stopper, needle. A ring can have several; each is named. [Pointers](/guides/pointers/)
+
+**Pointer angle**: the screen angle a pointer sits at. Default -90, twelve o'clock. The Pragmatic wheel reads at 90, six o'clock.
+
+**Tick**: a divider passing under a pointer. `pointer:tick` carries the pointer, the sections either side, the speed and the direction. Pointer skins with a `tick` animation play it here.
+
+**Tip inset**: how far the pointer's tip reaches past the rim into the disc, px.
+
+## Skins and art
+
+**Asset resolver**: `{ texture(key) }`: what `fromConfig` uses to turn texture keys in a serialised skin config into loaded textures. [Configs](/guides/configs/)
+
+**Atlas**: a Spine texture atlas: one text file naming regions on one or more sheets. The Playson wheel ships as its atlas plus the skeletons rebuilt over it.
+
+**Bone**: in `SpineRingSkin`, the skeleton bone the engine rotates (`bone: 'wheel'`). The rest of the skeleton stays fixed and keeps animating. [Skins](/guides/skins/)
+
+**Debug skin**: `DebugRingSkin`: numbered wedges with their angles written on them.
+
+**Graphics skin**: `GraphicsRingSkin`: the default painted look: wedges, dividers, rim, hub, fitted labels. [Skins](/guides/skins/)
+
+**Headless skin**: `HeadlessRingSkin`: draws nothing. For tests and servers.
+
+**Highlight**: a skin's emphasis on one section, usually the winner. `highlight(id)` / `highlight(null)`.
+
+**Region**: one image inside an atlas, named by path (`wheel/mini/mini_sector`).
+
+**Skin**: what a ring looks like. The ring owns motion; the skin owns pixels. Graphics, debug, texture, Spine, headless, or your own class implementing `RingSkin`. [Skins](/guides/skins/)
+
+**Skin config**: the serialisable form of a skin, `{ type: 'graphics', ... }`, kept by `toConfig()`. Skin instances are recorded as `{ type: 'custom' }`.
+
+**Spine skin**: `SpineRingSkin` and `SpinePointerSkin`, from `pixi-wheels/spine`. The skeleton's animations (`idle`, `spin`, `win`, per-section `winBySection`, `tick`) are wired to the events by name. [Skins](/guides/skins/)
+
+**Texture skin**: `TextureRingSkin`: a painted face texture, optional decorations, optional labels. [Skins](/guides/skins/)
+
+**VFX / effects**: the frame sequences and glows a skeleton plays on a win: sector sweep, sector glow, gold sparkle, shockwave, the Pragmatic selection frames. Authored in the skeleton, triggered by the skin's hooks.
+
+## Angles and coordinates
+
+**Clockwise positive**: the library's angle convention, matching PixiJS: degrees increase clockwise on screen. Spine's counter-clockwise rotation is converted at the bone.
+
+**Local angle**: an angle on the disc, rotating with it. Screen angle = local angle + rotation. The pointer at screen angle `p` reads local angle `p - rotation`.
+
+**Normalised angle**: an angle folded into 0..360 with `normalizeDeg`. Sections keep unnormalised, increasing angles so `endAngle` of section i equals `startAngle` of section i+1.
+
+**Rotation**: the disc's current turn in degrees, clockwise positive.
+
+**Screen angle**: an angle in the wheel's fixed frame. Pointers have screen angles.
+
+## Integration
+
+**Adapter**: `createTargetAdapter(...)`: turns a server response into a `WheelTarget` (by id, index or value, read from a path). Recorded in `toConfig()` as documentation. [Adapters](/guides/adapters/)
+
+**Config**: `WheelConfig`, the JSON twin of a builder: `toConfig()` / `fromConfig()`. Versioned; validated by `assertWheelConfig`. [Configs](/guides/configs/)
+
+**Event**: a typed, colon-namespaced notification (`spin:landing`) on `wheel.events`. Every payload names its `ring`. [Events and audio](/guides/events-and-audio/)
+
+**Hook**: an event listener that drives something outside the wheel: a sound, a particle burst, a Spine reaction.
+
+**Template**: a ready-made builder for a common wheel: `gamble`, `gambleDynamic`, `multipliers`, `jackpots`, `dynamicJackpot`, `twoRing`, `debug`.
+
+**Ticker**: the PixiJS `Ticker` that drives the wheel. `ticker(app.ticker)` on the builder. Everything moves by `deltaMS`, so a fake ticker makes spins deterministic.
+
+## Testing and debugging
+
+**ASCII arc**: `debugArc(wheel)`: the ring as a text strip with the pointer marked. For logs and agents.
+
+**Debug overlay**: `debugOverlay(wheel)`: section boundaries, pointer angles, the target and a HUD drawn over the wheel, live.
+
+**Fake ticker**: `FakeTicker` from `pixi-wheels/testing`: advance time by hand and land a spin in one call.
+
+**Harness**: `createTestWheel` and friends: a headless wheel, seeded randomness, `expectPointerOn`, `captureEvents`. [Testing](/guides/testing/)
+
+**Notice**: a one-time warning the library prints with a code (`bait-too-far`, `ease-slope`, `config-skin-instance`) when a config is legal but suspicious. `setLogLevel` silences them.
+
+**Snapshot**: `debugSnapshot(wheel)`: the whole state as plain JSON.
 
 ## Recipes
 
@@ -1208,49 +1461,86 @@ return {
 
 ```ts
 // @ts-nocheck
-// Injected globals: WheelBuilder, SpinPresets, app
+// Injected globals: WheelBuilder, SpinPresets, createEngine, app
 
-// Every audio cue a wheel needs, as event listeners. Replace console.log
-// with your audio layer; nothing else changes. The tick pitch and volume
-// follow the ring speed, which is how a ratchet sounds real.
+// Real game audio on the engine's events, through @schmooky/zvuk. The sounds
+// are the Super Wheel's own (Playson, used with permission): the activation
+// hit, the spin, the anticipation riser, the landing thud and one win sting
+// per prize tier. The wheel emits; the audio layer listens. A skip, a slam and
+// a normal stop all reach `spin:landing`, so nothing here calls a wheel method.
 const wheel = new WheelBuilder()
   .radius(230, 30)
   .sections([
-    { id: 'x2', label: 'x2', value: 2, weight: 3 },
-    { id: 'jackpot', label: 'JACKPOT', weight: 0.8, style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
-    { id: 'x5', label: 'x5', value: 5, weight: 2 },
-    { id: 'x3', label: 'x3', value: 3, weight: 2.5 },
-    { id: 'x10', label: 'x10', value: 10, weight: 1 },
-    { id: 'x8', label: 'x8', value: 8, weight: 1.2 },
+    { id: 'mini', label: 'MINI', weight: 1, tags: ['mini'], style: { fill: 0x2e8b57 } },
+    { id: 'x2', label: 'x2', value: 2, weight: 1.4, tags: ['coin'] },
+    { id: 'collect', label: 'COLLECT', weight: 1, tags: ['clover'], style: { fill: 0x1f6feb } },
+    { id: 'x5', label: 'x5', value: 5, weight: 1.1, tags: ['coin'] },
+    { id: 'minor', label: 'MINOR', weight: 0.9, tags: ['minor'], style: { fill: 0x9b59b6 } },
+    { id: 'x3', label: 'x3', value: 3, weight: 1.2, tags: ['coin'] },
+    { id: 'mystery', label: 'MYSTERY', weight: 1, tags: ['clover'], style: { fill: 0x1f6feb } },
+    { id: 'x10', label: 'x10', value: 10, weight: 0.8, tags: ['coin'] },
+    { id: 'major', label: 'MAJOR', weight: 0.6, tags: ['major'], style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
   ])
+  .landing({ mode: 'random', margin: 0.15 })
   .speed('normal', SpinPresets.NORMAL)
   .ticker(app.ticker)
   .build();
 
-const audio = {
-  play: (name, opts = {}) => console.log(`[audio] play ${name}`, opts),
-  stop: (name) => console.log(`[audio] stop ${name}`),
-};
+// One engine, two buses. Every time value in zvuk is in seconds.
+const engine = createEngine({ buses: { music: { level: 0.4 }, sfx: { level: 1 } }, master: { headroom: -3 } });
+const base = '/playson-wheel/audio/';
+await Promise.all([
+  engine.loadSound('music', base + 'wheel_music.mp3', { bus: 'music' }),
+  engine.loadSound('activate', base + 'wheel_activate.mp3'),
+  engine.loadSound('spin', base + 'wheel_spin.mp3'),
+  engine.loadSound('tick', base + 'click.mp3'),
+  engine.loadSound('riser', base + 'anticipation.mp3'),
+  engine.loadSound('landing', base + 'landing.mp3'),
+  engine.loadSound('skip', base + 'skip.mp3'),
+  engine.loadSound('win_coin', base + 'sector_win_regular.mp3'),
+  engine.loadSound('win_clover', base + 'sector_win_clover.mp3'),
+  engine.loadSound('win_mini', base + 'win_mini.mp3'),
+  engine.loadSound('win_minor', base + 'win_minor.mp3'),
+  engine.loadSound('win_major', base + 'win_major.mp3'),
+]);
 
+let music = null;
+let spinVoice = null;
+let riser = null;
 const e = wheel.events;
-e.on('spin:start', () => { audio.play('wheel_windup'); audio.play('wheel_loop', { loop: true }); });
-e.on('spin:cruise', () => audio.play('wheel_cruise_whoosh'));
-e.on('spin:stopping', ({ duration }) => audio.play('wheel_slowdown', { duration }));
-e.on('pointer:tick', ({ speed }) => audio.play('tick', { volume: Math.min(1, speed / 700), rate: 0.9 + Math.min(0.6, speed / 1500) }));
-e.on('anticipation:start', () => audio.play('tension_riser'));
-e.on('anticipation:bait', () => audio.play('heartbeat'));
-e.on('anticipation:end', () => audio.stop('tension_riser'));
-e.on('spin:landing', ({ section }) => { audio.stop('wheel_loop'); audio.play(section.id === 'jackpot' ? 'win_jackpot' : 'win_sector'); });
-e.on('spin:settle:start', () => audio.play('settle_click'));
-e.on('skip:requested', () => audio.play('skip_swish'));
-e.on('spin:complete', () => audio.play('present_prize'));
+
+e.on('spin:start', () => {
+  music ??= engine.sound('music').play({ loop: true, fadeIn: 0.8 });
+  engine.sound('activate').play();
+  spinVoice = engine.sound('spin').play();
+});
+// The ratchet: louder and higher with speed, never twice the same.
+e.on('pointer:tick', ({ speed }) => {
+  engine.sound('tick').play({
+    volume: Math.min(1, 0.25 + speed / 900),
+    pitch: { base: 0.9 + Math.min(0.6, speed / 1400), jitter: 0.04 },
+  });
+});
+e.on('anticipation:start', () => { riser = engine.sound('riser').play(); });
+e.on('anticipation:end', () => { riser?.stop({ fade: 0.3 }); riser = null; });
+e.on('skip:requested', () => engine.sound('skip').play());
+e.on('spin:landing', ({ section }) => {
+  spinVoice?.stop({ fade: 0.25 });
+  engine.sound('landing').play({ volume: 0.8 });
+  const [tag] = section.tags;
+  engine.sound(tag === 'coin' ? 'win_coin' : tag === 'clover' ? 'win_clover' : `win_${tag}`).play();
+});
+e.on('destroyed', () => engine.close());
 
 return {
   wheel,
   onSpin: async () => {
+    await engine.unlock(); // from the click: the browser needs a gesture before sound
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 300));
-    wheel.setResult({ section: 'x2' }, { anticipation: { bait: 'jackpot' } });
+    const ids = wheel.sections.map((s) => s.id);
+    const i = Math.floor(Math.random() * ids.length);
+    wheel.setResult({ section: ids[i] }, { anticipation: { bait: ids[(i + ids.length - 1) % ids.length] } });
     await spin;
   },
 };
@@ -1725,6 +2015,79 @@ const wheel = new WheelBuilder()
 return { wheel };
 ```
 
+#### rich-labels
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, fitText, labelSlot, app, PIXI
+
+// Labels are not just strings. A section's `content` is any container: a
+// Text, a Sprite, a BitmapText, a Spine instance, a group of them. The label
+// layer places it at the label radius, rotates it like a text label, and fits
+// it into the room the section has, so a heavy jackpot wedge and a slim x2
+// wedge each get content sized for them. The factory receives the slot and a
+// bound `fit()`; `fitText` shrinks a font size instead of a transform when
+// crispness matters.
+const GOLD = 0xffd23f;
+
+// A pill background sized from the slot, with a text fitted inside it.
+const pill = (label, color) => (ctx) => {
+  const view = new PIXI.Container();
+  const w = ctx.slot.width * 0.92;
+  const h = ctx.slot.height * 0.7;
+  view.addChild(new PIXI.Graphics().roundRect(-w / 2, -h / 2, w, h, h / 2).fill({ color, alpha: 0.9 }));
+  const text = new PIXI.Text({ text: label, style: { fontFamily: 'Roboto Condensed, Arial Narrow, sans-serif', fontSize: 40, fontWeight: '800', fill: 0x14151a } });
+  text.anchor.set(0.5);
+  fitText(text, { width: w * 0.82, height: h * 0.8 });
+  view.addChild(text);
+  return view;
+};
+
+// An icon plus a value, stacked. `ctx.fit` does the final scale.
+const coin = (value) => (ctx) => {
+  const view = new PIXI.Container();
+  const icon = new PIXI.Graphics().circle(0, 0, 26).fill(GOLD).circle(0, 0, 18).stroke({ color: 0xb8860b, width: 4 });
+  icon.position.set(0, -34);
+  const text = new PIXI.Text({ text: `x${value}`, style: { fontFamily: 'Roboto Condensed, Arial Narrow, sans-serif', fontSize: 44, fontWeight: '900', fill: GOLD, stroke: { color: 0x3a2200, width: 5 } } });
+  text.anchor.set(0.5);
+  text.position.set(0, 26);
+  view.addChild(icon, text);
+  ctx.fit(view, { padding: 0.08 });
+  return view;
+};
+
+// A container that keeps animating after it is placed: the layer never touches its children.
+const star = () => (ctx) => {
+  const view = new PIXI.Container();
+  const g = new PIXI.Graphics().star(0, 0, 5, 40, 18).fill(0xffffff).stroke({ color: GOLD, width: 4 });
+  view.addChild(g);
+  app.ticker.add(() => { g.rotation += 0.02; });
+  ctx.fit(view);
+  return view;
+};
+
+const wheel = new WheelBuilder()
+  .radius(240, 40)
+  .sections([
+    { id: 'jackpot', weight: 2, content: pill('JACKPOT', GOLD), style: { fill: 0x7a1f1f, labelOrientation: 'tangential', labelRadius: 0.62 } },
+    { id: 'x2', value: 2, weight: 1, content: coin(2), style: { labelOrientation: 'radial' } },
+    { id: 'bonus', weight: 1.4, content: star(), style: { fill: 0x1f3d7a, labelOrientation: 'upright' } },
+    { id: 'x5', value: 5, weight: 0.7, content: coin(5), style: { labelOrientation: 'radial' } },
+    { id: 'free', weight: 1.6, content: pill('FREE SPINS', 0x8ee3a1), style: { fill: 0x1f6b3a, labelOrientation: 'tangential-in', labelRadius: 0.72 } },
+    { id: 'x10', value: 10, weight: 0.5, content: coin(10), style: { labelOrientation: 'radial' } },
+    { id: 'plain', label: 'TEXT', weight: 1 },
+  ])
+  .landing({ mode: 'random', margin: 0.15 })
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+// The slot is also available outside the label layer, for your own placement.
+console.log('jackpot slot', labelSlot(wheel.sections[0], 240, 40, { radius: 0.62, orientation: 'tangential' }));
+
+return { wheel };
+```
+
 #### pointer-flap
 
 ```ts
@@ -1788,57 +2151,121 @@ return {
   onSpin: async () => {
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 300));
-    const pick = PLAYSON_SECTIONS[Math.floor(Math.random() * PLAYSON_SECTIONS.length)];
-    wheel.setResult({ section: pick.id }, { anticipation: { bait: 'major' } });
+    const i = Math.floor(Math.random() * PLAYSON_SECTIONS.length);
+    // Bait with the plate just before the target, so the tease creeps past it or overshoots into it.
+    wheel.setResult({ section: PLAYSON_SECTIONS[i].id }, { anticipation: { bait: PLAYSON_SECTIONS[(i + 11) % 12].id } });
     await spin;
   },
 };
 ```
 
-#### texture-wheel-pragmatic
+#### playson-spine-wheel
 
 ```ts
 // @ts-nocheck
-// Injected globals: WheelBuilder, SpinPresets, TexturePointerSkin, loadPragmaticWheel, app, PIXI
+// Injected globals: WheelBuilder, SpinPresets, SpineRingSkin, SpinePointerSkin, loadPlaysonSpine, PLAYSON_SECTIONS, loadPlaysonAudio, app, PIXI
 
-// Studio art on a painted face: the golden ring frame, the pointer and the
-// logo from Pragmatic Play's Wheel of Happiness (used with permission), on a
-// red-and-gold graphics face. The frame is a fixed sprite on the overlay; the
-// pointer is the game's own stopper as a TexturePointerSkin.
-const art = await loadPragmaticWheel();
+// The Super Wheel as a Spine skeleton (Playson, used with permission), with
+// the game's own effects: bulbs that alternate at rest and chase during the
+// spin, and on landing the sector sweep, the sector glow, the gold sparkle on
+// coin plates, the rainbow shockwave and a bulb strobe. The engine turns the
+// `wheel` bone; everything else is the skeleton's animation, picked by name
+// per section. The stopper is its own skeleton with a `tick` swing per divider.
+// The coin values the skeleton cannot know are rich labels on the disc.
+const [spine, audio] = await Promise.all([loadPlaysonSpine(), loadPlaysonAudio()]);
+const R = 250;
+const k = R / spine.radius;
 
-const RED = 0x9b111e, DARK = 0x5c0a12, GOLD = 0xf3c15a;
-const values = [50, 100, 200, 500, 100, 50, 1000, 100, 200, 50, 500, 100];
+const gold = new PIXI.FillGradient({
+  type: 'linear', start: { x: 0, y: 0 }, end: { x: 0, y: 1 }, textureSpace: 'local',
+  colorStops: [{ offset: 0, color: 0xfff1a8 }, { offset: 0.5, color: 0xffcf3d }, { offset: 1, color: 0xe08a12 }],
+});
+const coinValue = (ctx) => {
+  const t = new PIXI.Text({
+    text: `x${ctx.section.value}`,
+    style: { fontFamily: 'Roboto Condensed, Arial Narrow, sans-serif', fontSize: 64, fontWeight: '900', fill: gold, stroke: { color: 0x3a2200, width: 7, join: 'round' } },
+  });
+  t.anchor.set(0.5);
+  ctx.fit(t, { padding: 0.1 });
+  return t;
+};
+
 const wheel = new WheelBuilder()
-  .radius(240, 46)
-  .sections(values.map((v, i) => ({
-    id: `p${i}`, label: String(v), value: v,
-    style: { fill: i % 2 ? DARK : RED, labelColor: GOLD, labelSize: 30, labelWeight: '800' },
-  })))
-  .pointer({ angle: -90, tipInset: 26, skin: new TexturePointerSkin({ texture: art.pointer, artDirection: 'up', pin: { x: 0.5, y: 0.82 }, scale: 0.7 }) })
-  .skin({ type: 'graphics', dividers: { width: 2, color: GOLD, alpha: 0.9 }, rim: false, hub: false, shading: true })
-  .landing({ settle: 'center', mode: 'random' })
+  .radius(R)
+  .sections(PLAYSON_SECTIONS.map((s) => (s.tags.includes('coin')
+    ? { ...s, content: coinValue, style: { labelOrientation: 'tangential', labelRadius: 0.5 } }
+    : { ...s, label: '' })))
+  .pointer({
+    angle: -90,
+    tipInset: 30,
+    skin: new SpinePointerSkin({ skeleton: spine.stopper, atlas: spine.atlas, length: spine.stopperLength * k, scale: k, artDirection: 'down', flapRotates: false }),
+  })
+  .skin(new SpineRingSkin({
+    skeleton: spine.skeleton, atlas: spine.atlas, bone: spine.bone, scale: k, labels: true,
+    animations: { idle: 'idle', spin: 'spin', winBySection: spine.winBySection },
+  }))
+  .landing({ mode: 'random', margin: 0.15 })
   .speed('normal', SpinPresets.NORMAL)
   .ticker(app.ticker)
   .build();
 
-// Frame and hub from the art set, fixed on the overlay.
-const frame = new PIXI.Sprite(art.bigRing);
-frame.anchor.set(0.5);
-frame.scale.set((2 * 262) / frame.texture.width);
-const hub = new PIXI.Sprite(art.goldRing);
-hub.anchor.set(0.5);
-hub.scale.set(110 / hub.texture.width);
-const coin = new PIXI.Sprite(art.coin);
-coin.anchor.set(0.5);
-coin.scale.set(0.9);
-wheel.main.overlay.addChildAt(frame, 0);
-wheel.main.overlay.addChild(hub, coin);
+audio.attach(wheel);
+
+return {
+  wheel,
+  onSpin: async () => {
+    await audio.unlock();
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 300));
+    const i = Math.floor(Math.random() * PLAYSON_SECTIONS.length);
+    // Bait with the plate just before the target, so the tease creeps past it or overshoots into it.
+    wheel.setResult({ section: PLAYSON_SECTIONS[i].id }, { anticipation: { bait: PLAYSON_SECTIONS[(i + 11) % 12].id } });
+    await spin;
+  },
+};
+```
+
+#### pragmatic-wheel
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, TexturePointerSkin, loadPragmaticWheel, PragmaticWheelSkin, PRAGMATIC_SECTIONS, PRAGMATIC_RADIUS, pragmaticPlateLabel, app, PIXI
+
+// Pragmatic Play's Wheel of Happiness (used with permission), as the game
+// shows it: twelve gold-framed plates round the golden dragon hub, WILD WINS
+// in red and FREE SPINS in green, read from six o'clock by the gem-tipped
+// pointer. Each label is rich content: two lines of gold text with the top
+// toward the hub, plus the game's bitmap `+`, fitted into the plate. On
+// landing the losing plates dim and the game's own Spine effects play: the
+// ring flare round the hub at spin start, the selection frames pulsing on the
+// winner.
+const art = await loadPragmaticWheel();
+const R = 262;
+const k = R / PRAGMATIC_RADIUS.outer;
+
+const wheel = new WheelBuilder()
+  .radius(R, PRAGMATIC_RADIUS.hub * k)
+  .sections(PRAGMATIC_SECTIONS.map((s) => ({
+    ...s,
+    content: pragmaticPlateLabel(art),
+    style: { labelOrientation: 'tangential-in', labelRadius: (PRAGMATIC_RADIUS.hub + PRAGMATIC_RADIUS.plate * 0.5) / PRAGMATIC_RADIUS.outer },
+  })))
+  .pointer({
+    angle: 90,
+    tipInset: 30 * k,
+    skin: new TexturePointerSkin({ texture: art.pointer, artDirection: 'up', pin: { x: 0.5, y: 0.86 }, scale: k * 1.35 }),
+    flap: { maxAngle: 10, stiffness: 500, damping: 18 },
+  })
+  .skin(new PragmaticWheelSkin({ art }))
+  .landing({ mode: 'center', settle: 'none' })
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
 
 const logo = new PIXI.Sprite(art.logo);
 logo.anchor.set(0.5, 1);
-logo.scale.set(0.55);
-logo.position.set(0, -285);
+logo.scale.set(0.5);
+logo.position.set(0, -R - 6);
 const stage = new PIXI.Container();
 stage.addChild(wheel, logo);
 
@@ -1848,9 +2275,10 @@ return {
   onSpin: async () => {
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 300));
-    // Always "almost the 1000": land on one of its neighbours and bait with it,
-    // so the tease creeps past it or overshoots into it and rolls back.
-    wheel.setResult({ section: Math.random() < 0.5 ? 'p5' : 'p7' }, { anticipation: { bait: 'p6' } });
+    const i = Math.floor(Math.random() * PRAGMATIC_SECTIONS.length);
+    // Tease the neighbouring plate of the other colour, then land.
+    const bait = PRAGMATIC_SECTIONS[(i + 1) % 12].id;
+    wheel.setResult({ section: PRAGMATIC_SECTIONS[i].id }, { anticipation: { bait } });
     await spin;
   },
 };

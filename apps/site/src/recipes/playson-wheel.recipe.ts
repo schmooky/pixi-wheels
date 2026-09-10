@@ -29,8 +29,9 @@ return {
   onSpin: async () => {
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 300));
-    const pick = PLAYSON_SECTIONS[Math.floor(Math.random() * PLAYSON_SECTIONS.length)];
-    wheel.setResult({ section: pick.id }, { anticipation: { bait: 'major' } });
+    const i = Math.floor(Math.random() * PLAYSON_SECTIONS.length);
+    // Bait with the plate just before the target, so the tease creeps past it or overshoots into it.
+    wheel.setResult({ section: PLAYSON_SECTIONS[i].id }, { anticipation: { bait: PLAYSON_SECTIONS[(i + 11) % 12].id } });
     await spin;
   },
 };

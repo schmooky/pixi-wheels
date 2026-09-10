@@ -9,6 +9,8 @@ tags:
   - pointer
   - playson
   - pragmatic
+  - spine
+  - labels
 ---
 
 A ring owns the motion; a skin owns the pixels. Swap `GraphicsRingSkin` for a texture or a Spine skeleton and nothing about the spin changes.
@@ -19,6 +21,12 @@ Fills, label colours, tangential and upright labels, a section with no label. La
 
 <RecipeDemo code="labels-and-styles" />
 
+## Rich labels: icons, texts and containers in sections
+
+A section's `content` is any container: a pill with fitted text, an icon stacked over a value, a group that keeps animating. The label layer places it at the label radius, rotates it radially, tangentially (top out or top in) or upright, and fits it into the room the wedge has. `fitText`, `fitContainer` and `labelSlot` are the helpers behind it, yours to call as well.
+
+<RecipeDemo code="rich-labels" />
+
 ## Pointers that flap
 
 Three pointers on one ring with different spring settings. Every divider under any of them fires `pointer:tick`.
@@ -27,16 +35,22 @@ Three pointers on one ring with different spring settings. Every divider under a
 
 ## Playson: Four Charged Clovers, Super Wheel
 
-The twelve authored wedge plates, bezel, dividers, bulbs, hub and stopper from the game's own atlas. The engine knows twelve equal sections and where they are; the skin knows how they look.
+The twelve authored wedge plates, bezel, dividers, bulbs, hub and stopper from the game's own atlas, composed in a custom skin. The engine knows twelve equal sections and where they are; the skin knows how they look.
 
 <RecipeDemo code="playson-wheel" height={440} />
+
+## Playson: the Super Wheel as a Spine skeleton
+
+The same art driven as Spine: `SpineRingSkin` turns the `wheel` bone and plays the skeleton's animations by name. The bulbs alternate at rest and chase during the spin; on landing the game's sector sweep, sector glow, gold sparkle, rainbow shockwave and bulb strobe play on the winning plate (`winBySection`). The stopper is a `SpinePointerSkin` with a `tick` swing per divider, and the coin values are rich labels on the disc. The game's own sounds play through `@schmooky/zvuk`. Sound needs a click: press Spin.
+
+<RecipeDemo code="playson-spine-wheel" height={460} />
 
 <AssetCredit studio="Playson" />
 
 ## Pragmatic Play: Wheel of Happiness
 
-The golden ring frame, the pointer and the logo on a painted red-and-gold face, with a `TexturePointerSkin` for the stopper.
+As the game shows it: twelve gold-framed plates round the golden dragon hub, WILD WINS in red and FREE SPINS in green, read from six o'clock by the gem-tipped pointer. Each label is rich content (two lines of gold text with the top toward the hub and the game's bitmap `+`), fitted into its plate. On landing the losing plates dim and the game's own `whh_wheel_fx` skeleton plays: the ring flare round the hub at spin start, the selection frames pulsing on the winner.
 
-<RecipeDemo code="texture-wheel-pragmatic" height={460} />
+<RecipeDemo code="pragmatic-wheel" height={520} />
 
 <AssetCredit studio="Pragmatic Play" />

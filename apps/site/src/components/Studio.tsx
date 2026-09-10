@@ -296,10 +296,12 @@ export default function Studio() {
       overlayRef.current.destroy();
       overlayRef.current = null;
       setDebugOn(false);
+      fitRef.current?.();
       return;
     }
     overlayRef.current = debugOverlay(wheel, { layers: 'all', live: true, ticker: app.ticker });
     setDebugOn(true);
+    fitRef.current?.();
   }
 
   async function onUpload(files: FileList): Promise<void> {

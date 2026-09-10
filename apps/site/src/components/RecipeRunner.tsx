@@ -42,6 +42,7 @@ export function RecipeRunner({ code, height = 340 }: RecipeRunnerProps) {
   const onSkipRef = useRef<(() => void) | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
   const overlayRef = useRef<DebugOverlayHandle[]>([]);
+  const fitRef = useRef<(() => void) | null>(null);
   const [spinning, setSpinning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -111,6 +112,7 @@ export function RecipeRunner({ code, height = 340 }: RecipeRunnerProps) {
           );
         };
         fit();
+        fitRef.current = fit;
         app.renderer.on('resize', fit);
       }
       if (result.wheel) {
@@ -180,10 +182,13 @@ export function RecipeRunner({ code, height = 340 }: RecipeRunnerProps) {
       for (const o of overlayRef.current) o.destroy();
       overlayRef.current = [];
       setDebugOn(false);
+      fitRef.current?.();
       return;
     }
     overlayRef.current = [debugOverlay(wheel, { layers: 'all', live: true, ticker: app.ticker })];
     setDebugOn(true);
+    // The overlay adds to the wheel's bounds; refit so nothing is cropped.
+    fitRef.current?.();
   }
 
   function openInStudio() {

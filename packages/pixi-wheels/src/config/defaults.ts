@@ -22,6 +22,7 @@ export const DEFAULT_LABEL_STYLE: Omit<ResolvedSectionStyle, 'fill' | 'alpha' | 
   labelWeight: '700',
   labelOrientation: 'radial',
   labelRadius: 0.68,
+  labelFit: 'contain',
 };
 
 export const DEFAULT_POINTER: Required<Omit<PointerConfig, 'flap'>> & { flap: FlapConfig } = {
