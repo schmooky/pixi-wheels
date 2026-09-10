@@ -3,7 +3,7 @@
   "changelog": [
     "@changesets/changelog-github",
     {
-      "repo": "igaming-bulochka/pixi-wheels"
+      "repo": "schmooky/pixi-wheels"
     }
   ],
   "commit": false,

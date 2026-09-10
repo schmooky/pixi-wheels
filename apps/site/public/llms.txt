@@ -4,8 +4,8 @@ pixi-wheels 0.1.0 is a bonus wheel engine for PixiJS v8.
 Fluent builder, typed events, velocity-matched planned stops, anticipation (creep / stutter / overshoot), dynamic sectors, rings, pointers with flap physics, idle spin, texture and Spine skins, a headless testing harness.
 Outcome math, RTP and audio live in consumer code: the wheel lands where `setResult()` says.
 
-Site: https://pixi-wheels.pages.dev
-Repo: https://github.com/igaming-bulochka/pixi-wheels
+Site: https://pixi-wheels.schmooky.dev
+Repo: https://github.com/schmooky/pixi-wheels
 Package: https://www.npmjs.com/package/pixi-wheels
 
 ## Quick start
@@ -28,7 +28,7 @@ await spin;
 ## Guides
 
 ### Server adapters
-URL: https://pixi-wheels.pages.dev/guides/adapters/
+URL: https://pixi-wheels.schmooky.dev/guides/adapters/
 
 `setResult()` takes a `WheelTarget`:
 
@@ -55,7 +55,7 @@ wheel.setResult(toTarget(response));
 `resolveTarget(geometry, target, { mode, margin, rng })` is the pure function behind `setResult()`, for pre-computing a landing.
 
 ### Anticipation
-URL: https://pixi-wheels.pages.dev/guides/anticipation/
+URL: https://pixi-wheels.schmooky.dev/guides/anticipation/
 
 Anticipation baits the player with one section and lands on another. It is planned from the result, so it is deterministic, testable and always lands where the server said.
 
@@ -99,7 +99,7 @@ A clockwise wheel sweeps decreasing local angles under the pointer, so it meets 
 With `protectSkip: true` (or `.skip({ protectAnticipation: true })`) the first press fast-forwards to the bait and lets the tease play; the second press lands. `skip:requested` carries `protectedByAnticipation` so audio can tell the two apart.
 
 ### Configs and templates
-URL: https://pixi-wheels.pages.dev/guides/configs/
+URL: https://pixi-wheels.schmooky.dev/guides/configs/
 
 ```ts
 const cfg = builder.toConfig();                                   // WheelConfig, plain JSON
@@ -119,7 +119,7 @@ A `WheelConfig` holds the rings (sections, radii, pointers, skin config, dynamic
 The [studio](/studio/) edits a `WheelConfig` in forms, rebuilds the wheel on every change, shows the fluent code the config stands for, takes your uploads, and exports the JSON or a runnable Vite project with the assets under `public/assets/`.
 
 ### Debugging
-URL: https://pixi-wheels.pages.dev/guides/debugging/
+URL: https://pixi-wheels.schmooky.dev/guides/debugging/
 
 PixiJS draws to a canvas; the debug tools describe the wheel in words and lines.
 
@@ -150,7 +150,7 @@ __PIXI_WHEELS_DEBUG.land('x50')  // setResult on the current spin
 `DebugRingSkin` is the plain look for wiring a wheel before the art exists. Every recipe on this site has a Debug button that toggles the overlay.
 
 ### Dynamic sections
-URL: https://pixi-wheels.pages.dev/guides/dynamic-sections/
+URL: https://pixi-wheels.schmooky.dev/guides/dynamic-sections/
 
 Some features change the wheel's look as a round progresses: a jackpot sector grows, a gamble's green half shrinks. In pixi-wheels a section's arc is its weight, and weights can change any time. Labels and skins re-lay out on every frame of the transition; the spin's landing angle is fixed when the result arrives and does not move.
 
@@ -193,7 +193,7 @@ Think of the rim as N slots and use integer weights: a step moves a border by ex
 `GraphicsRingSkin` and `TextureRingSkin` follow weights (wedges, labels and per-section decorations move). Authored art (`PlaysonWheelSkin` on this site, `SpineRingSkin`) is painted for fixed arcs and does not.
 
 ### Events and audio
-URL: https://pixi-wheels.pages.dev/guides/events-and-audio/
+URL: https://pixi-wheels.schmooky.dev/guides/events-and-audio/
 
 ```ts
 wheel.events.on('spin:start', ({ ring, fromIdle }) => ...);
@@ -223,7 +223,7 @@ wheel.events.on('spin:start', ({ ring, fromIdle }) => ...);
 Wire audio to events, never to method calls: a skip, a slam and a normal stop all reach `spin:landing`.
 
 ### Getting started
-URL: https://pixi-wheels.pages.dev/guides/getting-started/
+URL: https://pixi-wheels.schmooky.dev/guides/getting-started/
 
 pixi-wheels is a bonus wheel engine. You drop it into a PixiJS v8 app.
 
@@ -295,7 +295,7 @@ Nothing happened? One of these:
 - **Click instead of type** -> [Studio](/studio/)
 
 ### Idle spin
-URL: https://pixi-wheels.pages.dev/guides/idle/
+URL: https://pixi-wheels.schmooky.dev/guides/idle/
 
 ```ts
 .idle({ speed: 14, direction: 'cw', autoStart: true, rampMs: 800 })
@@ -311,7 +311,7 @@ wheel.idle.stop();           // ramps down
 Placement is yours: scale the wheel down and park it in a corner, then tween it over the reels for the feature. The [side wheel recipe](/recipes/sections-rings-idle/#a-wheel-beside-the-reels) shows the whole move.
 
 ### Landing and settle
-URL: https://pixi-wheels.pages.dev/guides/landing/
+URL: https://pixi-wheels.schmooky.dev/guides/landing/
 
 ## Where inside the section
 
@@ -348,7 +348,7 @@ settle: { mode: 'bounce', bounceDeg: 5, durationMs: 500 }
 The profile's `skipDuration` is the length of the fast-forward.
 
 ### Pointers
-URL: https://pixi-wheels.pages.dev/guides/pointers/
+URL: https://pixi-wheels.schmooky.dev/guides/pointers/
 
 ```ts
 .pointer({
@@ -386,7 +386,7 @@ new TexturePointerSkin({ texture, artDirection: 'up', pin: { x: 0.5, y: 0.85 }, 
 The pin is the point the art pivots around; `artDirection` says which way the tip points in the source image. `SpinePointerSkin` (from `pixi-wheels/spine`) plays a `tick` animation on every crossing and an `idle` loop otherwise.
 
 ### Rings and subwheels
-URL: https://pixi-wheels.pages.dev/guides/rings/
+URL: https://pixi-wheels.schmooky.dev/guides/rings/
 
 ```ts
 const wheel = new WheelBuilder()
@@ -432,7 +432,7 @@ wheel.events.on('spin:landing', ({ ring, section }) => {
 ```
 
 ### Sections and arcs
-URL: https://pixi-wheels.pages.dev/guides/sections/
+URL: https://pixi-wheels.schmooky.dev/guides/sections/
 
 A ring is a list of sections laid out clockwise from `startAngle` (default -90, twelve o'clock). Each section's arc is its `weight` share of 360 degrees.
 
@@ -482,7 +482,7 @@ wheel.main.localAngleUnderPointer();         // wheel-local degrees under the po
 Angles are wheel-local: they turn with the disc. A point at local angle `a` is on screen at `a + rotation`, so the pointer at screen angle `p` reads local `p - rotation`. A clockwise spin therefore sweeps *decreasing* local angles under the pointer: it enters a section through its `endAngle` and leaves through its `startAngle`. `geometry.entryAngle(section, direction)` spells this out; the anticipation planner relies on it.
 
 ### Skins, textures and Spine
-URL: https://pixi-wheels.pages.dev/guides/skins/
+URL: https://pixi-wheels.schmooky.dev/guides/skins/
 
 A ring owns the motion; a skin owns the pixels. The ring hands the skin two containers - `disc`, which rotates, and `overlay`, which does not - plus the geometry, and calls `layout()` whenever weights change.
 
@@ -536,7 +536,7 @@ registerRingSkin('mine', (config, assets) => new MySkin(config));
 The Playson wheel on the recipes page is exactly this: authored plates composed from an atlas, in ~150 lines.
 
 ### Spin lifecycle
-URL: https://pixi-wheels.pages.dev/guides/spin-lifecycle/
+URL: https://pixi-wheels.schmooky.dev/guides/spin-lifecycle/
 
 ```
 idle -> starting -> cruising -> stopping -> [settling] -> idle
@@ -593,7 +593,7 @@ interface WheelSpinResult {
 ```
 
 ### Studio
-URL: https://pixi-wheels.pages.dev/guides/studio/
+URL: https://pixi-wheels.schmooky.dev/guides/studio/
 
 The [studio](/studio/) is a live wheel with its config beside it.
 
@@ -607,7 +607,7 @@ The [studio](/studio/) is a live wheel with its config beside it.
 On the canvas: pick the section the next spin lands on and the bait, switch speed profiles, step dynamic sections, toggle the debug overlay.
 
 ### Testing
-URL: https://pixi-wheels.pages.dev/guides/testing/
+URL: https://pixi-wheels.schmooky.dev/guides/testing/
 
 ```ts
 import { createTestWheel, expectPointerOn, captureEvents, seededRng } from 'pixi-wheels/testing';
@@ -634,7 +634,7 @@ h.destroy();
 - `planStop()` and `resolveTarget()` are pure; test them without a wheel.
 
 ### Your first wheel
-URL: https://pixi-wheels.pages.dev/guides/your-first-wheel/
+URL: https://pixi-wheels.schmooky.dev/guides/your-first-wheel/
 
 This is the shape of a shipped feature: a multiplier wheel that opens when the base game awards it, spins while the server answers, baits with the top prize, lands, presents, and hands control back.
 
@@ -732,7 +732,7 @@ No renderer, no timers. The whole spin runs on a fake ticker in a few millisecon
 ## API guides
 
 ### Builder
-URL: https://pixi-wheels.pages.dev/docs/api-builder/
+URL: https://pixi-wheels.schmooky.dev/docs/api-builder/
 
 `new WheelBuilder()` configures the main ring through its own methods and extra rings through `ring()`. `build()` validates and returns a `Wheel`.
 
@@ -773,7 +773,7 @@ URL: https://pixi-wheels.pages.dev/docs/api-builder/
 `build()` throws on: no ticker; no radius; fewer than two sections; duplicate section or pointer ids; non-positive weights; inner radius not below outer; overlapping rings; unknown `initialSpeed`; a profile field out of range; an unknown ease anywhere; a dynamic step naming an unknown section; an idle speed of zero. Each message names the call to fix.
 
 ### Events
-URL: https://pixi-wheels.pages.dev/docs/api-events/
+URL: https://pixi-wheels.schmooky.dev/docs/api-events/
 
 `wheel.events` is an `EventEmitter<WheelEvents>`. `on(name, fn)`, `once`, `off`, `removeAllListeners`, `listenerCount`. A listener that throws stops the remaining listeners for that emit and propagates into the engine; wrap anything that can throw.
 
@@ -806,7 +806,7 @@ interface WheelEvents {
 Order within a spin: `spin:start`, `spin:resultSet` and `spin:cruise` in whichever order the server and the wind-up finish, `spin:stopping`, `anticipation:start`, `anticipation:bait`, `anticipation:end`, `spin:landing`, `spin:settle:start`, `spin:settle:end`, `spin:complete`. A skip inserts `skip:requested` when pressed and `skip:completed` right before `spin:landing`.
 
 ### Spin profiles
-URL: https://pixi-wheels.pages.dev/docs/api-profiles/
+URL: https://pixi-wheels.schmooky.dev/docs/api-profiles/
 
 ```ts
 interface SpinProfile {
@@ -841,7 +841,7 @@ The planner matches the ease's start slope to the cruise speed so the hand-off i
 Names follow the GSAP vocabulary without depending on it: `none`, `linear`, `power1..4.in|out|inOut` (`quad`, `cubic`, `quart`, `quint` are aliases), `sine.*`, `expo.*`, `circ.*`, `back.in|out(1.7)`. Or pass a `(t) => number`. `EASE_NAMES` lists them; `resolveEase(name)` throws on a typo with the list.
 
 ### Wheel and Ring
-URL: https://pixi-wheels.pages.dev/docs/api-wheel/
+URL: https://pixi-wheels.schmooky.dev/docs/api-wheel/
 
 `Wheel` is a `Container` holding one or more `Ring`s. Methods without a `ring` argument address the main ring.
 
@@ -910,7 +910,7 @@ ring.update(deltaMS)                // called by the ticker; call by hand with a
 `wheel.destroy()` destroys every ring (skins, pointers, ticker callbacks), emits `destroyed`, drops all listeners, and destroys the container tree.
 
 ### Glossary
-URL: https://pixi-wheels.pages.dev/docs/glossary/
+URL: https://pixi-wheels.schmooky.dev/docs/glossary/
 
 **Anticipation**: a planned near-miss. The pointer heads for the *bait* and lands on the *target*. Styles: creep, stutter, overshoot.
 
@@ -957,7 +957,7 @@ URL: https://pixi-wheels.pages.dev/docs/glossary/
 ## Recipes
 
 ### Anticipation and near-miss
-URL: https://pixi-wheels.pages.dev/recipes/anticipation/
+URL: https://pixi-wheels.schmooky.dev/recipes/anticipation/
 
 Bait the player with one section and land on another - creep, stutter, overshoot, and a tease that survives a skip.
 
@@ -1151,7 +1151,7 @@ return {
 ```
 
 ### Server, events and debugging
-URL: https://pixi-wheels.pages.dev/recipes/integration/
+URL: https://pixi-wheels.schmooky.dev/recipes/integration/
 
 Adapters for real server responses, every sound hook, the debug view, and configs that round-trip.
 
@@ -1327,7 +1327,7 @@ return { wheel };
 ```
 
 ### Dynamic sectors, rings and idle
-URL: https://pixi-wheels.pages.dev/recipes/sections-rings-idle/
+URL: https://pixi-wheels.schmooky.dev/recipes/sections-rings-idle/
 
 Sector shares that move step by step, an inner ring spun by the outer one, and a wheel that idles beside the reels.
 
@@ -1693,7 +1693,7 @@ return {
 ```
 
 ### Skins and assets
-URL: https://pixi-wheels.pages.dev/recipes/skins/
+URL: https://pixi-wheels.schmooky.dev/recipes/skins/
 
 Painted, textured and studio-art wheels, per-section styles, and pointers that flap.
 
@@ -1857,7 +1857,7 @@ return {
 ```
 
 ### Starters
-URL: https://pixi-wheels.pages.dev/recipes/starters/
+URL: https://pixi-wheels.schmooky.dev/recipes/starters/
 
 A wheel in ten lines, the two-colour gamble, and building from a template.
 
@@ -2007,7 +2007,7 @@ return {
 ```
 
 ### Stopping
-URL: https://pixi-wheels.pages.dev/recipes/stopping/
+URL: https://pixi-wheels.schmooky.dev/recipes/stopping/
 
 Where the pointer ends up - centre, random or an exact angle - and what happens after it lands.
 

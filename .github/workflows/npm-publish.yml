@@ -11,7 +11,7 @@ name: npm-publish
 #
 # A single trusted publisher entry on https://www.npmjs.com/package/pixi-wheels/access
 # covers both:
-#   org/user:   igaming-bulochka
+#   org/user:   schmooky
 #   repository: pixi-wheels
 #   workflow:   npm-publish.yml
 #   environment: npm-publish

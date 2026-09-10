@@ -83,7 +83,7 @@ template: |
 
   $CHANGES
 
-  **Full changelog**: https://github.com/igaming-bulochka/pixi-wheels/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+  **Full changelog**: https://github.com/schmooky/pixi-wheels/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
 
 autolabeler:
   - label: 'bug'

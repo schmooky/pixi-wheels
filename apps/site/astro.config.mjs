@@ -12,7 +12,7 @@ const repoRoot = resolve(here, '../..');
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://pixi-wheels.pages.dev',
+  site: 'https://pixi-wheels.schmooky.dev',
   prefetch: {
     defaultStrategy: 'hover',
     prefetchAll: false,

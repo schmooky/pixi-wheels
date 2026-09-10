@@ -5,7 +5,7 @@ Thanks for your interest in pixi-wheels. This file covers the mechanics; [AGENTS
 ## Quick start
 
 ```bash
-git clone https://github.com/igaming-bulochka/pixi-wheels.git
+git clone https://github.com/schmooky/pixi-wheels.git
 cd pixi-wheels
 pnpm install
 pnpm --filter pixi-wheels test

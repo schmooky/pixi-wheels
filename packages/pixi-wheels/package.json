@@ -71,14 +71,14 @@
     "vitest": "^5.0.0"
   },
   "license": "MIT",
-  "author": "igaming-bulochka",
-  "homepage": "https://github.com/igaming-bulochka/pixi-wheels#readme",
+  "author": "schmooky",
+  "homepage": "https://github.com/schmooky/pixi-wheels#readme",
   "bugs": {
-    "url": "https://github.com/igaming-bulochka/pixi-wheels/issues"
+    "url": "https://github.com/schmooky/pixi-wheels/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/igaming-bulochka/pixi-wheels.git",
+    "url": "git+https://github.com/schmooky/pixi-wheels.git",
     "directory": "packages/pixi-wheels"
   },
   "keywords": [

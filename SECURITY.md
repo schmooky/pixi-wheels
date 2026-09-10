@@ -6,7 +6,7 @@ Only the latest release of `pixi-wheels` receives security fixes. Snapshot relea
 
 ## Reporting a vulnerability
 
-Please do not file a public issue. Open a draft advisory at https://github.com/igaming-bulochka/pixi-wheels/security/advisories/new with a description, a reproducer and the version or commit.
+Please do not file a public issue. Open a draft advisory at https://github.com/schmooky/pixi-wheels/security/advisories/new with a description, a reproducer and the version or commit.
 
 ## What to expect
 

@@ -2,9 +2,9 @@ import { PIXI_WHEELS_VERSION } from './version.ts';
 
 export const SITE = {
   name: 'pixi-wheels',
-  url: 'https://pixi-wheels.pages.dev',
+  url: 'https://pixi-wheels.schmooky.dev',
   author: 'pixi-wheels contributors',
-  githubRepo: 'https://github.com/igaming-bulochka/pixi-wheels',
+  githubRepo: 'https://github.com/schmooky/pixi-wheels',
   tagline: 'Open-source bonus wheel engine for PixiJS v8',
   description:
     'Open-source bonus wheel engine for PixiJS v8. Fluent builder, typed events, velocity-matched stops, anticipation and near-miss styles, dynamic sectors, rings and subwheels, pointer flap physics, idle spin, and a headless testing harness. MIT licensed.',

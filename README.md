@@ -1,8 +1,8 @@
 # pixi-wheels
 
 [![npm version](https://img.shields.io/npm/v/pixi-wheels?color=cb3837&logo=npm)](https://www.npmjs.com/package/pixi-wheels)
-[![CI](https://github.com/igaming-bulochka/pixi-wheels/actions/workflows/ci.yml/badge.svg)](https://github.com/igaming-bulochka/pixi-wheels/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/igaming-bulochka/pixi-wheels/blob/main/LICENSE)
+[![CI](https://github.com/schmooky/pixi-wheels/actions/workflows/ci.yml/badge.svg)](https://github.com/schmooky/pixi-wheels/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/schmooky/pixi-wheels/blob/main/LICENSE)
 [![PixiJS v8](https://img.shields.io/badge/PixiJS-v8-e91e63)](https://pixijs.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
@@ -14,7 +14,7 @@ Install:
 pnpm add pixi-wheels pixi.js
 ```
 
-Docs, live recipes and the studio at [pixi-wheels.pages.dev](https://pixi-wheels.pages.dev). Agent-facing instructions are in [AGENTS.md](./AGENTS.md).
+Docs, live recipes and the studio at [pixi-wheels.schmooky.dev](https://pixi-wheels.schmooky.dev). Agent-facing instructions are in [AGENTS.md](./AGENTS.md).
 
 ## Quick start
 
@@ -104,7 +104,7 @@ __PIXI_WHEELS_DEBUG.overlay()   // dividers, angles, landing marker, HUD
 
 ## Recipes and studio
 
-Thirty live demos under [`/recipes`](https://pixi-wheels.pages.dev/recipes/), each with its source beside it: gamble wheels, stopping modes, every anticipation style, dynamic sectors, rings, idle wheels, textured and Spine skins with studio art, server adapters, sound hooks, the debug view. The [studio](https://pixi-wheels.pages.dev/studio/) edits a wheel in forms, takes your assets, and exports a config or a project.
+Thirty live demos under [`/recipes`](https://pixi-wheels.schmooky.dev/recipes/), each with its source beside it: gamble wheels, stopping modes, every anticipation style, dynamic sectors, rings, idle wheels, textured and Spine skins with studio art, server adapters, sound hooks, the debug view. The [studio](https://pixi-wheels.schmooky.dev/studio/) edits a wheel in forms, takes your assets, and exports a config or a project.
 
 ```bash
 pnpm site:dev     # the whole thing, locally
