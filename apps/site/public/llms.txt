@@ -64,18 +64,29 @@ wheel.setResult({ value: 2 }, {
   anticipation: {
     bait: 'x50',              // section id, or { index }
     style: 'auto',            // 'creep' | 'stutter' | 'overshoot' | 'auto'
+    rest: 0.22,               // where the pointer rests: this far into the target from the shared line ('keep' to leave it)
     creepSpeed: 40,           // deg/s entering the bait (creep)
-    dwellMs: 700,             // hold time (stutter, overshoot)
-    pushMs: 900,              // final nudge (stutter)
-    overshootDeg: 6,          // how far into the bait (overshoot)
-    returnMs: 800,            // roll back (overshoot)
+    dwellMs: 180,             // the beat at the apex (stutter, overshoot)
+    pushMs: 700,              // final nudge over the line (stutter)
+    overshootDeg: 5,          // how far past the line (overshoot); default a fifth of the bait, at most 5
+    returnMs: 800,            // roll back (overshoot); default scales with the distance
     maxDistanceDeg: 150,      // how far the bait may be from the landing
     protectSkip: false,
   },
 });
 ```
 
-Set `.landing({ anticipation: { bait: 'x50' } })` on the builder to bait every spin.
+Set `.landing({ anticipation: { bait: 'x50' } })` on the builder to bait every spin. The defaults are tuned; `bait` alone gives the beat below.
+
+## The near-miss beat
+
+The feeling to hit is "it is going to be the jackpot... it is the one before it". Three things make it read:
+
+1. **The approach is slow.** The stop ease crawls into its last degrees, so the pointer takes its time reaching the line between the result and the bait.
+2. **The tongue only just crosses.** With `overshoot` the wheel runs out of momentum a few degrees past the line (a fifth of the bait, never more than five degrees), holds one beat (`dwellMs`, 180 ms), and rolls back over the line on a soft in-out curve whose length grows with the distance. Nothing snaps. With `creep` the pointer crawls through the bait and barely makes it over the line into the result.
+3. **It rests by the line.** Whatever the landing mode says, a tease puts the landing angle just inside the target, `rest` of its arc from the divider it shares with the bait. The pointer ends up hugging the line it almost crossed, which is where the eye expects it. Set `rest: 'keep'` to let the landing mode place it, or add `settle: 'center'` to glide to the middle once the beat has landed. A target with its own `offset`, an `angle` / `position` target, or `mode: 'exact'` is never moved.
+
+The roll back and the crawl both pass the divider under the pointer, so `pointer:tick` fires for them too, with `direction` reversed on the way back. Wire the flapper's kick and its click to that event and the miss sounds right as well.
 
 ## Geometry
 
@@ -642,16 +653,16 @@ idling (optional slow rotation while nothing happens)
 The moment the stop may begin, the engine plans it as a list of legs and plays them back. The first leg starts at the cruise speed: its ease's initial slope is matched to the speed, so the distance fixes the duration and the planner picks the number of full turns that gets closest to the profile's `stopDuration`. There is no velocity step when the result arrives.
 
 - Plain stop: one leg to the landing angle.
-- Creep: a leg to the bait's entry edge ending at `creepSpeed`, then a crawl to the landing.
-- Stutter: a leg to a halt inside the bait, a dwell, a push over the line.
-- Overshoot: a leg past the landing into the bait, a dwell, a roll back.
+- Creep: a leg to the bait's entry edge ending at `creepSpeed`, then a crawl over the line to a rest just inside the landing section.
+- Stutter: a leg to a halt a hair inside the bait, a beat, a push over the line.
+- Overshoot: a leg a few degrees past the line into the bait, a beat, a soft roll back to a rest just inside the landing section.
 - Settle: a dwell and a glide to the centre, or a bounce out and back.
 
 `spin:stopping` reports the turn count and total duration; the debug overlay draws the current leg.
 
 ## Landing angle
 
-`setResult()` resolves the target to a wheel-local angle at once: the section's middle, a random spot inside it, or the exact offset or angle you passed. The stop is planned against that angle, so a dynamic-section change during the spin does not move the landing.
+`setResult()` resolves the target to a wheel-local angle at once: the section's middle, a random spot inside it, or the exact offset or angle you passed. A tease moves that angle next to the divider the target shares with the bait (`rest`), so the miss reads as "by a hair". The stop is planned against the final angle, so a dynamic-section change during the spin does not move the landing.
 
 ## Skip and slam
 
@@ -1097,15 +1108,17 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 ## Anticipation
 
-**Anticipation**: a planned near-miss. The pointer heads for the bait and lands on the target. `anticipation:start`, `anticipation:bait`, `anticipation:end`. [Anticipation](/guides/anticipation/)
+**Anticipation**: a planned near-miss. The pointer heads for the bait, lands on the target, and rests by the line the two share. `anticipation:start`, `anticipation:bait`, `anticipation:end`. [Anticipation](/guides/anticipation/)
 
 **Bait**: the section the player is meant to hope for during a tease. Must be reachable within the anticipation's arc; the builder throws when it is not.
 
-**Creep**: the pointer crawls past the bait and stops one section later.
+**Creep**: the pointer crawls through the bait and barely crosses the line into the target.
 
-**Overshoot**: the pointer runs into the bait, stops, and rolls back onto the target.
+**Overshoot**: the wheel runs out of momentum with the pointer a few degrees past the line, into the bait, holds a beat and rolls softly back onto the target. Never more than a quarter of the bait, five degrees by default.
 
-**Stutter**: the pointer twitches at the bait before finishing.
+**Rest**: where the pointer ends after a tease: a fraction of the target's arc (0.22 by default) from the divider it shares with the bait. `rest: 'keep'` leaves the landing mode in charge.
+
+**Stutter**: the wheel halts with the pointer a hair inside the bait, holds, then nudges over the line.
 
 **Auto**: picks creep, stutter or overshoot from the distance between bait and target.
 
@@ -1222,8 +1235,9 @@ Bait the player with one section and land on another - creep, stutter, overshoot
 
 // The classic near-miss. The server says x2; the wheel slows to a crawl as
 // the pointer enters the x50 sliver right before it, keeps slowing across
-// it, and barely crosses the line into x2. Bait must sit just BEFORE the
-// landing in the spin direction; the engine checks and tells you if not.
+// it, and barely crosses the line into x2, resting right next to it. Bait
+// must sit just BEFORE the landing in the spin direction; the engine checks
+// and tells you if not.
 const wheel = new WheelBuilder()
   .radius(240, 34)
   .sections([
@@ -1283,7 +1297,7 @@ return {
   onSpin: async () => {
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 300));
-    wheel.setResult({ section: 'mini' }, { anticipation: { bait: 'grand', style: 'stutter', dwellMs: 800, pushMs: 1000 } });
+    wheel.setResult({ section: 'mini' }, { anticipation: { bait: 'grand', style: 'stutter', dwellMs: 600, pushMs: 800 } });
     await spin;
   },
 };
@@ -1295,8 +1309,11 @@ return {
 // @ts-nocheck
 // Injected globals: WheelBuilder, SpinPresets, app
 
-// Overshoot: the bait sits just AFTER the landing. The wheel passes the
-// result, stops a few degrees into the jackpot, holds, and rolls back.
+// Overshoot: the bait sits just AFTER the landing. The wheel runs out of
+// momentum with the pointer a few degrees past the line, into the jackpot,
+// holds a beat, and rolls softly back over it. It rests on the result next to
+// that line: "it was going to be GRAND". Every default is tuned for that
+// beat; the wheel spins the same with no options at all.
 const wheel = new WheelBuilder()
   .radius(240, 34)
   .sections([
@@ -1316,11 +1333,9 @@ return {
   onSpin: async () => {
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 300));
-    // Clockwise the pointer meets grand BEFORE minor... so land on minor and
-    // bait with grand? No: overshoot wants the bait AFTER the landing. The
-    // pointer meets minor, then grand. Land minor, bait grand -> 'auto'
-    // picks overshoot.
-    wheel.setResult({ section: 'minor' }, { anticipation: { bait: 'grand', overshootDeg: 7, dwellMs: 700, returnMs: 900 } });
+    // Clockwise the pointer meets minor, then grand: the bait comes AFTER the
+    // landing, so 'auto' picks overshoot. Land minor, bait grand.
+    wheel.setResult({ section: 'minor' }, { anticipation: { bait: 'grand' } });
     await spin;
   },
 };
@@ -2252,12 +2267,13 @@ const wheel = new WheelBuilder()
   })))
   .pointer({
     angle: 90,
-    tipInset: 30 * k,
+    tipInset: 40 * k,
     skin: new TexturePointerSkin({ texture: art.pointer, artDirection: 'up', pin: { x: 0.5, y: 0.86 }, scale: k * 1.35 }),
     flap: { maxAngle: 10, stiffness: 500, damping: 18 },
   })
   .skin(new PragmaticWheelSkin({ art }))
-  .landing({ mode: 'center', settle: 'none' })
+  // The tease rests by the line; the settle then centres the winning plate under the pointer.
+  .landing({ mode: 'center', settle: { mode: 'center', delayMs: 450, durationMs: 700 } })
   .speed('normal', SpinPresets.NORMAL)
   .ticker(app.ticker)
   .build();

@@ -3,8 +3,9 @@
 
 // The classic near-miss. The server says x2; the wheel slows to a crawl as
 // the pointer enters the x50 sliver right before it, keeps slowing across
-// it, and barely crosses the line into x2. Bait must sit just BEFORE the
-// landing in the spin direction; the engine checks and tells you if not.
+// it, and barely crosses the line into x2, resting right next to it. Bait
+// must sit just BEFORE the landing in the spin direction; the engine checks
+// and tells you if not.
 const wheel = new WheelBuilder()
   .radius(240, 34)
   .sections([

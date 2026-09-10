@@ -1,8 +1,11 @@
 // @ts-nocheck
 // Injected globals: WheelBuilder, SpinPresets, app
 
-// Overshoot: the bait sits just AFTER the landing. The wheel passes the
-// result, stops a few degrees into the jackpot, holds, and rolls back.
+// Overshoot: the bait sits just AFTER the landing. The wheel runs out of
+// momentum with the pointer a few degrees past the line, into the jackpot,
+// holds a beat, and rolls softly back over it. It rests on the result next to
+// that line: "it was going to be GRAND". Every default is tuned for that
+// beat; the wheel spins the same with no options at all.
 const wheel = new WheelBuilder()
   .radius(240, 34)
   .sections([
@@ -22,11 +25,9 @@ return {
   onSpin: async () => {
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 300));
-    // Clockwise the pointer meets grand BEFORE minor... so land on minor and
-    // bait with grand? No: overshoot wants the bait AFTER the landing. The
-    // pointer meets minor, then grand. Land minor, bait grand -> 'auto'
-    // picks overshoot.
-    wheel.setResult({ section: 'minor' }, { anticipation: { bait: 'grand', overshootDeg: 7, dwellMs: 700, returnMs: 900 } });
+    // Clockwise the pointer meets minor, then grand: the bait comes AFTER the
+    // landing, so 'auto' picks overshoot. Land minor, bait grand.
+    wheel.setResult({ section: 'minor' }, { anticipation: { bait: 'grand' } });
     await spin;
   },
 };

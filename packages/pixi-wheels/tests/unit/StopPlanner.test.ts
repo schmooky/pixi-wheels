@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SpinPresets } from '../../src/config/SpinPresets.js';
-import { pickTurns, planSettle, planSkip, planStop } from '../../src/spin/StopPlanner.js';
+import { defaultOvershootDeg, defaultReturnMs, pickTurns, planSettle, planSkip, planStop } from '../../src/spin/StopPlanner.js';
 import { resolveEase } from '../../src/utils/easing.js';
 
 const profile = SpinPresets.NORMAL;
@@ -104,8 +104,8 @@ describe('planStop', () => {
     });
     expect(plan.legs.map((l) => l.kind)).toEqual(['decel', 'dwell', 'push']);
     expect(plan.legs[1].duration).toBe(500);
-    // halt 8 deg before exit (90) => at 82; push covers 82 -> 100 = 18 deg
-    expect(plan.legs[2].distance).toBeCloseTo(18, 6);
+    // halt 5 deg before exit (90) => at 85; push covers 85 -> 100 = 15 deg
+    expect(plan.legs[2].distance).toBeCloseTo(15, 6);
     expect(simulate(plan, 0, 'cw') % 360).toBeCloseTo(100, 6);
   });
 
@@ -132,6 +132,39 @@ describe('planStop', () => {
     expect(plan.legs.map((l) => l.kind)).toEqual(['decel', 'dwell', 'return']);
     expect(plan.legs[2].reverse).toBe(true);
     expect(plan.legs[2].distance).toBeCloseTo(26, 6); // 20 to the bait entry + 6 overshoot
+    expect(plan.legs[2].duration).toBe(700);
+    expect(simulate(plan, 0, 'cw') % 360).toBeCloseTo(100, 6);
+  });
+
+  it('overshoot defaults: only slightly over the line, and a roll back that scales with the distance', () => {
+    const plan = planStop({
+      rotation: 0,
+      speed: 540,
+      direction: 'cw',
+      landingRotation: 100,
+      profile,
+      anticipation: {
+        style: 'overshoot',
+        baitId: 'bait',
+        baitEntryRotation: 106.6, // the landing rests 6.6 deg inside a 30 deg target
+        baitExitRotation: 136.6,
+        baitArc: 30,
+        creepSpeed: 40,
+        dwellMs: 180,
+        pushMs: 700,
+      },
+    });
+    const ret = plan.legs[2];
+    // a fifth of a 30 deg bait is 6, capped to 5
+    expect(defaultOvershootDeg(30)).toBe(5);
+    expect(defaultOvershootDeg(60)).toBe(5);
+    expect(defaultOvershootDeg(10)).toBe(2);
+    expect(ret.distance).toBeCloseTo(6.6 + 5, 6);
+    expect(ret.duration).toBeCloseTo(defaultReturnMs(11.6), 6);
+    expect(defaultReturnMs(11.6)).toBeCloseTo(814, 6);
+    expect(defaultReturnMs(1)).toBe(450);
+    expect(defaultReturnMs(40)).toBe(1200);
+    expect(plan.legs[1].duration).toBe(180);
     expect(simulate(plan, 0, 'cw') % 360).toBeCloseTo(100, 6);
   });
 });

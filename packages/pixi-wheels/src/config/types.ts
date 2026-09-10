@@ -182,18 +182,21 @@ export interface LandingOptions {
 }
 
 /**
- * The shape of a near-miss.
+ * The shape of a near-miss. Every style rests the pointer just inside the
+ * target, next to the divider it shares with the bait (`rest`), so the miss
+ * reads as "by a hair" rather than "and then it moved to the middle".
  *
- *   - `'creep'`: the wheel decelerates to a crawl exactly as the pointer
- *     enters the bait section, keeps slowing across it, and barely crosses
- *     into the target. The bait must sit right before the target in the
- *     direction of spin.
- *   - `'stutter'`: the wheel stops with the pointer inside the bait, a few
+ *   - `'creep'`: the wheel slows to a crawl exactly as the pointer enters the
+ *     bait section, keeps slowing across it, and barely crosses the line into
+ *     the target. The bait must sit right before the target in the direction
+ *     of spin.
+ *   - `'stutter'`: the wheel halts with the pointer inside the bait, a few
  *     degrees short of the target's edge, holds for `dwellMs`, then nudges
  *     over the line. Same geometry as `'creep'`.
- *   - `'overshoot'`: the wheel passes the target, stops with the pointer a
- *     few degrees into the bait, holds, and rolls back into the target. The
- *     bait must sit right after the target.
+ *   - `'overshoot'`: the wheel runs out of momentum with the pointer only a
+ *     few degrees past the target's edge, into the bait, holds a beat, and
+ *     rolls softly back over the line. The bait must sit right after the
+ *     target. The "it was going to be the jackpot" miss.
  *   - `'auto'` (default): `'creep'` when the bait precedes the target,
  *     `'overshoot'` when it follows, otherwise no anticipation and a warning.
  */
@@ -205,14 +208,31 @@ export interface AnticipationOptions {
   style?: AnticipationStyle;
   /** `'creep'`: speed (deg/s) at which the pointer enters the bait. Default 40. */
   creepSpeed?: number;
-  /** `'stutter'` / `'overshoot'`: how long the wheel holds still. Default 700. */
+  /** `'stutter'` / `'overshoot'`: how long the wheel holds at the apex, ms. Default 180: a beat, not a stop. */
   dwellMs?: number;
-  /** `'stutter'`: length of the final nudge into the target. Default 900. */
+  /** `'stutter'`: length of the final nudge over the line, ms. Default 700. */
   pushMs?: number;
-  /** `'overshoot'`: how far into the bait the pointer goes. Default 6, capped to a quarter of the bait. */
+  /**
+   * `'overshoot'`: how far past the line the pointer goes, in degrees.
+   * Default a fifth of the bait's arc, at most 5. Always capped to a quarter
+   * of the bait, so the tongue is only ever slightly over.
+   */
   overshootDeg?: number;
-  /** `'overshoot'`: length of the roll back into the target. Default 800. */
+  /**
+   * `'overshoot'`: length of the roll back over the line, ms. Default scales
+   * with the distance (350 + 40 per degree, within 450..1200) so a longer
+   * roll never turns into a snap.
+   */
   returnMs?: number;
+  /**
+   * Where the pointer rests after the tease, as a fraction of the target's
+   * arc measured from the divider it shares with the bait. Default 0.22: on
+   * the target, hugging the line. `'keep'` leaves the landing angle to the
+   * landing mode. Ignored when the target carries its own `offset`, is an
+   * `angle` / `position`, or the landing mode is `'exact'`. Add
+   * `settle: 'center'` to glide to the middle afterwards.
+   */
+  rest?: number | 'keep';
   /**
    * The furthest the bait's edge may be from the landing angle for the
    * tease to be planned, in degrees. Default 150. Beyond it the bait is not

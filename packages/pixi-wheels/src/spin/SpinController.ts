@@ -11,8 +11,9 @@ import type {
   SpinProfile,
   WheelSpinResult,
   WheelTarget,
+  LandingMode,
 } from '../config/types.js';
-import { DEFAULT_LANDING, DEFAULT_SETTLE, DEFAULTS } from '../config/defaults.js';
+import { DEFAULT_LANDING, DEFAULT_SETTLE, DEFAULTS, DEFAULT_ANTICIPATION } from '../config/defaults.js';
 import type { EventEmitter } from '../events/EventEmitter.js';
 import type { WheelEvents } from '../events/WheelEvents.js';
 import { RingGeometry, rotationForLocalAngle } from '../core/RingGeometry.js';
@@ -184,16 +185,18 @@ export class SpinController {
     const defaults = this._host.landingDefaults;
     const mode = landing.mode ?? defaults.mode ?? DEFAULT_LANDING.mode;
     const margin = landing.margin ?? defaults.margin ?? DEFAULT_LANDING.margin;
-    const resolved = resolveTarget(this._host.geometry, target, { mode, margin, rng: this._host.rng });
+    let resolved = resolveTarget(this._host.geometry, target, { mode, margin, rng: this._host.rng });
     const settleIn = landing.settle ?? defaults.settle ?? DEFAULT_SETTLE.mode;
     const settle: Required<SettleConfig> =
       typeof settleIn === 'string'
         ? { ...DEFAULT_SETTLE, mode: settleIn }
         : { ...DEFAULT_SETTLE, ...settleIn };
     const anticipation = landing.anticipation === undefined ? defaults.anticipation ?? null : landing.anticipation;
+    const tease = anticipation ? this._resolveAnticipation(anticipation, resolved) : null;
+    if (tease && anticipation) resolved = this._restByTheLine(resolved, tease, anticipation, target, mode);
     this._target = resolved;
     this._landing = { mode, margin, settle, anticipation };
-    this._anticipation = anticipation ? this._resolveAnticipation(anticipation, resolved) : null;
+    this._anticipation = tease;
     this._protectSkip = this._anticipation
       ? anticipation?.protectSkip ?? this._host.skipConfig.protectAnticipation
       : false;
@@ -633,11 +636,38 @@ export class SpinController {
       baitEntryRotation: entry,
       baitExitRotation: exit,
       baitArc: bait.arc,
-      creepSpeed: options.creepSpeed ?? 40,
-      dwellMs: options.dwellMs ?? 700,
-      pushMs: options.pushMs ?? 900,
-      overshootDeg: options.overshootDeg ?? 6,
-      returnMs: options.returnMs ?? 800,
+      creepSpeed: options.creepSpeed ?? DEFAULT_ANTICIPATION.creepSpeed,
+      dwellMs: options.dwellMs ?? DEFAULT_ANTICIPATION.dwellMs,
+      pushMs: options.pushMs ?? DEFAULT_ANTICIPATION.pushMs,
+      overshootDeg: options.overshootDeg,
+      returnMs: options.returnMs,
     };
+  }
+
+  /**
+   * A tease rests the pointer just inside the target, next to the divider it
+   * shares with the bait, so the miss reads as "by a hair". Explicit offsets,
+   * angle / position targets, `'exact'` landings and `rest: 'keep'` are left
+   * where the landing mode put them.
+   */
+  private _restByTheLine(
+    resolved: ResolvedTarget,
+    tease: ResolvedAnticipation,
+    options: AnticipationOptions,
+    target: WheelTarget,
+    mode: LandingMode,
+  ): ResolvedTarget {
+    const rest = options.rest ?? DEFAULT_ANTICIPATION.rest;
+    if (rest === 'keep' || mode === 'exact') return resolved;
+    if ('angle' in target || 'position' in target || target.offset !== undefined) return resolved;
+    const frac = Math.min(0.5, Math.max(0.05, rest));
+    const s = resolved.section;
+    const geometry = this._host.geometry;
+    // creep / stutter: the pointer has just crossed the target's entry edge.
+    // overshoot: it rolled back over the target's exit edge.
+    const edge = tease.style === 'overshoot' ? geometry.exitAngle(s, this._direction) : geometry.entryAngle(s, this._direction);
+    const fromStart = edge === s.startAngle;
+    const landingAngle = normalizeDeg(edge + (fromStart ? 1 : -1) * frac * s.arc);
+    return { ...resolved, landingAngle, offset: fromStart ? frac : 1 - frac };
   }
 }

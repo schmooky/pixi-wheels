@@ -12,18 +12,29 @@ wheel.setResult({ value: 2 }, {
   anticipation: {
     bait: 'x50',              // section id, or { index }
     style: 'auto',            // 'creep' | 'stutter' | 'overshoot' | 'auto'
+    rest: 0.22,               // where the pointer rests: this far into the target from the shared line ('keep' to leave it)
     creepSpeed: 40,           // deg/s entering the bait (creep)
-    dwellMs: 700,             // hold time (stutter, overshoot)
-    pushMs: 900,              // final nudge (stutter)
-    overshootDeg: 6,          // how far into the bait (overshoot)
-    returnMs: 800,            // roll back (overshoot)
+    dwellMs: 180,             // the beat at the apex (stutter, overshoot)
+    pushMs: 700,              // final nudge over the line (stutter)
+    overshootDeg: 5,          // how far past the line (overshoot); default a fifth of the bait, at most 5
+    returnMs: 800,            // roll back (overshoot); default scales with the distance
     maxDistanceDeg: 150,      // how far the bait may be from the landing
     protectSkip: false,
   },
 });
 ```
 
-Set `.landing({ anticipation: { bait: 'x50' } })` on the builder to bait every spin.
+Set `.landing({ anticipation: { bait: 'x50' } })` on the builder to bait every spin. The defaults are tuned; `bait` alone gives the beat below.
+
+## The near-miss beat
+
+The feeling to hit is "it is going to be the jackpot... it is the one before it". Three things make it read:
+
+1. **The approach is slow.** The stop ease crawls into its last degrees, so the pointer takes its time reaching the line between the result and the bait.
+2. **The tongue only just crosses.** With `overshoot` the wheel runs out of momentum a few degrees past the line (a fifth of the bait, never more than five degrees), holds one beat (`dwellMs`, 180 ms), and rolls back over the line on a soft in-out curve whose length grows with the distance. Nothing snaps. With `creep` the pointer crawls through the bait and barely makes it over the line into the result.
+3. **It rests by the line.** Whatever the landing mode says, a tease puts the landing angle just inside the target, `rest` of its arc from the divider it shares with the bait. The pointer ends up hugging the line it almost crossed, which is where the eye expects it. Set `rest: 'keep'` to let the landing mode place it, or add `settle: 'center'` to glide to the middle once the beat has landed. A target with its own `offset`, an `angle` / `position` target, or `mode: 'exact'` is never moved.
+
+The roll back and the crawl both pass the divider under the pointer, so `pointer:tick` fires for them too, with `direction` reversed on the way back. Wire the flapper's kick and its click to that event and the miss sounds right as well.
 
 ## Geometry
 

@@ -30,16 +30,16 @@ idling (optional slow rotation while nothing happens)
 The moment the stop may begin, the engine plans it as a list of legs and plays them back. The first leg starts at the cruise speed: its ease's initial slope is matched to the speed, so the distance fixes the duration and the planner picks the number of full turns that gets closest to the profile's `stopDuration`. There is no velocity step when the result arrives.
 
 - Plain stop: one leg to the landing angle.
-- Creep: a leg to the bait's entry edge ending at `creepSpeed`, then a crawl to the landing.
-- Stutter: a leg to a halt inside the bait, a dwell, a push over the line.
-- Overshoot: a leg past the landing into the bait, a dwell, a roll back.
+- Creep: a leg to the bait's entry edge ending at `creepSpeed`, then a crawl over the line to a rest just inside the landing section.
+- Stutter: a leg to a halt a hair inside the bait, a beat, a push over the line.
+- Overshoot: a leg a few degrees past the line into the bait, a beat, a soft roll back to a rest just inside the landing section.
 - Settle: a dwell and a glide to the centre, or a bounce out and back.
 
 `spin:stopping` reports the turn count and total duration; the debug overlay draws the current leg.
 
 ## Landing angle
 
-`setResult()` resolves the target to a wheel-local angle at once: the section's middle, a random spot inside it, or the exact offset or angle you passed. The stop is planned against that angle, so a dynamic-section change during the spin does not move the landing.
+`setResult()` resolves the target to a wheel-local angle at once: the section's middle, a random spot inside it, or the exact offset or angle you passed. A tease moves that angle next to the divider the target shares with the bait (`rest`), so the miss reads as "by a hair". The stop is planned against the final angle, so a dynamic-section change during the spin does not move the landing.
 
 ## Skip and slam
 

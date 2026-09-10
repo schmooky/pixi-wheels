@@ -60,8 +60,20 @@ export interface ResolvedAnticipation {
   creepSpeed: number;
   dwellMs: number;
   pushMs: number;
-  overshootDeg: number;
-  returnMs: number;
+  /** Degrees past the line for `'overshoot'`. Undefined: {@link defaultOvershootDeg}. */
+  overshootDeg?: number;
+  /** Roll-back length for `'overshoot'`, ms. Undefined: {@link defaultReturnMs} of the distance. */
+  returnMs?: number;
+}
+
+/** How far past the line an overshoot goes when unspecified: a fifth of the bait, at most 5 degrees. */
+export function defaultOvershootDeg(baitArc: number): number {
+  return Math.max(1, Math.min(5, baitArc * 0.2));
+}
+
+/** Roll-back duration for a given distance: slow enough never to read as a snap. */
+export function defaultReturnMs(distanceDeg: number): number {
+  return Math.min(1200, Math.max(450, 350 + 40 * distanceDeg));
 }
 
 export interface PlanStopInput {
@@ -77,7 +89,8 @@ export interface PlanStopInput {
 }
 
 const PUSH_EASE = resolveEase('sine.inOut');
-const RETURN_EASE = resolveEase('sine.inOut');
+// The peg pushing the flapper back: starts gently, gathers, eases into rest.
+const RETURN_EASE = resolveEase('power2.inOut');
 const LINEAR: EaseFn = (t) => t;
 
 /**
@@ -181,8 +194,8 @@ export function planStop(input: PlanStopInput): StopPlan {
   }
 
   if (a.style === 'stutter') {
-    // Halt with the pointer inside the bait, a little short of its exit edge.
-    const inside = Math.min(8, a.baitArc * 0.25);
+    // Halt with the pointer inside the bait, a hair short of its exit edge.
+    const inside = Math.min(5, a.baitArc * 0.2);
     const haltRotation = normalizeDeg(a.baitExitRotation - directionSign(direction) * inside);
     const toHalt = arcDelta(current, haltRotation, direction);
     const pick = pickTurns(toHalt, slope, speed, profile);
@@ -219,8 +232,10 @@ export function planStop(input: PlanStopInput): StopPlan {
     return finish([decel, dwell, push], direction, 'stutter');
   }
 
-  // overshoot: pass the landing, stop a little way into the bait, roll back.
-  const over = Math.min(a.overshootDeg, a.baitArc * 0.25);
+  // overshoot: run out of momentum a few degrees past the line, hold a beat,
+  // roll back over it. The decel ease already crawls into the apex, so the
+  // tongue is seen to barely cross before it comes back.
+  const over = Math.max(0.5, Math.min(a.overshootDeg ?? defaultOvershootDeg(a.baitArc), a.baitArc * 0.25));
   const haltRotation = normalizeDeg(a.baitEntryRotation + directionSign(direction) * over);
   const toHalt = arcDelta(current, haltRotation, direction);
   const pick = pickTurns(toHalt, slope, speed, profile);
@@ -248,7 +263,7 @@ export function planStop(input: PlanStopInput): StopPlan {
     kind: 'return',
     distance: back,
     reverse: true,
-    duration: a.returnMs,
+    duration: a.returnMs ?? defaultReturnMs(back),
     ease: RETURN_EASE,
     startSpeed: 0,
     endSpeed: 0,

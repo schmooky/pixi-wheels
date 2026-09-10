@@ -55,6 +55,15 @@ export const DEFAULT_LANDING: Required<Pick<LandingOptions, 'mode' | 'margin'>> 
   margin: 0.12,
 };
 
+/** Timing and rest of a near-miss when `AnticipationOptions` leaves them out. */
+export const DEFAULT_ANTICIPATION = {
+  creepSpeed: 40,
+  dwellMs: 180,
+  pushMs: 700,
+  /** Fraction of the target's arc between the shared divider and the resting pointer. */
+  rest: 0.22,
+} as const;
+
 export const DEFAULT_SKIP: Required<SkipConfig> = {
   allowed: true,
   minimumSpinTime: 0,

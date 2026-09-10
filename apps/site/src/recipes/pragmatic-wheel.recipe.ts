@@ -27,7 +27,8 @@ const wheel = new WheelBuilder()
     flap: { maxAngle: 10, stiffness: 500, damping: 18 },
   })
   .skin(new PragmaticWheelSkin({ art }))
-  .landing({ mode: 'center', settle: 'none' })
+  // The tease rests by the line; the settle then centres the winning plate under the pointer.
+  .landing({ mode: 'center', settle: { mode: 'center', delayMs: 450, durationMs: 700 } })
   .speed('normal', SpinPresets.NORMAL)
   .ticker(app.ticker)
   .build();

@@ -21,6 +21,7 @@ export {
   DEFAULT_POINTER,
   DEFAULT_SETTLE,
   DEFAULT_LANDING,
+  DEFAULT_ANTICIPATION,
   DEFAULT_SKIP,
 } from './config/defaults.js';
 export type {
@@ -56,7 +57,7 @@ export type {
 // Spin
 export { SpinController } from './spin/SpinController.js';
 export type { SpinState, SpinHost } from './spin/SpinController.js';
-export { planStop, planSkip, planSettle, pickTurns } from './spin/StopPlanner.js';
+export { planStop, planSkip, planSettle, pickTurns, defaultOvershootDeg, defaultReturnMs } from './spin/StopPlanner.js';
 export type { StopLeg, StopLegKind, StopPlan, PlanStopInput, PlanSkipInput, ResolvedAnticipation } from './spin/StopPlanner.js';
 
 // Adapters
