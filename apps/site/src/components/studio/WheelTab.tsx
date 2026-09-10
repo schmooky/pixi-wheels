@@ -22,6 +22,9 @@ export function WheelTab({ ring, onChange, assets, direction, onDirection }: Pro
   const spineSkeletons = assets.filter((a) => a.kind === 'spine-skeleton').map((a) => a.key);
   const spineAtlases = assets.filter((a) => a.kind === 'spine-atlas').map((a) => a.key);
   const g = skin as Record<string, any>;
+  const flap = (pointer.flap && typeof pointer.flap === 'object' ? pointer.flap : {}) as Record<string, unknown>;
+  const setFlap = (patch: Record<string, unknown>) => setPointer({ flap: { ...flap, ...patch } });
+  const pegs = (ring.pegs && typeof ring.pegs === 'object' ? ring.pegs : {}) as Record<string, unknown>;
 
   return (
     <div className="p-4">
@@ -36,7 +39,17 @@ export function WheelTab({ ring, onChange, assets, direction, onDirection }: Pro
         <Field label="angle" hint="-90 top, 0 right, 90 bottom"><NumberInput value={pointer.angle ?? -90} step={5} onChange={(v) => setPointer({ angle: v })} /></Field>
         <Field label="facing"><Select value={pointer.facing ?? 'inward'} onChange={(v) => setPointer({ facing: v })} options={[{ value: 'inward', label: 'inward (on the rim)' }, { value: 'outward', label: 'outward (at the hub)' }]} /></Field>
         <Field label="tip inset"><NumberInput value={pointer.tipInset ?? 18} onChange={(v) => setPointer({ tipInset: v })} /></Field>
-        <Field label="flap"><Toggle value={pointer.flap !== false} onChange={(v) => setPointer({ flap: v ? {} : false })} label={pointer.flap === false ? 'rigid' : 'springs on every divider'} /></Field>
+        <Field label="flap"><Toggle value={pointer.flap !== false} onChange={(v) => setPointer({ flap: v ? {} : false })} label={pointer.flap === false ? 'rigid' : 'rides the pegs'} /></Field>
+        {pointer.flap !== false && (
+          <>
+            <Field label="elasticity" hint="how far the tongue yields to a peg; 1 = the geometry"><NumberInput value={Number(flap.elasticity ?? 1)} step={0.1} min={0} onChange={(v) => setFlap({ elasticity: v })} /></Field>
+            <Field label="friction" hint="extra carry once the peg is through"><NumberInput value={Number(flap.friction ?? 0.35)} step={0.05} min={0} onChange={(v) => setFlap({ friction: v })} /></Field>
+            <Field label="stiffness"><NumberInput value={Number(flap.stiffness ?? 420)} step={20} min={0} onChange={(v) => setFlap({ stiffness: v })} /></Field>
+            <Field label="damping"><NumberInput value={Number(flap.damping ?? 14)} min={0} onChange={(v) => setFlap({ damping: v })} /></Field>
+            <Field label="max angle"><NumberInput value={Number(flap.maxAngle ?? 28)} min={1} onChange={(v) => setFlap({ maxAngle: v })} /></Field>
+            <Field label="tip width"><NumberInput value={Number(flap.tipWidth ?? 14)} min={0} onChange={(v) => setFlap({ tipWidth: v })} /></Field>
+          </>
+        )}
         <Field label="pointer skin"><Select value={String(pointerSkin.type)} onChange={(v) => setPointer({ skin: v === 'graphics' ? { type: 'graphics' } : v === 'texture' ? { type: 'texture', texture: textureKeys[0] ?? '' } : { type: 'spine', skeleton: spineSkeletons[0] ?? '', atlas: spineAtlases[0] ?? '', length: 80 } })} options={[{ value: 'graphics', label: 'graphics' }, { value: 'texture', label: 'texture (upload)' }, { value: 'spine', label: 'spine (upload)' }]} /></Field>
         {pointerSkin.type === 'graphics' && (
           <>
@@ -59,6 +72,16 @@ export function WheelTab({ ring, onChange, assets, direction, onDirection }: Pro
             <Field label="atlas"><Select value={String(pointerSkin.atlas ?? '')} onChange={(v) => setPointerSkin({ atlas: v })} options={spineAtlases.map((k) => ({ value: k, label: k }))} /></Field>
             <Field label="length (pin to tip)"><NumberInput value={Number(pointerSkin.length ?? 80)} onChange={(v) => setPointerSkin({ length: v })} /></Field>
             <Field label="tick animation"><TextInput value={String(pointerSkin.tickAnimation ?? 'tick')} onChange={(v) => setPointerSkin({ tickAnimation: v })} /></Field>
+          </>
+        )}
+      </Section>
+
+      <Section title="Pegs">
+        <Field label="pegs"><Toggle value={ring.pegs !== false} onChange={(v) => onChange({ ...ring, pegs: v ? {} : false })} label={ring.pegs === false ? 'none: tongues stay still' : 'one per divider'} /></Field>
+        {ring.pegs !== false && (
+          <>
+            <Field label="size"><NumberInput value={Number(pegs.size ?? 6)} min={1} onChange={(v) => onChange({ ...ring, pegs: { ...pegs, size: v } })} /></Field>
+            <Field label="inset" hint="how far inside the rim"><NumberInput value={Number(pegs.inset ?? 9)} onChange={(v) => onChange({ ...ring, pegs: { ...pegs, inset: v } })} /></Field>
           </>
         )}
       </Section>

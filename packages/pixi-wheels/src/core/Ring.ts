@@ -10,9 +10,8 @@ import type {
   SpinProfile,
   WeightTransitionOptions,
   WheelSpinResult,
-  WheelTarget,
-} from '../config/types.js';
-import { DEFAULTS } from '../config/defaults.js';
+  WheelTarget, PegConfig, ResolvedPegs } from '../config/types.js';
+import { DEFAULTS, DEFAULT_PEGS } from '../config/defaults.js';
 import type { EventEmitter } from '../events/EventEmitter.js';
 import type { WheelEvents } from '../events/WheelEvents.js';
 import type { Pointer } from '../pointer/Pointer.js';
@@ -38,6 +37,8 @@ export interface RingParams {
   skip: Required<SkipConfig>;
   idle: IdleConfig | null;
   dynamic: DynamicSectionsConfig | null;
+  /** Pegs the tongues touch; null for none. */
+  pegs: PegConfig | null;
   rng: () => number;
   events: EventEmitter<WheelEvents>;
   ticker: Ticker;
@@ -70,6 +71,8 @@ export class Ring extends Container implements Disposable {
   private readonly _skip: Required<SkipConfig>;
   private readonly _idleConfig: IdleConfig | null;
   private readonly _dynamic: DynamicSectionsConfig | null;
+  private readonly _pegConfig: PegConfig | null;
+  private _pegs: ResolvedPegs | null = null;
   private readonly _rng: () => number;
   private readonly _controller: SpinController;
   private readonly _tickerRef: TickerRef;
@@ -104,7 +107,9 @@ export class Ring extends Container implements Disposable {
     this._skip = params.skip;
     this._idleConfig = params.idle;
     this._dynamic = params.dynamic;
+    this._pegConfig = params.pegs;
     this._rng = params.rng;
+    this._resolvePegs();
     this.disc.label = 'pixi-wheels:disc';
     this.overlay.label = 'pixi-wheels:overlay';
     this.addChild(this.disc, this.overlay);
@@ -137,6 +142,9 @@ export class Ring extends Container implements Disposable {
       overlay: this.overlay,
       direction: this._direction,
       pointerAngles: this.pointers.map((p) => p.angle),
+      get pegs() {
+        return self._pegs;
+      },
     });
     for (const p of this.pointers) {
       p.layout(this.outerRadius, this.innerRadius);
@@ -146,6 +154,7 @@ export class Ring extends Container implements Disposable {
       const initial = this._dynamic.initialStep ?? 0;
       this.geometry.setWeights(this._dynamic.steps[initial] ?? {});
       this._step = initial;
+      this._resolvePegs();
       this.skin.layout();
     }
     this.skin.syncRotation?.(this._rotationDeg);
@@ -197,6 +206,24 @@ export class Ring extends Container implements Disposable {
 
   get sections(): readonly ResolvedSection[] {
     return this.geometry.sections;
+  }
+
+  /** The pegs the tongues touch, resolved against the current geometry. Null when the ring has none. */
+  get pegs(): ResolvedPegs | null {
+    return this._pegs;
+  }
+
+  private _resolvePegs(): void {
+    const cfg = this._pegConfig;
+    if (!cfg) {
+      this._pegs = null;
+      return;
+    }
+    this._pegs = {
+      size: cfg.size ?? DEFAULT_PEGS.size,
+      radius: this.outerRadius - (cfg.inset ?? DEFAULT_PEGS.inset),
+      angles: (cfg.angles ?? this.geometry.boundaries()).map((a) => normalizeDeg(a)),
+    };
   }
 
   /** The section under a pointer right now (the first pointer by default). */
@@ -343,6 +370,7 @@ export class Ring extends Container implements Disposable {
     if (duration <= 0) {
       this.geometry.setWeights(target);
       this._step = step;
+      this._resolvePegs();
       this.skin.layout();
       this.events.emit('sections:changed', { ring: this.id, sections: this.geometry.sections, step });
       return Promise.resolve();
@@ -367,6 +395,7 @@ export class Ring extends Container implements Disposable {
       weights[id] = Math.max(1e-4, a + (b - a) * k);
     }
     this.geometry.setWeights(p >= 1 ? t.to : weights);
+    this._resolvePegs();
     this.skin.layout();
     if (p >= 1) {
       this._transition = null;
@@ -387,7 +416,7 @@ export class Ring extends Container implements Disposable {
     this._updateTransition(Math.min(Math.max(deltaMS, 0), 100));
     const rotation = this._rotationDeg;
     for (const p of this.pointers) {
-      const crossings = p.update(this._prevRotation, rotation, dt, this.geometry, this._direction);
+      const crossings = p.update(this._prevRotation, rotation, dt, this.geometry, this._direction, this._pegs);
       for (const c of crossings) {
         this.events.emit('pointer:tick', { ring: this.id, ...c });
       }

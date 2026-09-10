@@ -45,7 +45,7 @@ pixi-wheels/
 │   │   ├── core/        Wheel, Ring, WheelBuilder, RingGeometry, WheelConfig, templates
 │   │   ├── spin/        SpinController (state machine), StopPlanner (pure legs)
 │   │   ├── adapter/     resolveTarget, createTargetAdapter
-│   │   ├── pointer/     Pointer (crossings + flap), Graphics / Texture pointer skins
+│   │   ├── pointer/     Pointer (crossings, peg contact, flap spring), Graphics / Texture pointer skins
 │   │   ├── skins/       RingSkin contract, Graphics / Debug / Texture / Headless skins, registry, labels (text or rich `content`)
 │   │   ├── config/      types, SpinPresets, defaults
 │   │   ├── events/      EventEmitter, WheelEvents

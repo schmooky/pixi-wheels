@@ -7,6 +7,7 @@ import type {
   SpinDirection,
   SpinProfile,
   WheelSectionConfig,
+  PegConfig,
 } from '../config/types.js';
 import type { PointerSkinConfig, RingSkinConfig } from '../skins/skinRegistry.js';
 import type { TargetAdapterConfig } from '../adapter/targetAdapter.js';
@@ -31,6 +32,8 @@ export interface RingConfig {
   pointers?: PointerConfigEntry[];
   skin?: RingSkinConfig;
   dynamic?: DynamicSectionsConfig;
+  /** Pegs the tongues touch; `false` for none. Default one per divider. */
+  pegs?: PegConfig | false;
   palette?: number[];
 }
 
@@ -73,5 +76,8 @@ export function assertWheelConfig(cfg: unknown): asserts cfg is WheelConfig {
     if (typeof ring.id !== 'string' || ring.id === '') throw new Error(`WheelConfig: rings[${i}].id must be a non-empty string.`);
     if (typeof ring.outerRadius !== 'number') throw new Error(`WheelConfig: rings[${i}].outerRadius must be a number.`);
     if (!Array.isArray(ring.sections)) throw new Error(`WheelConfig: rings[${i}].sections must be an array.`);
+    if (ring.pegs !== undefined && ring.pegs !== false && (typeof ring.pegs !== 'object' || ring.pegs === null)) {
+      throw new Error(`WheelConfig: rings[${i}].pegs must be an object or false.`);
+    }
   });
 }

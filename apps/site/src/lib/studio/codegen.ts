@@ -9,6 +9,7 @@ function ringCalls(r: RingConfig, indent: string): string[] {
   if (r.direction) out.push(`${indent}.direction(${j(r.direction)})`);
   if (r.palette) out.push(`${indent}.palette(${j(r.palette)})`);
   out.push(`${indent}.sections(${JSON.stringify(r.sections, null, 2).split('\n').join(`\n${indent}`)})`);
+  if (r.pegs !== undefined) out.push(`${indent}.pegs(${j(r.pegs)})`);
   for (const p of r.pointers ?? []) out.push(`${indent}.pointer(${j(p)})`);
   if (r.skin) out.push(`${indent}.skin(${j(r.skin)})`);
   if (r.dynamic) out.push(`${indent}.dynamic(${JSON.stringify(r.dynamic, null, 2).split('\n').join(`\n${indent}`)})`);

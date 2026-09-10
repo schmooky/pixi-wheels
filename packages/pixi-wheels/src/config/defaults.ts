@@ -1,5 +1,5 @@
 import type {
-  FlapConfig,
+  FlapConfig, PegConfig,
   LandingOptions,
   PointerConfig,
   ResolvedSectionStyle,
@@ -34,12 +34,19 @@ export const DEFAULT_POINTER: Required<Omit<PointerConfig, 'flap'>> & { flap: Fl
 };
 
 export const DEFAULT_FLAP: Required<FlapConfig> = {
-  maxAngle: 22,
+  maxAngle: 28,
   stiffness: 420,
-  damping: 16,
-  kick: 900,
-  referenceSpeed: 540,
+  damping: 14,
+  elasticity: 1,
+  friction: 0.35,
+  tipWidth: 14,
   invert: false,
+};
+
+/** Pegs when a ring asks for them without details. */
+export const DEFAULT_PEGS: Required<Omit<PegConfig, 'angles'>> = {
+  size: 6,
+  inset: 9,
 };
 
 export const DEFAULT_SETTLE: Required<SettleConfig> = {

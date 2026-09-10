@@ -366,18 +366,53 @@ export interface SpinOptions {
 /** Which way a pointer's tip faces. */
 export type PointerFacing = 'inward' | 'outward';
 
-/** The pointer flap: how the tongue deflects when a divider passes under it. */
+/**
+ * The pegs a tongue touches: small circles on the disc, one per divider by
+ * default. They give the pointer flap its physics and the debug overlay
+ * draws them; a skin may draw them too (`GraphicsRingSkin` `pegs`).
+ */
+export interface PegConfig {
+  /** Peg radius, px. Default 6. */
+  size?: number;
+  /** How far inside the rim the peg centres sit, px. Default 9: under a default tongue tip (`tipInset` 18). */
+  inset?: number;
+  /** Local angles of the pegs, degrees. Default every divider, so dynamic sections keep their pegs on the lines. */
+  angles?: number[];
+}
+
+/** The pegs with their geometry resolved against the ring. */
+export interface ResolvedPegs {
+  size: number;
+  /** Distance from the hub to the peg centres, px. */
+  radius: number;
+  /** Local angles, degrees, normalised. */
+  angles: readonly number[];
+}
+
+/**
+ * The pointer flap: how the tongue behaves against the pegs.
+ *
+ * The tongue tip is a point `tipWidth` wide at the peg ring. A peg coming
+ * toward it pushes it aside along the peg's rim (the geometric push, scaled
+ * by `elasticity`), carries it on its crown until the peg is through plus
+ * `friction` of the contact width, then lets go; a spring (`stiffness`, `damping`) brings it back.
+ * At speed a peg passes within one frame and the tongue is flicked to the
+ * crown deflection instead, so a fast wheel keeps it pinned and jittering
+ * and a crawling one bends it slowly over every peg.
+ */
 export interface FlapConfig {
-  /** Largest deflection, degrees. Default 22. */
+  /** Largest deflection, degrees. Default 28. */
   maxAngle?: number;
-  /** Spring stiffness (1/s^2). Default 420. */
+  /** Spring stiffness pulling the tongue back to rest (1/s^2). Default 420. */
   stiffness?: number;
-  /** Spring damping (1/s). Default 16. */
+  /** Spring damping (1/s). Default 14; lower rings longer after a release. */
   damping?: number;
-  /** Angular velocity added per divider crossing at reference speed, deg/s. Default 900. */
-  kick?: number;
-  /** Speed (deg/s) at which a crossing kicks with the full `kick`. Default 540. */
-  referenceSpeed?: number;
+  /** How far the tongue yields to a peg, as a fraction of the geometric push. Default 1. Under 1 a stiff short tongue, over 1 a floppy one. */
+  elasticity?: number;
+  /** Extra carry after a peg has passed under the tip, as a fraction of the contact width. Default 0.35; 0 lets go as soon as the peg is through, 1 drags a whole width more. */
+  friction?: number;
+  /** Width of the tongue tip where it meets the pegs, px. Default 14. */
+  tipWidth?: number;
   /** Flip the deflection direction if your art is mirrored. Default false. */
   invert?: boolean;
 }
@@ -395,7 +430,7 @@ export interface PointerConfig {
   facing?: PointerFacing;
   /** How far the tip reaches past the rim into the sections (or past the hub). Default 18. */
   tipInset?: number;
-  /** Flap physics, or `false` to keep the pointer rigid. */
+  /** Flap physics against the ring's pegs, or `false` to keep the pointer rigid. */
   flap?: FlapConfig | false;
 }
 

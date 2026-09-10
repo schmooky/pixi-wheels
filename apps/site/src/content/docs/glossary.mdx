@@ -143,7 +143,13 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **Facing**: `'inward'` seats a pointer on the rim with the tip toward the hub; `'outward'` seats it at the hub pointing out (the inner ring's arrow in a two-ring wheel). [Pointers](/guides/pointers/)
 
-**Flap**: the pointer's spring deflection on each divider crossing: `maxAngle`, `stiffness`, `damping`. Also **kick**.
+**Flap**: the tongue's deflection against the pegs: pushed aside as a peg comes through (`elasticity`), carried past its crown (`friction`), sprung back (`stiffness`, `damping`), never past `maxAngle`. [Pointers](/guides/pointers/)
+
+**Peg**: a small circle on the disc the tongue touches, one per divider by default (`.pegs({ size, inset, angles })`). The debug overlay draws them; `GraphicsRingSkin` can too. [Pointers](/guides/pointers/)
+
+**Contact width**: the stretch of rim over which a peg is in touch with the tongue: the peg radius plus half the `tipWidth`, either side of the tongue's axis.
+
+**Crown**: the moment a peg's centre is under the tongue's axis, where the push is largest.
 
 **Pin**: the point a pointer pivots around. A skin's local origin. For a texture, `pin: { x, y }` as fractions of the image.
 
@@ -151,7 +157,7 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **Pointer angle**: the screen angle a pointer sits at. Default -90, twelve o'clock. The Pragmatic wheel reads at 90, six o'clock.
 
-**Tick**: a divider passing under a pointer. `pointer:tick` carries the pointer, the sections either side, the speed and the direction. Pointer skins with a `tick` animation play it here.
+**Tick**: a divider passing under a pointer. `pointer:tick` carries the pointer, the sections either side, the speed and the direction. Pointer skins with a `tick` animation play it here; the tongue itself is moved by the pegs, not by the event.
 
 **Tip inset**: how far the pointer's tip reaches past the rim into the disc, px.
 
@@ -213,7 +219,7 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **ASCII arc**: `debugArc(wheel)`: the ring as a text strip with the pointer marked. For logs and agents.
 
-**Debug overlay**: `debugOverlay(wheel)`: section boundaries, pointer angles, the target and a HUD drawn over the wheel, live.
+**Debug overlay**: `debugOverlay(wheel)`: section boundaries, pointer angles, pegs with the one being ridden and each tongue's contact zone, the target and a HUD drawn over the wheel, live.
 
 **Fake ticker**: `FakeTicker` from `pixi-wheels/testing`: advance time by hand and land a spin in one call.
 

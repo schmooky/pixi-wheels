@@ -1,5 +1,5 @@
 import type { Container, Texture } from 'pixi.js';
-import type { ResolvedSection, SpinDirection } from '../config/types.js';
+import type { ResolvedPegs, ResolvedSection, SpinDirection } from '../config/types.js';
 import type { RingGeometry } from '../core/RingGeometry.js';
 import type { Disposable } from '../utils/Disposable.js';
 
@@ -16,6 +16,8 @@ export interface RingSkinContext {
   direction: SpinDirection;
   /** Screen angles of the ring's pointers, for skins that mark them. */
   pointerAngles: readonly number[];
+  /** The ring's pegs, live: re-read in `layout()`, since dynamic sections move them. Null when the ring has none. */
+  readonly pegs: ResolvedPegs | null;
 }
 
 /**

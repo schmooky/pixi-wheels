@@ -8,6 +8,7 @@ import type {
   SpinDirection,
   SpinProfile,
   WheelSectionConfig,
+  PegConfig,
 } from '../config/types.js';
 import { DEFAULT_SKIP, DEFAULTS } from '../config/defaults.js';
 import { SpinPresets } from '../config/SpinPresets.js';
@@ -52,6 +53,7 @@ export class RingBuilder {
   private _pointers: PointerSpec[] = [];
   private _skin: RingSkin | RingSkinConfig | undefined;
   private _dynamic: DynamicSectionsConfig | undefined;
+  private _pegs: PegConfig | false | undefined;
   private _palette: number[] | undefined;
 
   constructor(id: string) {
@@ -103,6 +105,16 @@ export class RingBuilder {
   /** Add a pointer. Repeatable. A ring with none gets one at twelve o'clock. */
   pointer(spec: PointerSpec = {}): this {
     this._pointers.push({ ...spec });
+    return this;
+  }
+
+  /**
+   * The pegs the tongues touch: one per divider by default, `size` 6 px,
+   * `inset` 9 px inside the rim. Every ring has them unless you pass `false`,
+   * which leaves flapping pointers at rest.
+   */
+  pegs(config: PegConfig | false = {}): this {
+    this._pegs = config;
     return this;
   }
 
@@ -202,6 +214,7 @@ export class RingBuilder {
       skip: shared.skip,
       idle: shared.idle,
       dynamic: this._dynamic ?? null,
+      pegs: this._pegs === false ? null : (this._pegs ?? {}),
       rng: shared.rng,
       events: shared.events,
       ticker: shared.ticker,
@@ -251,6 +264,7 @@ export class RingBuilder {
     if (pointers.length > 0) cfg.pointers = pointers;
     if (this._skin !== undefined) cfg.skin = isRingSkinConfig(this._skin) ? this._skin : { type: 'custom' };
     if (this._dynamic) cfg.dynamic = this._dynamic;
+    if (this._pegs !== undefined) cfg.pegs = this._pegs;
     if (this._palette) cfg.palette = this._palette;
     return cfg;
   }
@@ -265,6 +279,7 @@ export class RingBuilder {
     for (const p of cfg.pointers ?? []) b.pointer(p);
     if (cfg.skin) b.skin(cfg.skin);
     if (cfg.dynamic) b.dynamic(cfg.dynamic);
+    if (cfg.pegs !== undefined) b.pegs(cfg.pegs);
     if (cfg.palette) b.palette(cfg.palette);
     return b;
   }
@@ -347,6 +362,12 @@ export class WheelBuilder {
 
   dynamic(config: DynamicSectionsConfig): this {
     this._main.dynamic(config);
+    return this;
+  }
+
+  /** Pegs of the main ring. See `RingBuilder.pegs()`. */
+  pegs(config: PegConfig | false = {}): this {
+    this._main.pegs(config);
     return this;
   }
 
@@ -539,6 +560,7 @@ function applyRingConfig(rb: RingBuilder, cfg: RingConfig): void {
   for (const p of cfg.pointers ?? []) rb.pointer(p);
   if (cfg.skin) rb.skin(cfg.skin);
   if (cfg.dynamic) rb.dynamic(cfg.dynamic);
+  if (cfg.pegs !== undefined) rb.pegs(cfg.pegs);
   if (cfg.palette) rb.palette(cfg.palette);
   void src;
 }

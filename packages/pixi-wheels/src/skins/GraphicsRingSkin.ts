@@ -17,6 +17,8 @@ export interface GraphicsRingSkinOptions {
   labels?: boolean;
   /** Bulbs around the rim: `count` evenly spaced dots. Default none. */
   bulbs?: { count: number; radius?: number; color?: number; inset?: number } | false;
+  /** Draw the ring's pegs, the studs the tongue touches, on every divider. Default false. */
+  pegs?: boolean | { color?: number; rimColor?: number; alpha?: number };
   /** Highlight colour and alpha used by `highlight(id)`. */
   highlight?: { color?: number; alpha?: number };
 }
@@ -108,6 +110,17 @@ export class GraphicsRingSkin implements RingSkin {
         g.moveTo(Math.cos(a) * r, Math.sin(a) * r).lineTo(Math.cos(a) * R, Math.sin(a) * R);
       }
       g.stroke({ color: dividers.color, width: dividers.width, alpha: dividers.alpha });
+    }
+    const pegOpt = this._opts.pegs;
+    const pegs = ctx.pegs;
+    if (pegOpt && pegs) {
+      const o = typeof pegOpt === 'object' ? pegOpt : {};
+      for (const a of pegs.angles) {
+        const rad = a * DEG_TO_RAD;
+        g.circle(Math.cos(rad) * pegs.radius, Math.sin(rad) * pegs.radius, pegs.size);
+      }
+      g.fill({ color: o.color ?? 0xf4f4f4, alpha: o.alpha ?? 1 });
+      g.stroke({ color: o.rimColor ?? 0x2a2a2a, width: Math.max(1, pegs.size * 0.25), alpha: 0.7 });
     }
   }
 

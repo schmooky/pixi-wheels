@@ -160,6 +160,8 @@ __PIXI_WHEELS_DEBUG.land('x50')  // setResult on the current spin
 
 `DebugRingSkin` is the plain look for wiring a wheel before the art exists. Every recipe on this site has a Debug button that toggles the overlay.
 
+The overlay's `pegs` layer draws the pegs the tongues touch, fills the one being ridden, and marks each tongue's contact zone on the rim; the HUD prints the first tongue's deflection. Tune `elasticity`, `friction`, `stiffness` and `damping` while watching it.
+
 ### Dynamic sections
 URL: https://pixi-wheels.schmooky.dev/guides/dynamic-sections/
 
@@ -396,16 +398,30 @@ URL: https://pixi-wheels.schmooky.dev/guides/pointers/
   angle: -90,             // screen degrees: -90 top, 0 right, 90 bottom
   facing: 'inward',       // sits on the rim, tip toward the hub; 'outward' sits at the hub
   tipInset: 18,           // how far the tip reaches into the sections
-  flap: { maxAngle: 22, stiffness: 420, damping: 16, kick: 900, referenceSpeed: 540 },
+  flap: { elasticity: 1, friction: 0.35, stiffness: 420, damping: 14, maxAngle: 28, tipWidth: 14 },
   skin: new GraphicsPointerSkin({ shape: 'tongue' | 'triangle' | 'needle', length: 72, width: 36, color: 0xffffff }),
 })
 ```
 
 Results are read against the first pointer. Add more for decoration or a second read position; each one ticks.
 
-## Flap
+## Pegs and the tongue
 
-Every divider crossing kicks the pointer's angular velocity; a spring pulls it back. Kicks scale with the ring speed, so a fast wheel keeps the tongue deflected and a crawling one lets it settle between clicks. `flap: false` keeps it rigid.
+Every ring has pegs: small circles on the disc, one per divider, 9 px inside the rim, 6 px across. `.pegs({ size, inset, angles })` changes them, `.pegs(false)` removes them (a flapping pointer then stays at rest). The debug overlay draws them (`pegs` layer) and `GraphicsRingSkin` will too with `pegs: true`. Dynamic sections move their pegs with their lines.
+
+The tongue tip is a point `tipWidth` wide at the peg ring. As a peg comes toward it, the peg pushes the tip aside along its own rim, exactly as far as the geometry demands times `elasticity`. At the peg's crown the push is largest; the peg then carries the tongue flat until it is through, plus `friction` of the contact width, and lets go. From there a spring (`stiffness`, `damping`) brings the tongue back, ringing if the damping is low. At speed a peg goes through within one frame and the tongue is flicked to the crown deflection instead, so a fast wheel keeps it pinned and jittering while a crawling one bends it slowly over every peg and lets it fall back.
+
+| Knob | Feel |
+|---|---|
+| `elasticity` | how far the tongue yields: 0.6 a stiff stub, 1 the geometry, 1.5 a floppy strip |
+| `friction` | extra carry once the peg is through: 0 lets go at once, 1 drags a whole contact width more |
+| `stiffness` | how hard it snaps back |
+| `damping` | how quickly the ringing dies |
+| `maxAngle` | the hard limit |
+| `tipWidth` | how early a peg starts pushing |
+| pegs `size` / `inset` | bigger or deeper pegs push earlier and harder |
+
+`flap: false` keeps a pointer rigid. Read `pointer.deflection` and `pointer.engagedPeg` for your own reactions; the HUD prints both.
 
 ## Ticks
 
@@ -1142,7 +1158,13 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **Facing**: `'inward'` seats a pointer on the rim with the tip toward the hub; `'outward'` seats it at the hub pointing out (the inner ring's arrow in a two-ring wheel). [Pointers](/guides/pointers/)
 
-**Flap**: the pointer's spring deflection on each divider crossing: `maxAngle`, `stiffness`, `damping`. Also **kick**.
+**Flap**: the tongue's deflection against the pegs: pushed aside as a peg comes through (`elasticity`), carried past its crown (`friction`), sprung back (`stiffness`, `damping`), never past `maxAngle`. [Pointers](/guides/pointers/)
+
+**Peg**: a small circle on the disc the tongue touches, one per divider by default (`.pegs({ size, inset, angles })`). The debug overlay draws them; `GraphicsRingSkin` can too. [Pointers](/guides/pointers/)
+
+**Contact width**: the stretch of rim over which a peg is in touch with the tongue: the peg radius plus half the `tipWidth`, either side of the tongue's axis.
+
+**Crown**: the moment a peg's centre is under the tongue's axis, where the push is largest.
 
 **Pin**: the point a pointer pivots around. A skin's local origin. For a texture, `pin: { x, y }` as fractions of the image.
 
@@ -1150,7 +1172,7 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **Pointer angle**: the screen angle a pointer sits at. Default -90, twelve o'clock. The Pragmatic wheel reads at 90, six o'clock.
 
-**Tick**: a divider passing under a pointer. `pointer:tick` carries the pointer, the sections either side, the speed and the direction. Pointer skins with a `tick` animation play it here.
+**Tick**: a divider passing under a pointer. `pointer:tick` carries the pointer, the sections either side, the speed and the direction. Pointer skins with a `tick` animation play it here; the tongue itself is moved by the pegs, not by the event.
 
 **Tip inset**: how far the pointer's tip reaches past the rim into the disc, px.
 
@@ -1212,7 +1234,7 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **ASCII arc**: `debugArc(wheel)`: the ring as a text strip with the pointer marked. For logs and agents.
 
-**Debug overlay**: `debugOverlay(wheel)`: section boundaries, pointer angles, the target and a HUD drawn over the wheel, live.
+**Debug overlay**: `debugOverlay(wheel)`: section boundaries, pointer angles, pegs with the one being ridden and each tongue's contact zone, the target and a HUD drawn over the wheel, live.
 
 **Fake ticker**: `FakeTicker` from `pixi-wheels/testing`: advance time by hand and land a spin in one call.
 
@@ -2111,24 +2133,34 @@ return { wheel };
 // @ts-nocheck
 // Injected globals: WheelBuilder, SpinPresets, app
 
-// Three pointers on one ring: a stiff tongue at the top, a loose needle at
-// four o'clock, and a rigid triangle at eight. Every divider that passes
-// under any of them fires pointer:tick with the speed, which is the hook
-// for the ratchet click; the console shows the first pointer's ticks.
+// The tongue is physical. It touches pegs on the rim, one per divider: a peg
+// coming through pushes it aside, carries it on its crown for a moment, and
+// lets go into a spring. Three tongues against the same pegs, three feels:
+// a stiff short one at the top, a floppy one with lots of drag at four
+// o'clock, a rigid triangle at eight. The skin draws the pegs; the Debug
+// button shows each tongue's contact zone and the peg it is riding. Every
+// peg under any of them fires pointer:tick with the speed, the hook for the
+// ratchet click; the console shows the first tongue's ticks.
 const wheel = new WheelBuilder()
   .radius(230, 30)
   .sections(Array.from({ length: 16 }, (_, i) => ({ id: `s${i}`, label: '' })))
-  .pointer({ id: 'top', angle: -90, flap: { maxAngle: 24, stiffness: 520, damping: 14, kick: 1000 } })
-  .pointer({ id: 'loose', angle: 30, skin: { type: 'graphics', shape: 'needle', color: 0xffd166, length: 90, width: 26 }, flap: { maxAngle: 35, stiffness: 160, damping: 8, kick: 700 } })
+  .pegs({ size: 7, inset: 10 })
+  .pointer({ id: 'stiff', angle: -90, flap: { elasticity: 0.8, friction: 0.2, stiffness: 700, damping: 18 } })
+  .pointer({
+    id: 'floppy',
+    angle: 30,
+    skin: { type: 'graphics', shape: 'needle', color: 0xffd166, length: 90, width: 26 },
+    flap: { elasticity: 1.5, friction: 0.9, stiffness: 140, damping: 5, maxAngle: 40, tipWidth: 20 },
+  })
   .pointer({ id: 'rigid', angle: 150, skin: { type: 'graphics', shape: 'triangle', color: 0x64d2ff, length: 60, width: 34 }, flap: false })
-  .skin({ type: 'graphics', dividers: { width: 3 }, bulbs: { count: 16 } })
+  .skin({ type: 'graphics', dividers: { width: 3 }, pegs: true })
   .speed('normal', SpinPresets.NORMAL)
   .ticker(app.ticker)
   .build();
 
 let ticks = 0;
 wheel.events.on('pointer:tick', ({ pointer, speed }) => {
-  if (pointer === 'top' && ++ticks % 8 === 0) console.log(`[tick] ${ticks} dividers, ${Math.round(speed)} deg/s`);
+  if (pointer === 'stiff' && ++ticks % 8 === 0) console.log(`[tick] ${ticks} pegs, ${Math.round(speed)} deg/s`);
 });
 
 return { wheel };

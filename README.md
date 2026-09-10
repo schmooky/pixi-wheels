@@ -74,7 +74,7 @@ wheel.destroy()
 | **Dynamic sectors** | Weights animate; labels re-centre; the landing never moves. Step lists or direct `setWeights`. |
 | **Rich labels** | A section's `content` is any container: text, sprite, bitmap text, Spine, a group. Placed radially, tangentially (top out or in) or upright, fitted to the wedge with `fitContainer` / `fitText` / `labelSlot`. |
 | **Rings** | Several rings around one centre, each with its own direction and pointers. An outer ring can trigger an inner one. |
-| **Pointers** | Any angle, inward or outward, several per ring, spring flap, `pointer:tick` per divider with the speed. |
+| **Pointers** | Any number per ring, inward or outward, texture or Spine skins. The tongue rides pegs on the rim: pushed aside, carried, sprung back; `elasticity`, `friction`, `stiffness`, `damping` set the feel. `pointer:tick` per divider. |
 | **Skins** | `GraphicsRingSkin` (default), `DebugRingSkin`, `TextureRingSkin`, `SpineRingSkin` (`pixi-wheels/spine`), or yours. |
 | **Configs** | `builder.toConfig()` / `WheelBuilder.fromConfig()`; templates; a studio that exports JSON and a runnable project. |
 | **Testing** | `createTestWheel` + `FakeTicker` run whole spins in Node. `pixi-wheels/testing`. |

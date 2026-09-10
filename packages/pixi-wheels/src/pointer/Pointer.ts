@@ -1,9 +1,9 @@
 import { Container } from 'pixi.js';
-import type { FlapConfig, PointerConfig, PointerFacing, ResolvedSection, SpinDirection } from '../config/types.js';
+import type { FlapConfig, PointerConfig, PointerFacing, ResolvedPegs, ResolvedSection, SpinDirection } from '../config/types.js';
 import { DEFAULT_FLAP, DEFAULT_POINTER } from '../config/defaults.js';
 import type { RingGeometry } from '../core/RingGeometry.js';
 import { localAngleUnderPointer } from '../core/RingGeometry.js';
-import { DEG_TO_RAD, clamp, normalizeDeg } from '../utils/angles.js';
+import { DEG_TO_RAD, RAD_TO_DEG, clamp, normalizeDeg, signedDeg } from '../utils/angles.js';
 import type { Disposable } from '../utils/Disposable.js';
 import type { PointerSkin } from './PointerSkin.js';
 
@@ -22,7 +22,9 @@ export interface PointerCrossing {
  *
  * Owns its skin's view, seats it on the ring, detects the dividers that pass
  * under it each frame (one crossing per divider, however fast the ring
- * turns) and runs the flap spring that makes the tongue kick.
+ * turns) and runs the tongue against the ring's pegs: pushed aside as a peg
+ * comes through, carried on its crown, released into a spring. See
+ * {@link FlapConfig} for the knobs.
  */
 export class Pointer implements Disposable {
   readonly id: string;
@@ -32,8 +34,12 @@ export class Pointer implements Disposable {
   readonly view = new Container();
   readonly skin: PointerSkin;
   private readonly _flap: Required<FlapConfig> | null;
+  private _pinRadius = 0;
   private _deflection = 0;
   private _deflectionVel = 0;
+  private _engaged: number | null = null;
+  private _moveSign = 1;
+  private _moved = false;
   private _isDestroyed = false;
 
   constructor(config: PointerConfig, skin: PointerSkin) {
@@ -53,11 +59,13 @@ export class Pointer implements Disposable {
     if (this.facing === 'inward') {
       const tipRadius = outerRadius - this.tipInset;
       const baseRadius = tipRadius + this.skin.length;
+      this._pinRadius = baseRadius;
       this.view.position.set(Math.cos(a) * baseRadius, Math.sin(a) * baseRadius);
       this.view.rotation = a + Math.PI;
     } else {
       const tipRadius = innerRadius + this.tipInset;
       const baseRadius = tipRadius - this.skin.length;
+      this._pinRadius = baseRadius;
       this.view.position.set(Math.cos(a) * baseRadius, Math.sin(a) * baseRadius);
       this.view.rotation = a;
     }
@@ -68,6 +76,26 @@ export class Pointer implements Disposable {
     return this._deflection;
   }
 
+  /** Index into the ring's peg angles of the peg carrying the tongue right now, or null. */
+  get engagedPeg(): number | null {
+    return this._engaged;
+  }
+
+  /** The flap settings in force, or null for a rigid pointer. */
+  get flap(): Readonly<Required<FlapConfig>> | null {
+    return this._flap;
+  }
+
+  /** Distance from the pin to the hub, px, after `layout()`. */
+  get pinRadius(): number {
+    return this._pinRadius;
+  }
+
+  /** Half the width of the contact zone at the peg ring, px: peg radius plus half the tongue tip. */
+  contactHalfWidth(pegs: ResolvedPegs): number {
+    return pegs.size + (this._flap?.tipWidth ?? DEFAULT_FLAP.tipWidth) / 2;
+  }
+
   /** The wheel-local angle under this pointer for a disc rotation. */
   localAngle(rotationDeg: number): number {
     return localAngleUnderPointer(rotationDeg, this.angle);
@@ -75,7 +103,8 @@ export class Pointer implements Disposable {
 
   /**
    * Advance one frame. Returns every divider that passed under the pointer
-   * between `prevRotation` and `rotation`, in the order they passed.
+   * between `prevRotation` and `rotation`, in the order they passed. `pegs`
+   * drives the tongue; without them a flapping pointer stays at rest.
    */
   update(
     prevRotation: number,
@@ -83,11 +112,14 @@ export class Pointer implements Disposable {
     dt: number,
     geometry: RingGeometry,
     direction: SpinDirection,
+    pegs: ResolvedPegs | null = null,
   ): PointerCrossing[] {
     const crossings: PointerCrossing[] = [];
     const delta = rotation - prevRotation;
     const speed = dt > 0 ? Math.abs(delta) / dt : 0;
     if (Math.abs(delta) > 1e-9) {
+      this._moved = true;
+      this._moveSign = delta > 0 ? 1 : -1;
       const a0 = this.localAngle(prevRotation);
       const dist = Math.min(360, Math.abs(delta));
       const movingDir: SpinDirection = delta > 0 ? 'cw' : 'ccw';
@@ -106,20 +138,59 @@ export class Pointer implements Disposable {
         const to = delta > 0 ? after : before;
         crossings.push({ pointer: this.id, from, to, speed, direction: movingDir });
       }
-      if (this._flap && crossings.length > 0) {
-        const f = this._flap;
-        const kickSign = (delta > 0 ? 1 : -1) * (this.facing === 'inward' ? -1 : 1) * (f.invert ? -1 : 1);
-        const factor = clamp(speed / f.referenceSpeed, 0.25, 1.5);
-        this._deflectionVel += kickSign * f.kick * factor * Math.min(crossings.length, 3);
-      }
       void direction;
     }
-    if (this._flap) this._stepFlap(dt);
+    if (this._flap) {
+      // A wheel that has never turned rests its tongue straight, even with a peg right under it.
+      if (pegs && pegs.angles.length > 0 && this._moved) this._contact(rotation, dt, pegs, crossings.length);
+      else this._stepSpring(dt);
+      this.skin.setDeflection(this._deflection);
+    }
     if (crossings.length > 0 && this.skin.tick) this.skin.tick(speed);
     return crossings;
   }
 
-  private _stepFlap(dt: number): void {
+  /**
+   * The tongue against the pegs. `u` is the nearest peg's position along its
+   * rim relative to the tongue's rest axis, in px, positive once it is past
+   * the axis in the direction of motion. Contact runs from `-c` (first
+   * touch) to `c * (1 + friction)` (release); the push grows to the crown at
+   * `u = 0` and is carried flat after it.
+   */
+  private _contact(rotation: number, dt: number, pegs: ResolvedPegs, crossingCount: number): void {
+    const f = this._flap!;
+    const c = this.contactHalfWidth(pegs);
+    const D = Math.max(1, Math.abs(this._pinRadius - pegs.radius));
+    let bestIndex = -1;
+    let bestX = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < pegs.angles.length; i++) {
+      const x = signedDeg(pegs.angles[i] + rotation - this.angle) * DEG_TO_RAD * pegs.radius;
+      if (Math.abs(x) < Math.abs(bestX)) {
+        bestX = x;
+        bestIndex = i;
+      }
+    }
+    const u = bestX * this._moveSign;
+    const sign = this._moveSign * (this.facing === 'inward' ? -1 : 1) * (f.invert ? -1 : 1);
+    const crown = f.elasticity * Math.atan(c / D) * RAD_TO_DEG;
+    if (u > -c && u < c * (1 + Math.max(0, f.friction))) {
+      const push = u <= 0 ? u + c : c;
+      const target = clamp(sign * f.elasticity * Math.atan(push / D) * RAD_TO_DEG, -f.maxAngle, f.maxAngle);
+      this._deflectionVel = dt > 0 ? (target - this._deflection) / dt : 0;
+      this._deflection = target;
+      this._engaged = bestIndex;
+      return;
+    }
+    this._engaged = null;
+    if (crossingCount > 0 && Math.abs(this._deflection) < Math.abs(crown) * 0.5) {
+      // The peg went through within one frame: nothing was seen pushing, so flick to the crown.
+      this._deflection = clamp(sign * crown, -f.maxAngle, f.maxAngle);
+      this._deflectionVel = 0;
+    }
+    this._stepSpring(dt);
+  }
+
+  private _stepSpring(dt: number): void {
     const f = this._flap!;
     if (this._deflection === 0 && this._deflectionVel === 0) return;
     const acc = -f.stiffness * this._deflection - f.damping * this._deflectionVel;
@@ -136,7 +207,6 @@ export class Pointer implements Disposable {
       this._deflection = 0;
       this._deflectionVel = 0;
     }
-    this.skin.setDeflection(this._deflection);
   }
 
   get isDestroyed(): boolean {

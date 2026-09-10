@@ -2,7 +2,7 @@
 title: Pointers
 order: 8
 eyebrow: Building blocks
-description: The tongue - placement, facing, several per ring, flap physics and the pointer:tick hook.
+description: The tongue - placement, facing, several per ring, the pegs it rides, flap physics and the pointer:tick hook.
 ---
 
 ```ts
@@ -11,16 +11,30 @@ description: The tongue - placement, facing, several per ring, flap physics and 
   angle: -90,             // screen degrees: -90 top, 0 right, 90 bottom
   facing: 'inward',       // sits on the rim, tip toward the hub; 'outward' sits at the hub
   tipInset: 18,           // how far the tip reaches into the sections
-  flap: { maxAngle: 22, stiffness: 420, damping: 16, kick: 900, referenceSpeed: 540 },
+  flap: { elasticity: 1, friction: 0.35, stiffness: 420, damping: 14, maxAngle: 28, tipWidth: 14 },
   skin: new GraphicsPointerSkin({ shape: 'tongue' | 'triangle' | 'needle', length: 72, width: 36, color: 0xffffff }),
 })
 ```
 
 Results are read against the first pointer. Add more for decoration or a second read position; each one ticks.
 
-## Flap
+## Pegs and the tongue
 
-Every divider crossing kicks the pointer's angular velocity; a spring pulls it back. Kicks scale with the ring speed, so a fast wheel keeps the tongue deflected and a crawling one lets it settle between clicks. `flap: false` keeps it rigid.
+Every ring has pegs: small circles on the disc, one per divider, 9 px inside the rim, 6 px across. `.pegs({ size, inset, angles })` changes them, `.pegs(false)` removes them (a flapping pointer then stays at rest). The debug overlay draws them (`pegs` layer) and `GraphicsRingSkin` will too with `pegs: true`. Dynamic sections move their pegs with their lines.
+
+The tongue tip is a point `tipWidth` wide at the peg ring. As a peg comes toward it, the peg pushes the tip aside along its own rim, exactly as far as the geometry demands times `elasticity`. At the peg's crown the push is largest; the peg then carries the tongue flat until it is through, plus `friction` of the contact width, and lets go. From there a spring (`stiffness`, `damping`) brings the tongue back, ringing if the damping is low. At speed a peg goes through within one frame and the tongue is flicked to the crown deflection instead, so a fast wheel keeps it pinned and jittering while a crawling one bends it slowly over every peg and lets it fall back.
+
+| Knob | Feel |
+|---|---|
+| `elasticity` | how far the tongue yields: 0.6 a stiff stub, 1 the geometry, 1.5 a floppy strip |
+| `friction` | extra carry once the peg is through: 0 lets go at once, 1 drags a whole contact width more |
+| `stiffness` | how hard it snaps back |
+| `damping` | how quickly the ringing dies |
+| `maxAngle` | the hard limit |
+| `tipWidth` | how early a peg starts pushing |
+| pegs `size` / `inset` | bigger or deeper pegs push earlier and harder |
+
+`flap: false` keeps a pointer rigid. Read `pointer.deflection` and `pointer.engagedPeg` for your own reactions; the HUD prints both.
 
 ## Ticks
 

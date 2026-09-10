@@ -9,10 +9,11 @@ import { TickerRef } from '../utils/TickerRef.js';
  * Overlay layers.
  *   - `sections`  divider lines, section ids and start angles, drawn on the disc.
  *   - `pointers`  a line at every pointer angle plus its local angle.
+ *   - `pegs`      the pegs the tongues touch, the peg being ridden, and each tongue's contact zone.
  *   - `target`    the landing angle of the current result, on the disc.
  *   - `hud`       state, rotation, speed, current leg, section under the pointer.
  */
-export type DebugOverlayLayer = 'sections' | 'pointers' | 'target' | 'hud';
+export type DebugOverlayLayer = 'sections' | 'pointers' | 'pegs' | 'target' | 'hud';
 
 export interface DebugOverlayOptions {
   layers?: DebugOverlayLayer[] | 'all';
@@ -34,7 +35,7 @@ export interface DebugOverlayHandle extends Disposable {
 }
 
 export const OVERLAY_LABEL = 'pixi-wheels:debugOverlay';
-const ALL: readonly DebugOverlayLayer[] = ['sections', 'pointers', 'target', 'hud'];
+const ALL: readonly DebugOverlayLayer[] = ['sections', 'pointers', 'pegs', 'target', 'hud'];
 
 /**
  * Draw the wheel's invisible geometry over it: dividers with angles, pointer
@@ -96,10 +97,33 @@ export function debugOverlay(wheel: Wheel, options: DebugOverlayOptions = {}): D
         fixed.stroke({ color: 0xff3b30, width: 2, alpha: 0.85 });
       }
     }
+    const pegs = ring.pegs;
+    if (layers.has('pegs') && pegs) {
+      const ridden = new Set(ring.pointers.map((p) => p.engagedPeg).filter((i): i is number => i !== null));
+      pegs.angles.forEach((deg, i) => {
+        const a = deg * DEG_TO_RAD;
+        disc.circle(Math.cos(a) * pegs.radius, Math.sin(a) * pegs.radius, pegs.size);
+        if (ridden.has(i)) disc.fill({ color: 0xff2d95, alpha: 0.9 });
+        disc.stroke({ color: 0x32ade6, width: 1.5, alpha: 0.95 });
+      });
+      for (const p of ring.pointers) {
+        if (!p.flap) continue;
+        // The contact zone: where a peg centre starts pushing the tongue and where it lets go.
+        const c = p.contactHalfWidth(pegs);
+        const half = c / pegs.radius;
+        const a = p.angle * DEG_TO_RAD;
+        fixed.moveTo(Math.cos(a - half) * pegs.radius, Math.sin(a - half) * pegs.radius).arc(0, 0, pegs.radius, a - half, a + half);
+        fixed.stroke({ color: 0xff2d95, width: Math.max(3, pegs.size), alpha: 0.35 });
+      }
+    }
     if (layers.has('hud')) {
       const c = ring.controller;
       const leg = c.legs[c.currentLegIndex];
       const under = ring.pointers[0] ? ring.sectionUnderPointer().id : '-';
+      const tongue = ring.pointers[0];
+      const flapLine = tongue?.flap
+        ? `flap ${tongue.deflection.toFixed(1)} deg${tongue.engagedPeg !== null ? `  on peg ${tongue.engagedPeg}` : ''}`
+        : null;
       const lines = [
         `ring ${ring.id}  ${c.state}${c.isIdling ? ' (idle)' : ''}`,
         `rot ${normalizeDeg(ring.rotationDeg).toFixed(1)}  speed ${ring.speed.toFixed(0)} deg/s`,
@@ -108,6 +132,7 @@ export function debugOverlay(wheel: Wheel, options: DebugOverlayOptions = {}): D
         leg ? `leg ${c.currentLegIndex + 1}/${c.legs.length} ${leg.kind} ${leg.distance.toFixed(0)}deg ${Math.round(leg.duration)}ms` : 'leg: -',
         ring.step !== null ? `step ${ring.step}/${ring.stepCount - 1}` : '',
       ].filter((l) => l !== '');
+      if (flapLine) lines.push(flapLine);
       hud.text = lines.join('\n');
       hud.visible = true;
       const pad = 6;
