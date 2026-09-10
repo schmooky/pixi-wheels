@@ -1,0 +1,99 @@
+---
+title: Your first wheel
+order: 1
+eyebrow: Start here
+description: A complete bonus wheel - sections, styles, a pointer, speeds, a server call, a near-miss, and the events a game needs.
+---
+
+This is the shape of a shipped feature: a multiplier wheel that opens when the base game awards it, spins while the server answers, baits with the top prize, lands, presents, and hands control back.
+
+## 1. Sections with unequal arcs
+
+Weights are relative. The big prize gets a sliver.
+
+```ts
+const SECTIONS = [
+  { id: 'x2a', label: 'x2',  value: 2,  weight: 3 },
+  { id: 'x50', label: 'x50', value: 50, weight: 0.6, style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
+  { id: 'x5',  label: 'x5',  value: 5,  weight: 2 },
+  { id: 'x3',  label: 'x3',  value: 3,  weight: 2.5 },
+  { id: 'x10', label: 'x10', value: 10, weight: 1 },
+  { id: 'x2b', label: 'x2',  value: 2,  weight: 3 },
+];
+```
+
+Ids must be unique; values may repeat. `setResult({ value: 2 })` picks one of the `x2` wedges at random, so the same result does not always land on the same wedge.
+
+## 2. Build
+
+```ts
+import { WheelBuilder, SpinPresets } from 'pixi-wheels';
+
+const wheel = new WheelBuilder()
+  .radius(260, 40)                     // outer radius, hub radius
+  .sections(SECTIONS)
+  .pointer({ angle: -90 })             // twelve o'clock, the default
+  .skin({ type: 'graphics', bulbs: { count: 24 } })
+  .landing({ mode: 'random', margin: 0.12, settle: 'none' })
+  .skip({ minimumSpinTime: 800 })
+  .speed('normal', SpinPresets.NORMAL)
+  .speed('turbo', SpinPresets.TURBO)
+  .ticker(app.ticker)
+  .build();
+```
+
+`build()` validates everything and throws a message that names the fix: a missing ticker, an inner radius larger than the outer, an ease that does not exist, a bait that is not a section.
+
+## 3. Spin, ask the server, land
+
+```ts
+async function playWheel(): Promise<number> {
+  const spin = wheel.spin();
+  const response = await api.spinWheel();          // { multiplier: 5 }
+  wheel.setResult(
+    { value: response.multiplier },
+    { anticipation: { bait: 'x50' } },             // almost the big one
+  );
+  const result = await spin;
+  return result.section.value as number;
+}
+```
+
+`spin()` returns immediately with a promise; the wheel is already cruising while the request is in flight. `setResult()` may arrive any time before the stop; the stop begins once the profile's minimum times have passed. If the bait does not sit next to the landing the tease is skipped with a console warning and the wheel just lands.
+
+## 4. Wire the events
+
+```ts
+wheel.events.on('spin:start',        () => audio.play('windup'));
+wheel.events.on('pointer:tick',      ({ speed }) => audio.play('tick', { volume: speed / 700 }));
+wheel.events.on('anticipation:bait', () => audio.play('heartbeat'));
+wheel.events.on('spin:landing',      ({ section }) => hud.showPrize(section.value));
+wheel.events.on('spin:complete',     () => game.resumeBaseGame());
+```
+
+Every exit path fires the right events: a normal stop, a skip, a slam. Listen once and audio stays correct.
+
+## 5. Skip
+
+```ts
+skipButton.on('pointerdown', () => {
+  try { wheel.skip(); }          // throws before the result is in...
+  catch { wheel.requestSkip(); } // ...so queue the press instead
+});
+```
+
+## 6. Test it
+
+```ts
+import { createTestWheel, expectPointerOn } from 'pixi-wheels/testing';
+
+it('lands the server result', async () => {
+  const h = createTestWheel({ sections: SECTIONS });
+  const result = await h.spinAndLand({ value: 5 }, { anticipation: { bait: 'x50' } });
+  expect(result.section.value).toBe(5);
+  expectPointerOn(h.wheel, result.section.id);
+  h.destroy();
+});
+```
+
+No renderer, no timers. The whole spin runs on a fake ticker in a few milliseconds.

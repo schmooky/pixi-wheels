@@ -1,0 +1,33 @@
+---
+title: Events and audio
+order: 12
+eyebrow: Building blocks
+description: Every event, in the order it fires, and how to hang sound, particles and Spine reactions off them.
+---
+
+```ts
+wheel.events.on('spin:start', ({ ring, fromIdle }) => ...);
+```
+
+| Order | Event | Payload | Cue |
+|---|---|---|---|
+| 1 | `spin:start` | `ring, fromIdle, direction` | wind-up, start the loop |
+| 2 | `spin:resultSet` | `ring, target` | (the server answered) |
+| 3 | `spin:cruise` | `ring, speed` | whoosh |
+| 4 | `spin:stopping` | `ring, turns, duration, anticipation` | slow-down, riser |
+| 4a | `anticipation:start` | `ring, bait, style` | tension loop |
+| 4b | `anticipation:bait` | `ring, bait` | heartbeat, hold breath |
+| 4c | `anticipation:end` | `ring, bait` | release |
+| 5 | `spin:landing` | `ring, section, landingAngle` | sector win, reveal |
+| 6 | `spin:settle:start` / `spin:settle:end` | `ring, mode` | click |
+| 7 | `spin:complete` | `WheelSpinResult` | present, hand back |
+| any | `pointer:tick` | `ring, pointer, from, to, speed, direction` | ratchet click |
+| any | `skip:requested` / `skip:completed` | `ring, protectedByAnticipation` | swish |
+| any | `idle:start` / `idle:stop` | `ring, speed, direction` | ambient |
+| any | `sections:transition:start` / `:end`, `sections:changed` | `ring, step` | state change |
+| any | `speed:changed` | `ring, name, profile, previous` | |
+| end | `destroyed` | | |
+
+`resultSet` comes before `cruise` when the server is faster than the wind-up; it does not matter, the stop begins only once both the result and the minimum times are in.
+
+Wire audio to events, never to method calls: a skip, a slam and a normal stop all reach `spin:landing`.

@@ -1,0 +1,44 @@
+---
+title: Builder
+order: 1
+eyebrow: API
+description: Every WheelBuilder and RingBuilder method, what it validates, and its default.
+---
+
+`new WheelBuilder()` configures the main ring through its own methods and extra rings through `ring()`. `build()` validates and returns a `Wheel`.
+
+## Main ring (also on `RingBuilder`)
+
+| Method | Meaning | Default |
+|---|---|---|
+| `radius(outer, inner = 0)` | Outer and hub radius in px. Inner must be smaller than outer. | required |
+| `sections(list)` / `section(cfg)` | Replace / append `WheelSectionConfig`s. At least two, unique ids, positive weights. | required |
+| `startAngle(deg)` | Where section 0 begins, wheel-local. | -90 |
+| `pointer(spec)` | Add a pointer: `PointerConfig` plus `skin` (instance or config). Repeatable. | one at -90 |
+| `skin(skin)` | `RingSkin` instance or `RingSkinConfig`. | `GraphicsRingSkin` |
+| `dynamic({ steps, durationMs, ease, initialStep })` | Dynamic-section steps. Step ids must exist. | none |
+| `palette(colors)` | Fill colours cycled by index. | built-in palette |
+
+`RingBuilder` adds `direction(dir)`, `outerRadius(r)`, `innerRadius(r)`.
+
+## Wheel level
+
+| Method | Meaning | Default |
+|---|---|---|
+| `direction('cw' \| 'ccw')` | Spin direction for rings without their own. | `'cw'` |
+| `ring(id, (r) => ...)` | Add a ring around the same centre. Rings may not overlap. | |
+| `speed(name, profile)` | Register a `SpinProfile`. Validated: positive speeds, `minTurns <= maxTurns`, eases exist. | `normal: SpinPresets.NORMAL` |
+| `initialSpeed(name)` | Active profile at build. | first registered |
+| `landing(options)` | Defaults for `setResult()`: `mode`, `margin`, `settle`, `anticipation`. | center, none |
+| `skip({ allowed, minimumSpinTime, protectAnticipation })` | Skip rules. | allowed |
+| `idle({ speed, direction, autoStart, rampMs })` | Idle rotation. | none |
+| `rng(fn)` | Random source for random landings and `pick: 'random'`. | `Math.random` |
+| `ticker(ticker)` | The PixiJS ticker. | required |
+| `assets(resolver)` | Where skin configs find textures. | throws on use |
+| `name(str)` / `adapter(cfg)` | Kept in `toConfig()`. | |
+| `toConfig()` | The builder as `WheelConfig`. | |
+| `WheelBuilder.fromConfig(cfg, { assets, ticker })` | A builder from a config. | |
+
+## Validation
+
+`build()` throws on: no ticker; no radius; fewer than two sections; duplicate section or pointer ids; non-positive weights; inner radius not below outer; overlapping rings; unknown `initialSpeed`; a profile field out of range; an unknown ease anywhere; a dynamic step naming an unknown section; an idle speed of zero. Each message names the call to fix.

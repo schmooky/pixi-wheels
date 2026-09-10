@@ -1,0 +1,85 @@
+name: Bug report
+description: Something in pixi-wheels, a demo, or the docs site behaves incorrectly.
+title: 'bug: '
+labels: ['bug', 'needs-triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. The more reproducible a report is, the faster it gets fixed. A headless `createTestWheel` repro is the gold standard — if you can trigger the bug with just the library in Node, attach that test.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the repo is affected?
+      options:
+        - Library (packages/pixi-wheels)
+        - Spine skins (pixi-wheels/spine)
+        - Docs site (apps/site)
+        - Studio
+        - Build, CI, or release tooling
+        - Unsure / other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / branch / commit
+      description: |
+        For the npm package, run `pnpm ls pixi-wheels`. For the docs site, check the footer. For local checkouts, include the git SHA and branch.
+      placeholder: 'e.g. pixi-wheels 0.1.0, or main @ 400277a'
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the actual behavior you observed. Error messages, stack traces, and screenshots all help.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      description: What should have happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps a maintainer can follow from a fresh clone or a fresh browser tab. A `createTestWheel` Node-only repro is best.
+      placeholder: |
+        1. const h = createTestWheel({ sections: 8 });
+        2. const result = await h.spinAndLand({ section: 's3' }, { anticipation: { bait: 's4' } });
+        3. expect(h.wheel.sectionUnderPointer().id).toBe('s3');
+        4. Observed: first row is 'z' instead of 'a'
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser + OS for UI bugs. For library bugs, include Node version and the package versions installed.
+      placeholder: |
+        - Browser: Chrome 139 on macOS 15
+        - Node: 20.11.0
+        - Pixi: 8.17
+        - Spine: 4.2 (optional)
+    validations:
+      required: false
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Console / server logs
+      description: Paste any relevant DevTools console output or server logs. Wrap with triple backticks.
+      render: text
+    validations:
+      required: false

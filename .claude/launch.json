@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "site-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@pixi-wheels/site", "exec", "astro", "preview", "--port", "4321", "--host", "127.0.0.1"],
+      "port": 4321
+    },
+    {
+      "name": "site-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@pixi-wheels/site", "dev", "--port", "4322", "--host", "127.0.0.1"],
+      "port": 4322
+    }
+  ]
+}

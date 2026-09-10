@@ -1,0 +1,102 @@
+{
+  "name": "pixi-wheels",
+  "version": "0.1.0",
+  "description": "Bonus wheel engine for PixiJS v8 - fluent builder, typed events, planned stops with velocity-matched deceleration, anticipation and near-miss styles, dynamic sectors, rings, pointers with flap physics, and a headless testing harness.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./spine": {
+      "types": "./dist/spine/index.d.ts",
+      "import": "./dist/spine.js",
+      "require": "./dist/spine.cjs"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing.js",
+      "require": "./dist/testing.cjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "spine": ["./dist/spine/index.d.ts"],
+      "testing": ["./dist/testing/index.d.ts"]
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md"
+  ],
+  "sideEffects": [
+    "./dist/spine.js",
+    "./dist/spine.cjs"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome lint src/",
+    "prepack": "node ../../scripts/stage-package-files.mjs",
+    "postpack": "node ../../scripts/stage-package-files.mjs --clean"
+  },
+  "peerDependencies": {
+    "@esotericsoftware/spine-pixi-v8": "~4.2.110",
+    "pixi.js": "^8.18.1"
+  },
+  "peerDependenciesMeta": {
+    "@esotericsoftware/spine-pixi-v8": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@esotericsoftware/spine-pixi-v8": "~4.2.110",
+    "pixi.js": "^8.20.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.2.2",
+    "vite-plugin-dts": "^5.1.0",
+    "vitest": "^5.0.0"
+  },
+  "license": "MIT",
+  "author": "igaming-bulochka",
+  "homepage": "https://github.com/igaming-bulochka/pixi-wheels#readme",
+  "bugs": {
+    "url": "https://github.com/igaming-bulochka/pixi-wheels/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/igaming-bulochka/pixi-wheels.git",
+    "directory": "packages/pixi-wheels"
+  },
+  "keywords": [
+    "pixi",
+    "pixijs",
+    "pixi.js",
+    "wheel",
+    "bonus-wheel",
+    "wheel-of-fortune",
+    "prize-wheel",
+    "slot",
+    "casino",
+    "gamble",
+    "jackpot",
+    "game",
+    "gamedev",
+    "html5-game",
+    "spine",
+    "typescript"
+  ]
+}

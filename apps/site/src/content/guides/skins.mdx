@@ -1,0 +1,57 @@
+---
+title: Skins, textures and Spine
+order: 10
+eyebrow: Building blocks
+description: GraphicsRingSkin, DebugRingSkin, TextureRingSkin, SpineRingSkin, pointer skins, and writing your own.
+---
+
+A ring owns the motion; a skin owns the pixels. The ring hands the skin two containers - `disc`, which rotates, and `overlay`, which does not - plus the geometry, and calls `layout()` whenever weights change.
+
+## Built-in
+
+| Skin | Config type | What it draws |
+|---|---|---|
+| `GraphicsRingSkin` | `graphics` | Wedges, dividers, rim, hub, bulbs, fitted labels, shading. The default. |
+| `DebugRingSkin` | `debug` | Flat fills, ids, start angles, degree marks, pointer lines. |
+| `TextureRingSkin` | `texture` | One painted face texture, an optional fixed frame, per-section decorations that follow the geometry. |
+| `SpineRingSkin` | `spine` | A skeleton; the wheel rotates a bone (or the whole skeleton) and plays `spin` / `win` animations. |
+| `HeadlessRingSkin` | `headless` | Nothing. Tests. |
+
+Pass an instance or a config:
+
+```ts
+.skin(new TextureRingSkin({ face, frame, decorations: [{ section: 'x50', texture: plate, radius: 0.7 }] }))
+.skin({ type: 'texture', face: 'wheel-face.webp', frame: 'bezel.webp' })   // keys resolved by .assets(resolver)
+```
+
+## Spine
+
+```ts
+import 'pixi-wheels/spine';   // registers the 'spine' config types
+import { SpineRingSkin, SpinePointerSkin } from 'pixi-wheels/spine';
+
+.skin(new SpineRingSkin({
+  skeleton: 'wheelData', atlas: 'wheelAtlas',   // Assets aliases
+  bone: 'wheel',                                // the bone the engine turns; omit to turn the whole skeleton
+  animations: { idle: 'idle', spin: 'spin', win: 'win', winBySection: { grand: 'win_grand' } },
+}))
+.pointer({ skin: new SpinePointerSkin({ skeleton: 'stopperData', atlas: 'wheelAtlas', length: 80, tickAnimation: 'tick' }) })
+```
+
+Spine 3.8 exports need converting to 4.2 first: `tools/spine-3.8-to-4.2/` in the repo does binary `.skel` and JSON.
+
+## Your own
+
+```ts
+class MySkin implements RingSkin {
+  attach(ctx: RingSkinContext) { /* add children to ctx.disc / ctx.overlay */ }
+  layout() { /* re-draw for ctx.geometry.sections */ }
+  syncRotation?(deg: number) {}
+  highlight?(id: string | null) {}
+  onSpinStart?() {} onSpinStop?() {} onLanded?(section) {}
+  destroy() {} get isDestroyed() { return false; }
+}
+registerRingSkin('mine', (config, assets) => new MySkin(config));
+```
+
+The Playson wheel on the recipes page is exactly this: authored plates composed from an atlas, in ~150 lines.

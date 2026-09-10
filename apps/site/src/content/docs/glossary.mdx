@@ -1,0 +1,48 @@
+---
+title: Glossary
+order: 5
+eyebrow: Reference
+description: The words this library uses, in one place.
+---
+
+**Anticipation**: a planned near-miss. The pointer heads for the *bait* and lands on the *target*. Styles: creep, stutter, overshoot.
+
+**Arc**: a section's angular size in degrees, its weight's share of 360.
+
+**Bait**: the section the player is meant to hope for during a tease.
+
+**Cruise**: the constant-speed phase between the wind-up and the stop, while the result is awaited.
+
+**Disc**: the rotating container of a ring. **Overlay**: the fixed one.
+
+**Dynamic sections**: weights that change at run time, animated, with labels re-centring. Cosmetic.
+
+**Entry edge**: the boundary of a section a pointer meets first for a given spin direction. Clockwise, that is the section's `endAngle`.
+
+**Facing**: `inward` seats a pointer on the rim with the tip toward the hub; `outward` seats it at the hub pointing out.
+
+**Flap**: the pointer's spring deflection on each divider crossing.
+
+**Landing angle**: the wheel-local angle that ends under the pointer. Fixed when the result arrives.
+
+**Leg**: one piece of a planned stop: a distance, a duration, an ease, forwards or reverse.
+
+**Local angle**: an angle on the disc, rotating with it. Screen angle = local + rotation.
+
+**Pointer**: the fixed mark a ring is read against. Also tongue, flapper, stopper.
+
+**Profile**: a `SpinProfile`, the timing of a spin. Registered by name; switched with `setSpeed`.
+
+**Ring**: one spinning disc with its sections, pointers and skin. A wheel has one or more.
+
+**Section**: one wedge: id, label, value, weight, style. Also sector.
+
+**Settle**: the move after landing: a glide to the centre or a bounce.
+
+**Skin**: what a ring looks like. Graphics, debug, texture, Spine, or your own.
+
+**Slam**: `slamStop()`: snap to the final position now. **Skip**: a short fast-forward to the landing.
+
+**Target**: a `WheelTarget`: where a spin lands, as the server decides it.
+
+**Weight**: a section's relative arc share.

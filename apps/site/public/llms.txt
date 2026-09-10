@@ -1,0 +1,2194 @@
+# pixi-wheels
+
+pixi-wheels 0.1.0 is a bonus wheel engine for PixiJS v8.
+Fluent builder, typed events, velocity-matched planned stops, anticipation (creep / stutter / overshoot), dynamic sectors, rings, pointers with flap physics, idle spin, texture and Spine skins, a headless testing harness.
+Outcome math, RTP and audio live in consumer code: the wheel lands where `setResult()` says.
+
+Site: https://pixi-wheels.pages.dev
+Repo: https://github.com/igaming-bulochka/pixi-wheels
+Package: https://www.npmjs.com/package/pixi-wheels
+
+## Quick start
+
+```ts
+import { WheelBuilder, SpinPresets } from 'pixi-wheels';
+
+const wheel = new WheelBuilder()
+  .radius(240, 36)
+  .sections([{ id: 'x2', value: 2, weight: 3 }, { id: 'x5', value: 5, weight: 2 }, { id: 'x10', value: 10 }])
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+app.stage.addChild(wheel);
+const spin = wheel.spin();
+wheel.setResult({ value: 5 }, { anticipation: { bait: 'x10' } });
+await spin;
+```
+
+## Guides
+
+### Server adapters
+URL: https://pixi-wheels.pages.dev/guides/adapters/
+
+`setResult()` takes a `WheelTarget`:
+
+```ts
+{ section: 'grand' }                       // by id
+{ index: 3 }                               // by position
+{ value: 8, pick: 'random' }               // any section with that value
+{ angle: 123 }                             // wheel-local degrees
+{ position: 0.34 }                         // fraction of the way round
+{ section: 'grand', offset: 0.2 }          // plus an exact spot inside
+```
+
+For a real response, describe how to read it once:
+
+```ts
+import { createTargetAdapter } from 'pixi-wheels';
+
+const toTarget = createTargetAdapter({ by: 'value', path: 'bonus.wheel.multiplier', pick: 'random' });
+wheel.setResult(toTarget(response));
+```
+
+`by` is `section | index | value | angle | position`; `path` is dotted; `indexBase: 1` handles backends that count from one; `offsetPath` reads an exact offset. The config is JSON, so the studio stores it next to the wheel (`config.adapter`) and the exported project reads it back.
+
+`resolveTarget(geometry, target, { mode, margin, rng })` is the pure function behind `setResult()`, for pre-computing a landing.
+
+### Anticipation
+URL: https://pixi-wheels.pages.dev/guides/anticipation/
+
+Anticipation baits the player with one section and lands on another. It is planned from the result, so it is deterministic, testable and always lands where the server said.
+
+```ts
+wheel.setResult({ value: 2 }, {
+  anticipation: {
+    bait: 'x50',              // section id, or { index }
+    style: 'auto',            // 'creep' | 'stutter' | 'overshoot' | 'auto'
+    creepSpeed: 40,           // deg/s entering the bait (creep)
+    dwellMs: 700,             // hold time (stutter, overshoot)
+    pushMs: 900,              // final nudge (stutter)
+    overshootDeg: 6,          // how far into the bait (overshoot)
+    returnMs: 800,            // roll back (overshoot)
+    maxDistanceDeg: 150,      // how far the bait may be from the landing
+    protectSkip: false,
+  },
+});
+```
+
+Set `.landing({ anticipation: { bait: 'x50' } })` on the builder to bait every spin.
+
+## Geometry
+
+A clockwise wheel sweeps decreasing local angles under the pointer, so it meets the section *after* the landing (in layout order) first. In the spin direction:
+
+- **bait before landing** (the pointer passes the bait, then reaches the landing): `creep` or `stutter`.
+- **bait after landing** (the pointer would reach the landing first): `overshoot`.
+
+`'auto'` picks by distance. If the bait is farther than `maxDistanceDeg` on both sides the tease is dropped with a warning (`bait-too-far`) and the wheel lands plainly. An explicit style with the wrong geometry warns (`bait-order`) and is dropped too. Nothing ever moves the landing.
+
+## Events
+
+| Event | When |
+|---|---|
+| `anticipation:start` | The stop was planned with a tease. Carries `bait` and `style`. |
+| `anticipation:bait` | The pointer reached the bait: creep begins, or the wheel halts inside it. |
+| `anticipation:end` | The tease resolved, just before `spin:landing`. |
+
+## Protected skip
+
+With `protectSkip: true` (or `.skip({ protectAnticipation: true })`) the first press fast-forwards to the bait and lets the tease play; the second press lands. `skip:requested` carries `protectedByAnticipation` so audio can tell the two apart.
+
+### Configs and templates
+URL: https://pixi-wheels.pages.dev/guides/configs/
+
+```ts
+const cfg = builder.toConfig();                                   // WheelConfig, plain JSON
+const wheel = WheelBuilder.fromConfig(cfg, { assets }).ticker(app.ticker).build();
+```
+
+A `WheelConfig` holds the rings (sections, radii, pointers, skin config, dynamic steps), the speed profiles, landing and skip defaults, idle, and the server adapter. Skins given as instances are recorded as `{ type: 'custom' }`; give them as configs to stay serialisable. Textures and Spine files are referenced by key and resolved through an `AssetResolver`.
+
+`assertWheelConfig(json)` checks a config from a file or a form before `fromConfig()`.
+
+## Templates
+
+`WheelTemplates.gamble()`, `gambleDynamic()`, `multipliers()`, `jackpots()`, `dynamicJackpot()`, `twoRing()`, `debug()` return configs to start from. `WHEEL_TEMPLATE_NAMES` lists them.
+
+## Studio
+
+The [studio](/studio/) edits a `WheelConfig` in forms, rebuilds the wheel on every change, shows the fluent code the config stands for, takes your uploads, and exports the JSON or a runnable Vite project with the assets under `public/assets/`.
+
+### Debugging
+URL: https://pixi-wheels.pages.dev/guides/debugging/
+
+PixiJS draws to a canvas; the debug tools describe the wheel in words and lines.
+
+```ts
+import { enableDebug, debugOverlay, debugArc, DebugRingSkin } from 'pixi-wheels';
+
+enableDebug(wheel);                       // window.__PIXI_WHEELS_DEBUG
+debugOverlay(wheel, { live: true, ticker: app.ticker });
+console.log(debugArc(wheel));
+```
+
+```
+main  rot 123.4  state stopping  speed -210.3 deg/s
+|  x2  |x5| x3  |x10|  x2  |x8|  x3 |x50|
+             ^ pointer -> x3
+```
+
+In the console:
+
+```
+__PIXI_WHEELS_DEBUG.log()        // arc + state
+__PIXI_WHEELS_DEBUG.snapshot()   // plain JSON: rings, sections, pointers, target, planned legs
+__PIXI_WHEELS_DEBUG.trace(true)  // log every event (ticks included)
+__PIXI_WHEELS_DEBUG.overlay()    // dividers, angles, pointer lines, landing marker, HUD
+__PIXI_WHEELS_DEBUG.land('x50')  // setResult on the current spin
+```
+
+`DebugRingSkin` is the plain look for wiring a wheel before the art exists. Every recipe on this site has a Debug button that toggles the overlay.
+
+### Dynamic sections
+URL: https://pixi-wheels.pages.dev/guides/dynamic-sections/
+
+Some features change the wheel's look as a round progresses: a jackpot sector grows, a gamble's green half shrinks. In pixi-wheels a section's arc is its weight, and weights can change any time. Labels and skins re-lay out on every frame of the transition; the spin's landing angle is fixed when the result arrives and does not move.
+
+## Direct
+
+```ts
+await wheel.setWeights({ grand: 2, mini: 3 }, { durationMs: 600, ease: 'sine.inOut' });
+```
+
+Unnamed sections keep their weights. `durationMs: 0` snaps.
+
+## Steps
+
+```ts
+.dynamic({
+  steps: [
+    { mini: 5, major: 1.5, grand: 0.6 },
+    { mini: 4, major: 2,   grand: 1 },
+    { mini: 3, major: 3,   grand: 1.6 },
+  ],
+  durationMs: 700,
+  initialStep: 0,
+})
+
+await wheel.setStep(2);
+await wheel.nextStep();     // wraps around
+wheel.step;                 // current index, or null without steps
+```
+
+## Quantised
+
+Think of the rim as N slots and use integer weights: a step moves a border by exactly one slot and the static sections never drift.
+
+## Events
+
+`sections:transition:start`, `sections:transition:end`, `sections:changed` (also fires for a snap). The payload names the ring and the step.
+
+## Skins
+
+`GraphicsRingSkin` and `TextureRingSkin` follow weights (wedges, labels and per-section decorations move). Authored art (`PlaysonWheelSkin` on this site, `SpineRingSkin`) is painted for fixed arcs and does not.
+
+### Events and audio
+URL: https://pixi-wheels.pages.dev/guides/events-and-audio/
+
+```ts
+wheel.events.on('spin:start', ({ ring, fromIdle }) => ...);
+```
+
+| Order | Event | Payload | Cue |
+|---|---|---|---|
+| 1 | `spin:start` | `ring, fromIdle, direction` | wind-up, start the loop |
+| 2 | `spin:resultSet` | `ring, target` | (the server answered) |
+| 3 | `spin:cruise` | `ring, speed` | whoosh |
+| 4 | `spin:stopping` | `ring, turns, duration, anticipation` | slow-down, riser |
+| 4a | `anticipation:start` | `ring, bait, style` | tension loop |
+| 4b | `anticipation:bait` | `ring, bait` | heartbeat, hold breath |
+| 4c | `anticipation:end` | `ring, bait` | release |
+| 5 | `spin:landing` | `ring, section, landingAngle` | sector win, reveal |
+| 6 | `spin:settle:start` / `spin:settle:end` | `ring, mode` | click |
+| 7 | `spin:complete` | `WheelSpinResult` | present, hand back |
+| any | `pointer:tick` | `ring, pointer, from, to, speed, direction` | ratchet click |
+| any | `skip:requested` / `skip:completed` | `ring, protectedByAnticipation` | swish |
+| any | `idle:start` / `idle:stop` | `ring, speed, direction` | ambient |
+| any | `sections:transition:start` / `:end`, `sections:changed` | `ring, step` | state change |
+| any | `speed:changed` | `ring, name, profile, previous` | |
+| end | `destroyed` | | |
+
+`resultSet` comes before `cruise` when the server is faster than the wind-up; it does not matter, the stop begins only once both the result and the minimum times are in.
+
+Wire audio to events, never to method calls: a skip, a slam and a normal stop all reach `spin:landing`.
+
+### Getting started
+URL: https://pixi-wheels.pages.dev/guides/getting-started/
+
+pixi-wheels is a bonus wheel engine. You drop it into a PixiJS v8 app.
+
+## You need
+
+- Node 20+, and pnpm, npm or yarn
+- A PixiJS v8 app. The engine advances on `app.ticker`
+- Spine skins? Also install `@esotericsoftware/spine-pixi-v8`
+
+## Install
+
+```bash
+pnpm add pixi-wheels pixi.js
+# only if you want Spine skins or pointers
+pnpm add @esotericsoftware/spine-pixi-v8
+```
+
+## Boot Pixi, build a wheel
+
+```ts
+import { Application } from 'pixi.js';
+import { WheelBuilder, SpinPresets } from 'pixi-wheels';
+
+const app = new Application();
+await app.init({ width: 800, height: 600, background: '#0b0d12' });
+document.body.appendChild(app.canvas);
+
+const wheel = new WheelBuilder()
+  .radius(240, 36)
+  .sections([
+    { id: 'x2',  label: 'x2',  value: 2,  weight: 3 },
+    { id: 'x5',  label: 'x5',  value: 5,  weight: 2 },
+    { id: 'x10', label: 'x10', value: 10, weight: 1 },
+    { id: 'x2b', label: 'x2',  value: 2,  weight: 3 },
+  ])
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+wheel.position.set(400, 300);
+app.stage.addChild(wheel);
+
+const spin = wheel.spin();
+const response = await fetch('/api/wheel').then((r) => r.json()); // your server
+wheel.setResult({ value: response.multiplier });
+const result = await spin;
+console.log(result.section.id, result.offset);
+```
+
+## Did it work
+
+The wheel winds up, cruises until the result is in, decelerates without a jerk and stops with the pointer on a section carrying the value you passed.
+
+Nothing happened? One of these:
+
+| You see | Do this |
+|---|---|
+| A blank canvas | The wheel sits at (0, 0) with its centre there. Set `wheel.position`. |
+| `ticker(app.ticker) must be called` | You forgot `.ticker(app.ticker)`. |
+| It spins and never stops | Nothing called `setResult()`. The wheel waits for its server. Pass `resultTimeoutMs` to `spin()` if you want a guard. |
+| `Unknown ease "..."` | A typo in a profile's `stopEase`. The message lists every name. |
+
+## Where next
+
+- **Build a real one** -> [Your first wheel](/guides/your-first-wheel/)
+- **Understand the spin** -> [Spin lifecycle](/guides/spin-lifecycle/)
+- **Tease the player** -> [Anticipation](/guides/anticipation/)
+- **See what is possible** -> [Recipes](/recipes/)
+- **Click instead of type** -> [Studio](/studio/)
+
+### Idle spin
+URL: https://pixi-wheels.pages.dev/guides/idle/
+
+```ts
+.idle({ speed: 14, direction: 'cw', autoStart: true, rampMs: 800 })
+
+wheel.idle.start();          // or start({ speed }) without builder config
+wheel.idle.stop();           // ramps down
+```
+
+- `spin()` from idle ramps from the idle speed; `spin:start` reports `fromIdle: true`.
+- Idle resumes on its own after the spin completes while `idle.start()` is in effect.
+- `idle:start` and `idle:stop` events bracket it.
+
+Placement is yours: scale the wheel down and park it in a corner, then tween it over the reels for the feature. The [side wheel recipe](/recipes/sections-rings-idle/#a-wheel-beside-the-reels) shows the whole move.
+
+### Landing and settle
+URL: https://pixi-wheels.pages.dev/guides/landing/
+
+## Where inside the section
+
+```ts
+.landing({ mode: 'center' })                 // the middle (default)
+.landing({ mode: 'random', margin: 0.12 })   // anywhere, kept off the edges
+wheel.setResult({ section: 'x5', offset: 0.9 })   // exact: 0 = clockwise start edge, 1 = end edge
+wheel.setResult({ angle: 123.4 })                 // exact: an absolute wheel-local angle
+wheel.setResult({ position: 0.25 })               // a quarter of the way round from the layout start
+```
+
+The per-spin options in `setResult(target, options)` override the builder defaults.
+
+## Settle
+
+What happens once the pointer has reached the landing angle:
+
+```ts
+settle: 'none'                                                     // stay put (default)
+settle: { mode: 'center', delayMs: 300, durationMs: 700, ease: 'sine.inOut' }
+settle: { mode: 'bounce', bounceDeg: 5, durationMs: 500 }
+```
+
+`spin:landing` fires when the pointer reaches the landing angle, `spin:settle:start` / `spin:settle:end` bracket the move, `spin:complete` fires after everything. The result's `landingAngle` is the pre-settle angle.
+
+## Skip
+
+```ts
+.skip({ allowed: true, minimumSpinTime: 800, protectAnticipation: false })
+```
+
+`wheel.skip()` returns `true` when it did something. It throws before `setResult()`; `wheel.requestSkip()` queues the press for the moment the result lands. `wheel.slamStop()` snaps to the final position synchronously.
+
+The profile's `skipDuration` is the length of the fast-forward.
+
+### Pointers
+URL: https://pixi-wheels.pages.dev/guides/pointers/
+
+```ts
+.pointer({
+  id: 'top',              // default 'pointer' for the first
+  angle: -90,             // screen degrees: -90 top, 0 right, 90 bottom
+  facing: 'inward',       // sits on the rim, tip toward the hub; 'outward' sits at the hub
+  tipInset: 18,           // how far the tip reaches into the sections
+  flap: { maxAngle: 22, stiffness: 420, damping: 16, kick: 900, referenceSpeed: 540 },
+  skin: new GraphicsPointerSkin({ shape: 'tongue' | 'triangle' | 'needle', length: 72, width: 36, color: 0xffffff }),
+})
+```
+
+Results are read against the first pointer. Add more for decoration or a second read position; each one ticks.
+
+## Flap
+
+Every divider crossing kicks the pointer's angular velocity; a spring pulls it back. Kicks scale with the ring speed, so a fast wheel keeps the tongue deflected and a crawling one lets it settle between clicks. `flap: false` keeps it rigid.
+
+## Ticks
+
+```ts
+wheel.events.on('pointer:tick', ({ pointer, from, to, speed, direction }) => {
+  audio.play('tick', { volume: Math.min(1, speed / 700) });
+});
+```
+
+One event per divider, in order, however fast the ring turns; a single frame that sweeps several dividers reports each of them.
+
+## Texture and Spine pointers
+
+```ts
+new TexturePointerSkin({ texture, artDirection: 'up', pin: { x: 0.5, y: 0.85 }, scale: 1 })
+```
+
+The pin is the point the art pivots around; `artDirection` says which way the tip points in the source image. `SpinePointerSkin` (from `pixi-wheels/spine`) plays a `tick` animation on every crossing and an `idle` loop otherwise.
+
+### Rings and subwheels
+URL: https://pixi-wheels.pages.dev/guides/rings/
+
+```ts
+const wheel = new WheelBuilder()
+  .radius(280, 190)                       // the main ring: outer 280, inner 190
+  .sections(OUTER)
+  .ring('inner', (r) =>
+    r.radius(175, 50)
+     .direction('ccw')
+     .pointer({ angle: 0, facing: 'inward', tipInset: 12 })
+     .sections(INNER)
+     .skin({ type: 'graphics', rim: { width: 6 } }),
+  )
+  .ticker(app.ticker)
+  .build();
+
+const outer = wheel.spin();
+const inner = wheel.spin({ ring: 'inner' });
+wheel.setResult({ section: 'major' });
+wheel.setResult({ section: 'grand' }, { ring: 'inner' });
+await Promise.all([outer, inner]);
+```
+
+- Rings may touch but not overlap; `build()` checks the radii.
+- Every event payload carries `ring`. One `wheel.events` serves them all.
+- `wheel.ring('inner')` is the `Ring` itself: `spin()`, `setResult()`, `skip()`, `setWeights()`, `idle`, `pointers`, `skin`.
+- Methods on `Wheel` without a `ring` option address the main ring.
+
+## Pointers for an inner ring
+
+`facing: 'inward'` seats the pointer on the ring's outer edge with the tip pointing at the hub: on an inner ring that puts it on the outer ring's inner edge, the "special inward arrow". `facing: 'outward'` seats it at the ring's inner radius pointing out.
+
+## One ring triggering another
+
+Listen for the outer landing and start the inner spin from it:
+
+```ts
+wheel.events.on('spin:landing', ({ ring, section }) => {
+  if (ring === 'main' && section.id === 'spin') {
+    const inner = wheel.spin({ ring: 'inner' });
+    wheel.setResult(serverInnerTarget, { ring: 'inner' });
+  }
+});
+```
+
+### Sections and arcs
+URL: https://pixi-wheels.pages.dev/guides/sections/
+
+A ring is a list of sections laid out clockwise from `startAngle` (default -90, twelve o'clock). Each section's arc is its `weight` share of 360 degrees.
+
+```ts
+.startAngle(-90)
+.sections([
+  { id: 'mini',  label: 'MINI',  value: 'mini', weight: 5 },
+  { id: 'grand', label: 'GRAND', value: 'grand', weight: 0.5 },
+])
+```
+
+## Ids, labels, values
+
+- `id` names the section in `setResult({ section })`, in events and in the debug output. Unique per ring.
+- `label` is what a label-drawing skin writes. Defaults to the id; `''` draws nothing.
+- `value` is the payload the section stands for. Several sections may share one, and `setResult({ value })` lands on one of them.
+- `tags` are yours. Skins on this site use them to pick authored plates.
+
+## Weights
+
+Relative, positive, finite. `weight: 0.5` is half a default section. Change them at run time with `wheel.setWeights()`; see [Dynamic sections](/guides/dynamic-sections/).
+
+## Styles
+
+Per-section overrides for the painted skin and for labels on any skin:
+
+```ts
+style: {
+  fill: 0xf1c40f, alpha: 1, stroke: 0xffffff,
+  labelColor: 0x2b1d00, labelSize: 30, labelFont: 'Roboto Condensed', labelWeight: '800',
+  labelOrientation: 'radial' | 'tangential' | 'upright',
+  labelRadius: 0.68,   // fraction of the outer radius
+}
+```
+
+Sections without a `fill` cycle the ring's palette (`.palette([...])`).
+
+## Reading the geometry
+
+```ts
+const s = wheel.geometry.byId('grand');      // { startAngle, endAngle, midAngle, arc, ... }
+wheel.geometry.sectionAt(localAngle);        // which section covers a wheel-local angle
+wheel.sectionUnderPointer();                 // right now
+wheel.main.localAngleUnderPointer();         // wheel-local degrees under the pointer
+```
+
+Angles are wheel-local: they turn with the disc. A point at local angle `a` is on screen at `a + rotation`, so the pointer at screen angle `p` reads local `p - rotation`. A clockwise spin therefore sweeps *decreasing* local angles under the pointer: it enters a section through its `endAngle` and leaves through its `startAngle`. `geometry.entryAngle(section, direction)` spells this out; the anticipation planner relies on it.
+
+### Skins, textures and Spine
+URL: https://pixi-wheels.pages.dev/guides/skins/
+
+A ring owns the motion; a skin owns the pixels. The ring hands the skin two containers - `disc`, which rotates, and `overlay`, which does not - plus the geometry, and calls `layout()` whenever weights change.
+
+## Built-in
+
+| Skin | Config type | What it draws |
+|---|---|---|
+| `GraphicsRingSkin` | `graphics` | Wedges, dividers, rim, hub, bulbs, fitted labels, shading. The default. |
+| `DebugRingSkin` | `debug` | Flat fills, ids, start angles, degree marks, pointer lines. |
+| `TextureRingSkin` | `texture` | One painted face texture, an optional fixed frame, per-section decorations that follow the geometry. |
+| `SpineRingSkin` | `spine` | A skeleton; the wheel rotates a bone (or the whole skeleton) and plays `spin` / `win` animations. |
+| `HeadlessRingSkin` | `headless` | Nothing. Tests. |
+
+Pass an instance or a config:
+
+```ts
+.skin(new TextureRingSkin({ face, frame, decorations: [{ section: 'x50', texture: plate, radius: 0.7 }] }))
+.skin({ type: 'texture', face: 'wheel-face.webp', frame: 'bezel.webp' })   // keys resolved by .assets(resolver)
+```
+
+## Spine
+
+```ts
+import 'pixi-wheels/spine';   // registers the 'spine' config types
+import { SpineRingSkin, SpinePointerSkin } from 'pixi-wheels/spine';
+
+.skin(new SpineRingSkin({
+  skeleton: 'wheelData', atlas: 'wheelAtlas',   // Assets aliases
+  bone: 'wheel',                                // the bone the engine turns; omit to turn the whole skeleton
+  animations: { idle: 'idle', spin: 'spin', win: 'win', winBySection: { grand: 'win_grand' } },
+}))
+.pointer({ skin: new SpinePointerSkin({ skeleton: 'stopperData', atlas: 'wheelAtlas', length: 80, tickAnimation: 'tick' }) })
+```
+
+Spine 3.8 exports need converting to 4.2 first: `tools/spine-3.8-to-4.2/` in the repo does binary `.skel` and JSON.
+
+## Your own
+
+```ts
+class MySkin implements RingSkin {
+  attach(ctx: RingSkinContext) { /* add children to ctx.disc / ctx.overlay */ }
+  layout() { /* re-draw for ctx.geometry.sections */ }
+  syncRotation?(deg: number) {}
+  highlight?(id: string | null) {}
+  onSpinStart?() {} onSpinStop?() {} onLanded?(section) {}
+  destroy() {} get isDestroyed() { return false; }
+}
+registerRingSkin('mine', (config, assets) => new MySkin(config));
+```
+
+The Playson wheel on the recipes page is exactly this: authored plates composed from an atlas, in ~150 lines.
+
+### Spin lifecycle
+URL: https://pixi-wheels.pages.dev/guides/spin-lifecycle/
+
+```
+idle -> starting -> cruising -> stopping -> [settling] -> idle
+  ^                    |            ^
+  |               setResult()   the plan: decel [+ bait legs] [+ settle legs]
+idling (optional slow rotation while nothing happens)
+```
+
+## States
+
+| State | What the ring does | Allowed calls |
+|---|---|---|
+| `idle` | Nothing. | `spin()`, `idle.start()`, `setWeights()` |
+| `idling` | Turns slowly at the idle speed. | `spin()` (ramps from the idle speed), `idle.stop()` |
+| `starting` | Accelerates to `spinSpeed` over `accelerationMs`. | `setResult()`, `requestSkip()` |
+| `cruising` | Constant speed, waiting for the result and the minimum times. | `setResult()`, `skip()`, `requestSkip()` |
+| `stopping` | Plays the planned legs: deceleration, anticipation, landing. | `skip()`, `slamStop()` |
+| `settling` | Plays the settle legs (centre glide or bounce). | nothing; wait |
+
+`spin()` while spinning throws. `setResult()` twice throws. `setResult()` after the stop began throws. Read `wheel.main.state` if you need to branch.
+
+## The planned stop
+
+The moment the stop may begin, the engine plans it as a list of legs and plays them back. The first leg starts at the cruise speed: its ease's initial slope is matched to the speed, so the distance fixes the duration and the planner picks the number of full turns that gets closest to the profile's `stopDuration`. There is no velocity step when the result arrives.
+
+- Plain stop: one leg to the landing angle.
+- Creep: a leg to the bait's entry edge ending at `creepSpeed`, then a crawl to the landing.
+- Stutter: a leg to a halt inside the bait, a dwell, a push over the line.
+- Overshoot: a leg past the landing into the bait, a dwell, a roll back.
+- Settle: a dwell and a glide to the centre, or a bounce out and back.
+
+`spin:stopping` reports the turn count and total duration; the debug overlay draws the current leg.
+
+## Landing angle
+
+`setResult()` resolves the target to a wheel-local angle at once: the section's middle, a random spot inside it, or the exact offset or angle you passed. The stop is planned against that angle, so a dynamic-section change during the spin does not move the landing.
+
+## Skip and slam
+
+`skip()` replaces the remaining legs with a short fast-forward to the landing (at least a third of a turn) and keeps the settle. With `protectAnticipation`, the first press fast-forwards to the bait instead and the second lands. `slamStop()` snaps to the final position and completes synchronously; it is what the test harness uses.
+
+## Result
+
+```ts
+interface WheelSpinResult {
+  ring: string;          // 'main' on a single-ring wheel
+  section: ResolvedSection;
+  landingAngle: number;  // wheel-local degrees under the pointer
+  offset: number;        // 0..1 inside the section
+  wasSkipped: boolean;
+  duration: number;      // ms from spin() to complete
+  turns: number;         // full turns made
+}
+```
+
+### Studio
+URL: https://pixi-wheels.pages.dev/guides/studio/
+
+The [studio](/studio/) is a live wheel with its config beside it.
+
+- **Sections**: ids, labels, values, weights, colours, label orientation; reorder; snapshot the current weights as a dynamic step.
+- **Wheel**: radii, start angle, direction; the pointer's angle, facing, flap and skin; the ring skin (graphics, debug, texture, Spine) and its options.
+- **Spin**: the speed profile fields, landing mode and settle, skip rules, idle.
+- **Assets**: upload textures or a Spine bundle. They stay in your browser and are referenced by file name.
+- **Code**: the fluent code the config stands for. Run it to take over the canvas with anything a recipe can do. Every recipe's "Studio" button lands here.
+- **Export**: the config JSON (import it back later), the fluent code, or a runnable Vite project with your assets.
+
+On the canvas: pick the section the next spin lands on and the bait, switch speed profiles, step dynamic sections, toggle the debug overlay.
+
+### Testing
+URL: https://pixi-wheels.pages.dev/guides/testing/
+
+```ts
+import { createTestWheel, expectPointerOn, captureEvents, seededRng } from 'pixi-wheels/testing';
+
+const h = createTestWheel({
+  sections: [{ id: 'x2', weight: 3 }, { id: 'x50', weight: 0.5 }, { id: 'x5', weight: 2 }],
+  direction: 'cw',
+  landing: { mode: 'random' },
+  rng: seededRng(7),
+});
+
+const log = captureEvents(h.wheel, ['anticipation:bait', 'spin:landing']);
+const result = await h.spinAndLand({ section: 'x2' }, { anticipation: { bait: 'x50' } });
+
+expect(result.section.id).toBe('x2');
+expectPointerOn(h.wheel, 'x2');
+expect(log.map((e) => e.event)).toEqual(['anticipation:bait', 'spin:landing']);
+h.destroy();
+```
+
+- `spinAndLand()` runs frames until the spin completes. `advance(ms)` steps time by hand; `runUntilIdle()` finishes whatever is in flight.
+- `HeadlessRingSkin` and `HeadlessPointerSkin` draw nothing, so no renderer or DOM is needed.
+- `FakeTicker` is duck-compatible with `PIXI.Ticker`; pass it to `WheelBuilder.ticker()` directly for a custom setup.
+- `planStop()` and `resolveTarget()` are pure; test them without a wheel.
+
+### Your first wheel
+URL: https://pixi-wheels.pages.dev/guides/your-first-wheel/
+
+This is the shape of a shipped feature: a multiplier wheel that opens when the base game awards it, spins while the server answers, baits with the top prize, lands, presents, and hands control back.
+
+## 1. Sections with unequal arcs
+
+Weights are relative. The big prize gets a sliver.
+
+```ts
+const SECTIONS = [
+  { id: 'x2a', label: 'x2',  value: 2,  weight: 3 },
+  { id: 'x50', label: 'x50', value: 50, weight: 0.6, style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
+  { id: 'x5',  label: 'x5',  value: 5,  weight: 2 },
+  { id: 'x3',  label: 'x3',  value: 3,  weight: 2.5 },
+  { id: 'x10', label: 'x10', value: 10, weight: 1 },
+  { id: 'x2b', label: 'x2',  value: 2,  weight: 3 },
+];
+```
+
+Ids must be unique; values may repeat. `setResult({ value: 2 })` picks one of the `x2` wedges at random, so the same result does not always land on the same wedge.
+
+## 2. Build
+
+```ts
+import { WheelBuilder, SpinPresets } from 'pixi-wheels';
+
+const wheel = new WheelBuilder()
+  .radius(260, 40)                     // outer radius, hub radius
+  .sections(SECTIONS)
+  .pointer({ angle: -90 })             // twelve o'clock, the default
+  .skin({ type: 'graphics', bulbs: { count: 24 } })
+  .landing({ mode: 'random', margin: 0.12, settle: 'none' })
+  .skip({ minimumSpinTime: 800 })
+  .speed('normal', SpinPresets.NORMAL)
+  .speed('turbo', SpinPresets.TURBO)
+  .ticker(app.ticker)
+  .build();
+```
+
+`build()` validates everything and throws a message that names the fix: a missing ticker, an inner radius larger than the outer, an ease that does not exist, a bait that is not a section.
+
+## 3. Spin, ask the server, land
+
+```ts
+async function playWheel(): Promise<number> {
+  const spin = wheel.spin();
+  const response = await api.spinWheel();          // { multiplier: 5 }
+  wheel.setResult(
+    { value: response.multiplier },
+    { anticipation: { bait: 'x50' } },             // almost the big one
+  );
+  const result = await spin;
+  return result.section.value as number;
+}
+```
+
+`spin()` returns immediately with a promise; the wheel is already cruising while the request is in flight. `setResult()` may arrive any time before the stop; the stop begins once the profile's minimum times have passed. If the bait does not sit next to the landing the tease is skipped with a console warning and the wheel just lands.
+
+## 4. Wire the events
+
+```ts
+wheel.events.on('spin:start',        () => audio.play('windup'));
+wheel.events.on('pointer:tick',      ({ speed }) => audio.play('tick', { volume: speed / 700 }));
+wheel.events.on('anticipation:bait', () => audio.play('heartbeat'));
+wheel.events.on('spin:landing',      ({ section }) => hud.showPrize(section.value));
+wheel.events.on('spin:complete',     () => game.resumeBaseGame());
+```
+
+Every exit path fires the right events: a normal stop, a skip, a slam. Listen once and audio stays correct.
+
+## 5. Skip
+
+```ts
+skipButton.on('pointerdown', () => {
+  try { wheel.skip(); }          // throws before the result is in...
+  catch { wheel.requestSkip(); } // ...so queue the press instead
+});
+```
+
+## 6. Test it
+
+```ts
+import { createTestWheel, expectPointerOn } from 'pixi-wheels/testing';
+
+it('lands the server result', async () => {
+  const h = createTestWheel({ sections: SECTIONS });
+  const result = await h.spinAndLand({ value: 5 }, { anticipation: { bait: 'x50' } });
+  expect(result.section.value).toBe(5);
+  expectPointerOn(h.wheel, result.section.id);
+  h.destroy();
+});
+```
+
+No renderer, no timers. The whole spin runs on a fake ticker in a few milliseconds.
+
+## API guides
+
+### Builder
+URL: https://pixi-wheels.pages.dev/docs/api-builder/
+
+`new WheelBuilder()` configures the main ring through its own methods and extra rings through `ring()`. `build()` validates and returns a `Wheel`.
+
+## Main ring (also on `RingBuilder`)
+
+| Method | Meaning | Default |
+|---|---|---|
+| `radius(outer, inner = 0)` | Outer and hub radius in px. Inner must be smaller than outer. | required |
+| `sections(list)` / `section(cfg)` | Replace / append `WheelSectionConfig`s. At least two, unique ids, positive weights. | required |
+| `startAngle(deg)` | Where section 0 begins, wheel-local. | -90 |
+| `pointer(spec)` | Add a pointer: `PointerConfig` plus `skin` (instance or config). Repeatable. | one at -90 |
+| `skin(skin)` | `RingSkin` instance or `RingSkinConfig`. | `GraphicsRingSkin` |
+| `dynamic({ steps, durationMs, ease, initialStep })` | Dynamic-section steps. Step ids must exist. | none |
+| `palette(colors)` | Fill colours cycled by index. | built-in palette |
+
+`RingBuilder` adds `direction(dir)`, `outerRadius(r)`, `innerRadius(r)`.
+
+## Wheel level
+
+| Method | Meaning | Default |
+|---|---|---|
+| `direction('cw' \| 'ccw')` | Spin direction for rings without their own. | `'cw'` |
+| `ring(id, (r) => ...)` | Add a ring around the same centre. Rings may not overlap. | |
+| `speed(name, profile)` | Register a `SpinProfile`. Validated: positive speeds, `minTurns <= maxTurns`, eases exist. | `normal: SpinPresets.NORMAL` |
+| `initialSpeed(name)` | Active profile at build. | first registered |
+| `landing(options)` | Defaults for `setResult()`: `mode`, `margin`, `settle`, `anticipation`. | center, none |
+| `skip({ allowed, minimumSpinTime, protectAnticipation })` | Skip rules. | allowed |
+| `idle({ speed, direction, autoStart, rampMs })` | Idle rotation. | none |
+| `rng(fn)` | Random source for random landings and `pick: 'random'`. | `Math.random` |
+| `ticker(ticker)` | The PixiJS ticker. | required |
+| `assets(resolver)` | Where skin configs find textures. | throws on use |
+| `name(str)` / `adapter(cfg)` | Kept in `toConfig()`. | |
+| `toConfig()` | The builder as `WheelConfig`. | |
+| `WheelBuilder.fromConfig(cfg, { assets, ticker })` | A builder from a config. | |
+
+## Validation
+
+`build()` throws on: no ticker; no radius; fewer than two sections; duplicate section or pointer ids; non-positive weights; inner radius not below outer; overlapping rings; unknown `initialSpeed`; a profile field out of range; an unknown ease anywhere; a dynamic step naming an unknown section; an idle speed of zero. Each message names the call to fix.
+
+### Events
+URL: https://pixi-wheels.pages.dev/docs/api-events/
+
+`wheel.events` is an `EventEmitter<WheelEvents>`. `on(name, fn)`, `once`, `off`, `removeAllListeners`, `listenerCount`. A listener that throws stops the remaining listeners for that emit and propagates into the engine; wrap anything that can throw.
+
+```ts
+interface WheelEvents {
+  'spin:start':        [{ ring; fromIdle; direction }];
+  'spin:cruise':       [{ ring; speed }];
+  'spin:resultSet':    [{ ring; target: ResolvedTarget }];
+  'spin:stopping':     [{ ring; turns; duration; anticipation: AnticipationStyle | null }];
+  'spin:landing':      [{ ring; section: ResolvedSection; landingAngle }];
+  'spin:settle:start': [{ ring; mode: 'center' | 'bounce' }];
+  'spin:settle:end':   [{ ring }];
+  'spin:complete':     [WheelSpinResult];
+  'anticipation:start': [{ ring; bait: ResolvedSection; style }];
+  'anticipation:bait':  [{ ring; bait }];
+  'anticipation:end':   [{ ring; bait }];
+  'pointer:tick':      [{ ring; pointer; from: ResolvedSection; to: ResolvedSection; speed; direction }];
+  'skip:requested':    [{ ring; protectedByAnticipation }];
+  'skip:completed':    [{ ring }];
+  'idle:start':        [{ ring; speed; direction }];
+  'idle:stop':         [{ ring }];
+  'sections:changed':  [{ ring; sections; step: number | null }];
+  'sections:transition:start': [{ ring; durationMs; step }];
+  'sections:transition:end':   [{ ring; step }];
+  'speed:changed':     [{ ring; name; profile; previous }];
+  'destroyed':         [];
+}
+```
+
+Order within a spin: `spin:start`, `spin:resultSet` and `spin:cruise` in whichever order the server and the wind-up finish, `spin:stopping`, `anticipation:start`, `anticipation:bait`, `anticipation:end`, `spin:landing`, `spin:settle:start`, `spin:settle:end`, `spin:complete`. A skip inserts `skip:requested` when pressed and `skip:completed` right before `spin:landing`.
+
+### Spin profiles
+URL: https://pixi-wheels.pages.dev/docs/api-profiles/
+
+```ts
+interface SpinProfile {
+  spinSpeed: number;          // deg/s at cruise
+  accelerationMs: number;     // rest to cruise
+  accelerationEase?: Ease;    // default 'power2.in'
+  minimumSpinTime: number;    // the stop may not begin before this many ms since spin()
+  minCruiseMs: number;        // nor before this long at cruise
+  stopDuration: number;       // what the deceleration should take (target)
+  stopEase?: Ease;            // an ease-out; default 'power3.out'
+  minTurns: number;           // fewest full turns while stopping
+  maxTurns: number;           // most
+  skipDuration: number;       // the fast-forward on skip
+}
+```
+
+| Preset | spinSpeed | accel | min spin | stop | turns |
+|---|---|---|---|---|---|
+| `NORMAL` | 540 | 900 | 1400 | 4200 `power3.out` | 2-8 |
+| `TURBO` | 720 | 400 | 600 | 1800 `power3.out` | 1-4 |
+| `CINEMATIC` | 450 | 1400 | 2200 | 6500 `power4.out` | 3-10 |
+| `QUICK` | 900 | 250 | 400 | 1300 `power2.out` | 1-3 |
+
+## How the stop duration is chosen
+
+The planner matches the ease's start slope to the cruise speed so the hand-off is smooth. That fixes the duration for any given distance: `T = distance * slope / speed`. It then tries every turn count from `minTurns` to `maxTurns` and keeps the one whose `T` is closest to `stopDuration`. The actual duration is therefore near the target, not equal to it; `spin:stopping` reports it.
+
+`power3.out` has slope 4, `power2.out` 3, `power1.out` 2, `expo.out` about 7. An `inOut` ease starts at slope 0 and is clamped with a one-time warning; use an `out` curve.
+
+## Eases
+
+Names follow the GSAP vocabulary without depending on it: `none`, `linear`, `power1..4.in|out|inOut` (`quad`, `cubic`, `quart`, `quint` are aliases), `sine.*`, `expo.*`, `circ.*`, `back.in|out(1.7)`. Or pass a `(t) => number`. `EASE_NAMES` lists them; `resolveEase(name)` throws on a typo with the list.
+
+### Wheel and Ring
+URL: https://pixi-wheels.pages.dev/docs/api-wheel/
+
+`Wheel` is a `Container` holding one or more `Ring`s. Methods without a `ring` argument address the main ring.
+
+## Spin
+
+```ts
+wheel.spin({ ring?, direction?, resultTimeoutMs? }): Promise<WheelSpinResult>
+wheel.setResult(target: WheelTarget, { ring?, mode?, margin?, settle?, anticipation? }): void
+wheel.skip(ring?): boolean          // throws before setResult(); false when disabled / too early
+wheel.requestSkip(ring?): void      // queue a press until the result is in
+wheel.slamStop(ring?): void         // snap to the final position, complete synchronously
+wheel.isSpinning: boolean
+```
+
+## Speed
+
+```ts
+wheel.setSpeed(name, ring?)         // 'speed:changed'
+wheel.activeSpeed; wheel.speedNames
+ring.addSpeed(name, profile)
+```
+
+## Idle
+
+```ts
+wheel.idle.start(config?, ring?)    // config from the builder when omitted
+wheel.idle.stop(ring?)
+```
+
+## Dynamic sections
+
+```ts
+wheel.setWeights({ id: weight }, { durationMs?, ease?, ring? }): Promise<void>
+wheel.setStep(index, options?): Promise<void>
+wheel.nextStep(options?): Promise<void>
+wheel.step: number | null
+```
+
+## Reading
+
+```ts
+wheel.sections; wheel.geometry     // main ring
+wheel.sectionUnderPointer(pointerId?)
+wheel.rotationDeg                  // settable while not spinning
+wheel.radius                       // largest outer radius
+wheel.main; wheel.ring(id); wheel.rings; wheel.hasRing(id)
+wheel.highlight(sectionId | null, ring?)
+```
+
+## Ring
+
+Everything above without the `ring` argument, plus:
+
+```ts
+ring.id; ring.outerRadius; ring.innerRadius; ring.direction
+ring.state: 'idle' | 'idling' | 'starting' | 'cruising' | 'stopping' | 'settling'
+ring.speed                          // signed deg/s, last frame
+ring.disc; ring.overlay             // containers a custom skin or effect can draw into
+ring.pointers; ring.skin; ring.controller
+ring.localAngleUnderPointer(pointerId?)
+ring.update(deltaMS)                // called by the ticker; call by hand with a fake one
+```
+
+## Teardown
+
+`wheel.destroy()` destroys every ring (skins, pointers, ticker callbacks), emits `destroyed`, drops all listeners, and destroys the container tree.
+
+### Glossary
+URL: https://pixi-wheels.pages.dev/docs/glossary/
+
+**Anticipation**: a planned near-miss. The pointer heads for the *bait* and lands on the *target*. Styles: creep, stutter, overshoot.
+
+**Arc**: a section's angular size in degrees, its weight's share of 360.
+
+**Bait**: the section the player is meant to hope for during a tease.
+
+**Cruise**: the constant-speed phase between the wind-up and the stop, while the result is awaited.
+
+**Disc**: the rotating container of a ring. **Overlay**: the fixed one.
+
+**Dynamic sections**: weights that change at run time, animated, with labels re-centring. Cosmetic.
+
+**Entry edge**: the boundary of a section a pointer meets first for a given spin direction. Clockwise, that is the section's `endAngle`.
+
+**Facing**: `inward` seats a pointer on the rim with the tip toward the hub; `outward` seats it at the hub pointing out.
+
+**Flap**: the pointer's spring deflection on each divider crossing.
+
+**Landing angle**: the wheel-local angle that ends under the pointer. Fixed when the result arrives.
+
+**Leg**: one piece of a planned stop: a distance, a duration, an ease, forwards or reverse.
+
+**Local angle**: an angle on the disc, rotating with it. Screen angle = local + rotation.
+
+**Pointer**: the fixed mark a ring is read against. Also tongue, flapper, stopper.
+
+**Profile**: a `SpinProfile`, the timing of a spin. Registered by name; switched with `setSpeed`.
+
+**Ring**: one spinning disc with its sections, pointers and skin. A wheel has one or more.
+
+**Section**: one wedge: id, label, value, weight, style. Also sector.
+
+**Settle**: the move after landing: a glide to the centre or a bounce.
+
+**Skin**: what a ring looks like. Graphics, debug, texture, Spine, or your own.
+
+**Slam**: `slamStop()`: snap to the final position now. **Skip**: a short fast-forward to the landing.
+
+**Target**: a `WheelTarget`: where a spin lands, as the server decides it.
+
+**Weight**: a section's relative arc share.
+
+## Recipes
+
+### Anticipation and near-miss
+URL: https://pixi-wheels.pages.dev/recipes/anticipation/
+
+Bait the player with one section and land on another - creep, stutter, overshoot, and a tease that survives a skip.
+
+#### bait-creep
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// The classic near-miss. The server says x2; the wheel slows to a crawl as
+// the pointer enters the x50 sliver right before it, keeps slowing across
+// it, and barely crosses the line into x2. Bait must sit just BEFORE the
+// landing in the spin direction; the engine checks and tells you if not.
+const wheel = new WheelBuilder()
+  .radius(240, 34)
+  .sections([
+    { id: 'x2a', label: 'x2', value: 2, weight: 3 },
+    { id: 'x50', label: 'x50', value: 50, weight: 0.8, style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
+    { id: 'x5', label: 'x5', value: 5, weight: 2 },
+    { id: 'x3', label: 'x3', value: 3, weight: 2.5 },
+    { id: 'x10', label: 'x10', value: 10, weight: 1 },
+    { id: 'x2b', label: 'x2', value: 2, weight: 3 },
+    { id: 'x8', label: 'x8', value: 8, weight: 1.2 },
+  ])
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+wheel.events.on('anticipation:start', ({ bait, style }) => console.log(`[bait] teasing ${bait.id} (${style})`));
+wheel.events.on('anticipation:bait', () => console.log('[bait] pointer on the bait...'));
+wheel.events.on('anticipation:end', () => console.log('[bait] ...and past it'));
+
+return {
+  wheel,
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 300));
+    // Clockwise, the pointer meets x50 just before x2a: creep.
+    wheel.setResult({ section: 'x2a' }, { anticipation: { bait: 'x50', creepSpeed: 45 } });
+    await spin;
+  },
+};
+```
+
+#### bait-stutter
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// Stutter: the wheel STOPS with the pointer inside the jackpot, holds for
+// 800 ms while everyone leans in, then nudges over the edge into the real
+// result. Same geometry as creep (bait before landing).
+const wheel = new WheelBuilder()
+  .radius(240, 34)
+  .sections([
+    { id: 'mini', label: 'MINI', weight: 4, style: { fill: 0x2e86de } },
+    { id: 'grand', label: 'GRAND', weight: 0.9, style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
+    { id: 'minor', label: 'MINOR', weight: 3, style: { fill: 0x10ac84 } },
+    { id: 'mini2', label: 'MINI', weight: 4, style: { fill: 0x2e86de } },
+    { id: 'major', label: 'MAJOR', weight: 1.5, style: { fill: 0xee5253 } },
+    { id: 'minor2', label: 'MINOR', weight: 3, style: { fill: 0x10ac84 } },
+  ])
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+return {
+  wheel,
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 300));
+    wheel.setResult({ section: 'mini' }, { anticipation: { bait: 'grand', style: 'stutter', dwellMs: 800, pushMs: 1000 } });
+    await spin;
+  },
+};
+```
+
+#### bait-overshoot
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// Overshoot: the bait sits just AFTER the landing. The wheel passes the
+// result, stops a few degrees into the jackpot, holds, and rolls back.
+const wheel = new WheelBuilder()
+  .radius(240, 34)
+  .sections([
+    { id: 'mini', label: 'MINI', weight: 4, style: { fill: 0x2e86de } },
+    { id: 'grand', label: 'GRAND', weight: 0.9, style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
+    { id: 'minor', label: 'MINOR', weight: 3, style: { fill: 0x10ac84 } },
+    { id: 'mini2', label: 'MINI', weight: 4, style: { fill: 0x2e86de } },
+    { id: 'major', label: 'MAJOR', weight: 1.5, style: { fill: 0xee5253 } },
+    { id: 'minor2', label: 'MINOR', weight: 3, style: { fill: 0x10ac84 } },
+  ])
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+return {
+  wheel,
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 300));
+    // Clockwise the pointer meets grand BEFORE minor... so land on minor and
+    // bait with grand? No: overshoot wants the bait AFTER the landing. The
+    // pointer meets minor, then grand. Land minor, bait grand -> 'auto'
+    // picks overshoot.
+    wheel.setResult({ section: 'minor' }, { anticipation: { bait: 'grand', overshootDeg: 7, dwellMs: 700, returnMs: 900 } });
+    await spin;
+  },
+};
+```
+
+#### bait-auto
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// 'auto' (the default style) reads the geometry: bait before the landing
+// creeps, bait after it overshoots, bait far away is dropped with a console
+// warning and the wheel just lands. Every spin here lands on a random
+// section and baits with the jackpot next to it.
+const wheel = new WheelBuilder()
+  .radius(240, 34)
+  .sections([
+    { id: 'x2', label: 'x2', value: 2, weight: 3 },
+    { id: 'jackpot', label: 'JACKPOT', weight: 0.9, style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
+    { id: 'x5', label: 'x5', value: 5, weight: 2 },
+    { id: 'x3', label: 'x3', value: 3, weight: 2.5 },
+    { id: 'x10', label: 'x10', value: 10, weight: 1 },
+    { id: 'x8', label: 'x8', value: 8, weight: 1.2 },
+  ])
+  .landing({ anticipation: { bait: 'jackpot' } })
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+wheel.events.on('anticipation:start', ({ style }) => console.log('[auto] style:', style));
+
+return {
+  wheel,
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 300));
+    // x2 (before the jackpot, clockwise) creeps; x5 (after it) overshoots; x3 is too far.
+    const pick = ['x2', 'x5', 'x3'][Math.floor(Math.random() * 3)];
+    wheel.setResult({ section: pick });
+    await spin;
+  },
+};
+```
+
+#### bait-protected-skip
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// A tease the player cannot skip past without seeing: the first press jumps
+// to the bait and lets the crawl play; the second press lands.
+const wheel = new WheelBuilder()
+  .radius(240, 34)
+  .sections([
+    { id: 'x2', label: 'x2', value: 2, weight: 3 },
+    { id: 'jackpot', label: 'JACKPOT', weight: 1, style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
+    { id: 'x5', label: 'x5', value: 5, weight: 2 },
+    { id: 'x3', label: 'x3', value: 3, weight: 2.5 },
+    { id: 'x10', label: 'x10', value: 10, weight: 1 },
+  ])
+  .skip({ protectAnticipation: true })
+  .speed('normal', SpinPresets.CINEMATIC)
+  .ticker(app.ticker)
+  .build();
+
+wheel.events.on('skip:requested', ({ protectedByAnticipation }) =>
+  console.log(protectedByAnticipation ? '[skip] first press: jump to the bait' : '[skip] second press: land'),
+);
+
+return {
+  wheel,
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 300));
+    wheel.setResult({ section: 'x2' }, { anticipation: { bait: 'jackpot', style: 'creep', creepSpeed: 35 } });
+    await spin;
+  },
+};
+```
+
+### Server, events and debugging
+URL: https://pixi-wheels.pages.dev/recipes/integration/
+
+Adapters for real server responses, every sound hook, the debug view, and configs that round-trip.
+
+#### server-adapter
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, createTargetAdapter, app
+
+// Three shapes of server response, one adapter each. An adapter is a small
+// serialisable config (`by` + dotted `path`), so the studio can export it
+// next to the wheel and the game never hand-parses the payload.
+const wheel = new WheelBuilder()
+  .radius(230, 30)
+  .sections([
+    { id: 'x2a', label: 'x2', value: 2 },
+    { id: 'x5', label: 'x5', value: 5 },
+    { id: 'x2b', label: 'x2', value: 2 },
+    { id: 'x10', label: 'x10', value: 10 },
+    { id: 'x3', label: 'x3', value: 3 },
+    { id: 'x2c', label: 'x2', value: 2 },
+  ])
+  .speed('normal', SpinPresets.TURBO)
+  .ticker(app.ticker)
+  .build();
+
+const byIndex = createTargetAdapter({ by: 'index', path: 'bonus.wheel.sector', indexBase: 1 });   // 1-based on this backend
+const byValue = createTargetAdapter({ by: 'value', path: 'bonus.multiplier', pick: 'random' });   // three x2 wedges: any of them
+const byAngle = createTargetAdapter({ by: 'angle', path: 'bonus.wheel.stopDegrees' });
+
+const responses = [
+  { name: 'index', body: { bonus: { wheel: { sector: 4 } } }, adapter: byIndex },
+  { name: 'value', body: { bonus: { multiplier: 2 } }, adapter: byValue },
+  { name: 'angle', body: { bonus: { wheel: { stopDegrees: 200 } } }, adapter: byAngle },
+];
+let i = 0;
+
+return {
+  wheel,
+  onSpin: async () => {
+    const r = responses[i++ % responses.length];
+    const spin = wheel.spin();
+    await new Promise((res) => setTimeout(res, 250));
+    const target = r.adapter(r.body);
+    console.log(`[adapter] ${r.name} ->`, JSON.stringify(target));
+    wheel.setResult(target);
+    const result = await spin;
+    console.log(`[adapter] landed ${result.section.id}`);
+  },
+};
+```
+
+#### sound-hooks
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// Every audio cue a wheel needs, as event listeners. Replace console.log
+// with your audio layer; nothing else changes. The tick pitch and volume
+// follow the ring speed, which is how a ratchet sounds real.
+const wheel = new WheelBuilder()
+  .radius(230, 30)
+  .sections([
+    { id: 'x2', label: 'x2', value: 2, weight: 3 },
+    { id: 'jackpot', label: 'JACKPOT', weight: 0.8, style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
+    { id: 'x5', label: 'x5', value: 5, weight: 2 },
+    { id: 'x3', label: 'x3', value: 3, weight: 2.5 },
+    { id: 'x10', label: 'x10', value: 10, weight: 1 },
+    { id: 'x8', label: 'x8', value: 8, weight: 1.2 },
+  ])
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+const audio = {
+  play: (name, opts = {}) => console.log(`[audio] play ${name}`, opts),
+  stop: (name) => console.log(`[audio] stop ${name}`),
+};
+
+const e = wheel.events;
+e.on('spin:start', () => { audio.play('wheel_windup'); audio.play('wheel_loop', { loop: true }); });
+e.on('spin:cruise', () => audio.play('wheel_cruise_whoosh'));
+e.on('spin:stopping', ({ duration }) => audio.play('wheel_slowdown', { duration }));
+e.on('pointer:tick', ({ speed }) => audio.play('tick', { volume: Math.min(1, speed / 700), rate: 0.9 + Math.min(0.6, speed / 1500) }));
+e.on('anticipation:start', () => audio.play('tension_riser'));
+e.on('anticipation:bait', () => audio.play('heartbeat'));
+e.on('anticipation:end', () => audio.stop('tension_riser'));
+e.on('spin:landing', ({ section }) => { audio.stop('wheel_loop'); audio.play(section.id === 'jackpot' ? 'win_jackpot' : 'win_sector'); });
+e.on('spin:settle:start', () => audio.play('settle_click'));
+e.on('skip:requested', () => audio.play('skip_swish'));
+e.on('spin:complete', () => audio.play('present_prize'));
+
+return {
+  wheel,
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 300));
+    wheel.setResult({ section: 'x2' }, { anticipation: { bait: 'jackpot' } });
+    await spin;
+  },
+};
+```
+
+#### debug-view
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, DebugRingSkin, debugArc, debugOverlay, app
+
+// The plain skin plus the live overlay: dividers with their angles, the
+// pointer line, the planned landing angle in yellow, and a HUD with the
+// state, speed and current leg. debugArc() prints the same as text; it is
+// what an agent reads when it cannot see the canvas. Open the console.
+const wheel = new WheelBuilder()
+  .radius(230, 40)
+  .sections([
+    { id: 'a', label: 'A', weight: 3 },
+    { id: 'b', label: 'B', weight: 1 },
+    { id: 'c', label: 'C', weight: 2 },
+    { id: 'd', label: 'D', weight: 1.5 },
+    { id: 'e', label: 'E', weight: 0.5 },
+  ])
+  .skin(new DebugRingSkin())
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+debugOverlay(wheel, { layers: 'all', live: true, ticker: app.ticker });
+wheel.events.on('spin:stopping', () => console.log(debugArc(wheel)));
+wheel.events.on('spin:complete', () => console.log(debugArc(wheel)));
+
+return {
+  wheel,
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 300));
+    wheel.setResult({ section: 'e' }, { anticipation: { bait: 'd' }, mode: 'random' });
+    await spin;
+  },
+};
+```
+
+#### config-round-trip
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// Build with the fluent API, export the config, rebuild from it. The JSON is
+// what the studio saves and what a game can ship next to its assets; the
+// console shows it.
+const built = new WheelBuilder()
+  .name('round trip')
+  .radius(230, 30)
+  .sections([
+    { id: 'x2', label: 'x2', value: 2, weight: 2 },
+    { id: 'x5', label: 'x5', value: 5 },
+    { id: 'x20', label: 'x20', value: 20, weight: 0.5, style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
+  ])
+  .pointer({ angle: -90, skin: { type: 'graphics', shape: 'triangle', color: 0xffd166 } })
+  .skin({ type: 'graphics', bulbs: { count: 18 } })
+  .landing({ mode: 'random', settle: 'center' })
+  .speed('normal', SpinPresets.NORMAL)
+  .adapter({ by: 'value', path: 'bonus.multiplier' });
+
+const config = built.toConfig();
+console.log('[config]', JSON.stringify(config, null, 2));
+
+const wheel = WheelBuilder.fromConfig(config).ticker(app.ticker).build();
+
+return { wheel };
+```
+
+### Dynamic sectors, rings and idle
+URL: https://pixi-wheels.pages.dev/recipes/sections-rings-idle/
+
+Sector shares that move step by step, an inner ring spun by the outer one, and a wheel that idles beside the reels.
+
+#### dynamic-jackpot-steps
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// The studio brief: jackpot sectors whose size changes step by step, as a
+// purely cosmetic state. Solid fills, no decoration on the moving borders,
+// and the titles slide to the middle of whatever arc they own. The step
+// advances after every spin here; a real game drives it from its feature
+// state. The spin's landing is decided by the server and never by the arcs.
+const wheel = new WheelBuilder()
+  .radius(250, 44)
+  .sections([
+    { id: 'mini', label: 'MINI', style: { fill: 0x2e86de } },
+    { id: 'minor', label: 'MINOR', style: { fill: 0x10ac84 } },
+    { id: 'mini2', label: 'MINI', style: { fill: 0x2e86de } },
+    { id: 'major', label: 'MAJOR', style: { fill: 0xee5253 } },
+    { id: 'mini3', label: 'MINI', style: { fill: 0x2e86de } },
+    { id: 'minor2', label: 'MINOR', style: { fill: 0x10ac84 } },
+    { id: 'grand', label: 'GRAND', style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
+  ])
+  .dynamic({
+    steps: [
+      { mini: 5, minor: 3, mini2: 5, major: 1.5, mini3: 5, minor2: 3, grand: 0.6 },
+      { mini: 4, minor: 3.5, mini2: 4, major: 2, mini3: 4, minor2: 3.5, grand: 1 },
+      { mini: 3, minor: 4, mini2: 3, major: 3, mini3: 3, minor2: 4, grand: 1.6 },
+      { mini: 2, minor: 4, mini2: 2, major: 4, mini3: 2, minor2: 4, grand: 2.5 },
+    ],
+    durationMs: 700,
+    ease: 'sine.inOut',
+  })
+  .skin({ type: 'graphics', dividers: { width: 2, color: 0xffffff, alpha: 0.5 }, shading: false, bulbs: { count: 28 } })
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+wheel.events.on('sections:changed', ({ step }) => console.log('[dynamic] now on step', step));
+
+return {
+  wheel,
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 300));
+    const tiers = ['mini', 'minor', 'major', 'grand'];
+    wheel.setResult({ section: tiers[Math.floor(Math.random() * tiers.length)] });
+    await spin;
+    await wheel.nextStep();
+  },
+};
+```
+
+#### dynamic-quantized
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// Steps on a grid: the rim is thought of as 24 slots, and each dynamic
+// sector owns a whole number of them. Integer weights ARE the slots, so a
+// step moves a border by exactly one slot width and the borders of the
+// static sectors never drift. Press spin to advance the purple sector.
+const SLOTS = 24;
+const wheel = new WheelBuilder()
+  .radius(240, 30)
+  .sections([
+    { id: 'a', label: '', weight: 6, style: { fill: 0xd98fa3 } },
+    { id: 'b', label: '', weight: 6, style: { fill: 0xb8b0b3 } },
+    { id: 'dyn', label: 'BONUS', weight: 2, style: { fill: 0x8e44ad } },
+    { id: 'c', label: '', weight: 5, style: { fill: 0xd98fa3 } },
+    { id: 'd', label: '', weight: 5, style: { fill: 0xb8b0b3 } },
+  ])
+  .dynamic({
+    // The bonus grows one slot at a time, taken from its neighbours.
+    steps: [
+      { dyn: 2, b: 6, c: 5 },
+      { dyn: 3, b: 6, c: 4 },
+      { dyn: 4, b: 5, c: 4 },
+      { dyn: 5, b: 5, c: 3 },
+      { dyn: 6, b: 4, c: 3 },
+    ],
+    durationMs: 450,
+  })
+  .skin({ type: 'graphics', dividers: { width: 2, color: 0xffffff, alpha: 0.35 }, shading: false, hub: { radius: 30 } })
+  .speed('normal', SpinPresets.QUICK)
+  .ticker(app.ticker)
+  .build();
+
+// A ring of tick marks, one per slot, so the grid is visible.
+const marks = new PIXI.Graphics();
+for (let i = 0; i < SLOTS; i++) {
+  const a = (-90 + (360 / SLOTS) * i) * Math.PI / 180;
+  marks.moveTo(Math.cos(a) * 242, Math.sin(a) * 242).lineTo(Math.cos(a) * 254, Math.sin(a) * 254);
+}
+marks.stroke({ color: 0xffffff, width: 2, alpha: 0.6 });
+wheel.main.overlay.addChild(marks);
+
+return {
+  wheel,
+  onSpin: async () => {
+    await wheel.nextStep();
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 200));
+    wheel.setResult({ index: Math.floor(Math.random() * 5) });
+    await spin;
+  },
+};
+```
+
+#### dynamic-from-state
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// No step list: the server sends a "wheel state" with every round and the
+// client sets the weights directly. Here the state is faked as a random
+// share for the bonus sector; the transition is animated by setWeights.
+const wheel = new WheelBuilder()
+  .radius(240, 30)
+  .sections([
+    { id: 'cash', label: 'CASH', weight: 4, style: { fill: 0x1e9e5a } },
+    { id: 'bonus', label: 'BONUS', weight: 1, style: { fill: 0x8e44ad } },
+    { id: 'lose', label: 'LOSE', weight: 4, style: { fill: 0x2f3542 } },
+    { id: 'cash2', label: 'CASH', weight: 4, style: { fill: 0x1e9e5a } },
+  ])
+  .speed('normal', SpinPresets.QUICK)
+  .ticker(app.ticker)
+  .build();
+
+function applyServerState(state) {
+  // state.bonusShare is 0..1 of the rim; everything else shares the rest.
+  const rest = (1 - state.bonusShare) / 3;
+  return wheel.setWeights({ bonus: state.bonusShare, cash: rest, lose: rest, cash2: rest }, { durationMs: 800, ease: 'power2.inOut' });
+}
+
+return {
+  wheel,
+  onSpin: async () => {
+    await applyServerState({ bonusShare: 0.05 + Math.random() * 0.4 });
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 200));
+    wheel.setResult({ index: Math.floor(Math.random() * 4) });
+    await spin;
+  },
+};
+```
+
+#### two-ring-jackpot
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// An outer ring of tiers and an inner ring read by its own pointer at three
+// o'clock, facing inward. The two spin independently and share one event
+// stream; every payload says which ring it came from.
+const wheel = new WheelBuilder()
+  .radius(280, 190)
+  .sections([
+    { id: 'mini', label: 'MINI', style: { fill: 0x2e86de } },
+    { id: 'major', label: 'MAJOR', style: { fill: 0xee5253 } },
+    { id: 'minor', label: 'MINOR', style: { fill: 0x10ac84 } },
+    { id: 'minor2', label: 'MINOR', style: { fill: 0x10ac84 } },
+    { id: 'major2', label: 'MAJOR', style: { fill: 0xee5253 } },
+    { id: 'mini2', label: 'MINI', style: { fill: 0x2e86de } },
+    { id: 'minor3', label: 'MINOR', style: { fill: 0x10ac84 } },
+    { id: 'major3', label: 'MAJOR', style: { fill: 0xee5253 } },
+  ])
+  .skin({ type: 'graphics', hub: false })
+  .ring('inner', (r) =>
+    r
+      .radius(175, 50)
+      .direction('ccw')
+      .pointer({ angle: 0, facing: 'inward', tipInset: 12, skin: { type: 'graphics', shape: 'triangle', color: 0xffd166, length: 48, width: 30 } })
+      .sections([
+        { id: 'grand', label: 'GRAND', weight: 0.7, style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
+        { id: 'minor', label: 'MINOR', style: { fill: 0x10ac84 } },
+        { id: 'major', label: 'MAJOR', style: { fill: 0xee5253 } },
+        { id: 'minor2', label: 'MINOR', style: { fill: 0x10ac84 } },
+        { id: 'major2', label: 'MAJOR', style: { fill: 0xee5253 } },
+        { id: 'minor3', label: 'MINOR', style: { fill: 0x10ac84 } },
+      ])
+      .skin({ type: 'graphics', rim: { width: 6 } }),
+  )
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+wheel.events.on('spin:landing', ({ ring, section }) => console.log(`[rings] ${ring} landed ${section.id}`));
+
+return {
+  wheel,
+  onSpin: async () => {
+    const outer = wheel.spin();
+    const inner = wheel.spin({ ring: 'inner' });
+    await new Promise((r) => setTimeout(r, 300));
+    wheel.setResult({ index: Math.floor(Math.random() * 8) });
+    wheel.setResult({ index: Math.floor(Math.random() * 6) }, { ring: 'inner' });
+    await Promise.all([outer, inner]);
+  },
+};
+```
+
+#### outer-triggers-inner
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// The outer ring decides whether the inner one spins at all. Landing on a
+// SPIN sector starts the inner ring from the landing event; anything else
+// ends the round. The inner pointer sits on the outer ring's inner edge
+// pointing inward.
+const wheel = new WheelBuilder()
+  .radius(280, 190)
+  .sections([
+    { id: 'spin', label: 'SPIN', style: { fill: 0x8e44ad } },
+    { id: 'c50', label: '50', value: 50, style: { fill: 0x1e9e5a } },
+    { id: 'c100', label: '100', value: 100, style: { fill: 0x10ac84 } },
+    { id: 'spin2', label: 'SPIN', style: { fill: 0x8e44ad } },
+    { id: 'c200', label: '200', value: 200, style: { fill: 0x2e86de } },
+    { id: 'c75', label: '75', value: 75, style: { fill: 0x1e9e5a } },
+  ])
+  .skin({ type: 'graphics', hub: false })
+  .ring('inner', (r) =>
+    r
+      .radius(176, 40)
+      .pointer({ angle: -90, facing: 'inward', tipInset: 10, skin: { type: 'graphics', shape: 'triangle', color: 0xffd166, length: 44, width: 28 } })
+      .sections([
+        { id: 'x2', label: 'x2', value: 2 },
+        { id: 'x5', label: 'x5', value: 5 },
+        { id: 'x3', label: 'x3', value: 3 },
+        { id: 'x10', label: 'x10', value: 10, weight: 0.6, style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
+      ])
+      .skin({ type: 'graphics', rim: { width: 6 } }),
+  )
+  .speed('normal', SpinPresets.TURBO)
+  .ticker(app.ticker)
+  .build();
+
+return {
+  wheel,
+  onSpin: async () => {
+    const outer = wheel.spin();
+    await new Promise((r) => setTimeout(r, 250));
+    const outcome = ['spin', 'c50', 'c100', 'spin2', 'c200', 'c75'][Math.floor(Math.random() * 6)];
+    wheel.setResult({ section: outcome });
+    const result = await outer;
+    if (!result.section.id.startsWith('spin')) return;
+    const inner = wheel.spin({ ring: 'inner' });
+    await new Promise((r) => setTimeout(r, 250));
+    wheel.setResult({ value: [2, 3, 5, 10][Math.floor(Math.random() * 4)] }, { ring: 'inner' });
+    await inner;
+  },
+};
+```
+
+#### idle-side-wheel
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app, PIXI
+
+// A small wheel parked beside a reel panel, idling so the player knows it is
+// there. When the feature fires (the spin button here), it scales up over
+// the panel, spins from its idle speed, lands, and shrinks back to its seat.
+const wheel = new WheelBuilder()
+  .radius(120, 18)
+  .sections([
+    { id: 'x2', label: 'x2', value: 2, weight: 3 },
+    { id: 'x3', label: 'x3', value: 3, weight: 2 },
+    { id: 'x5', label: 'x5', value: 5, weight: 1.5 },
+    { id: 'x10', label: 'x10', value: 10, weight: 0.8, style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
+    { id: 'x2b', label: 'x2', value: 2, weight: 3 },
+    { id: 'x3b', label: 'x3', value: 3, weight: 2 },
+  ])
+  .skin({ type: 'graphics', rim: { width: 5 }, hub: { radius: 18 } })
+  .idle({ speed: 14, autoStart: true, rampMs: 800 })
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+// A stand-in reel panel so the layout reads.
+const stage = new PIXI.Container();
+const panel = new PIXI.Graphics().roundRect(0, 0, 520, 320, 16).fill({ color: 0x14161c }).stroke({ color: 0x3a3f4b, width: 3 });
+for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) {
+  panel.roundRect(24 + r * 96, 24 + c * 92, 80, 76, 10).fill({ color: 0x232733 });
+}
+stage.addChild(panel, wheel);
+const SEAT = { x: 520 + 150, y: 160, scale: 1 };
+const STAGE_POS = { x: 260, y: 160, scale: 1.25 };
+wheel.position.set(SEAT.x, SEAT.y);
+
+function tween(target, to, ms) {
+  return new Promise((resolve) => {
+    const from = { x: target.x, y: target.y, s: target.scale.x };
+    let t = 0;
+    const step = (ticker) => {
+      t = Math.min(1, t + ticker.deltaMS / ms);
+      const k = 1 - Math.pow(1 - t, 3);
+      target.position.set(from.x + (to.x - from.x) * k, from.y + (to.y - from.y) * k);
+      target.scale.set(from.s + (to.scale - from.s) * k);
+      if (t >= 1) { app.ticker.remove(step); resolve(); }
+    };
+    app.ticker.add(step);
+  });
+}
+
+return {
+  wheel,
+  stage,
+  onSpin: async () => {
+    await tween(wheel, STAGE_POS, 600);
+    const spin = wheel.spin();                 // ramps from the idle speed
+    await new Promise((r) => setTimeout(r, 400));
+    wheel.setResult({ value: [2, 3, 5, 10][Math.floor(Math.random() * 4)] }, { anticipation: { bait: 'x10' } });
+    await spin;
+    await new Promise((r) => setTimeout(r, 900)); // present the win
+    await tween(wheel, SEAT, 600);             // idle resumes on its own
+  },
+};
+```
+
+#### idle-controls
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// Idle on demand. The wheel starts still; the first press starts the idle,
+// the second spins (from the idle speed) and the idle resumes after the
+// landing. idle.stop() ramps down instead of snapping.
+const wheel = new WheelBuilder()
+  .radius(220, 30)
+  .sections(Array.from({ length: 8 }, (_, i) => ({ id: `s${i}`, label: `${i + 1}` })))
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+wheel.events.on('idle:start', () => console.log('[idle] start'));
+wheel.events.on('idle:stop', () => console.log('[idle] stop'));
+wheel.events.on('spin:start', ({ fromIdle }) => console.log('[idle] spin from idle =', fromIdle));
+
+let armed = false;
+return {
+  wheel,
+  onSpin: async () => {
+    if (!armed) {
+      wheel.idle.start({ speed: 20, direction: 'ccw', rampMs: 1200 });
+      armed = true;
+      return;
+    }
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 250));
+    wheel.setResult({ index: Math.floor(Math.random() * 8) });
+    await spin;
+  },
+};
+```
+
+### Skins and assets
+URL: https://pixi-wheels.pages.dev/recipes/skins/
+
+Painted, textured and studio-art wheels, per-section styles, and pointers that flap.
+
+#### labels-and-styles
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// Per-section styling: fills, label colours, tangential and upright labels,
+// a custom font size, and a section with no label at all. Labels auto-fit
+// the room their section has and re-centre when weights change.
+const wheel = new WheelBuilder()
+  .radius(240, 36)
+  .palette([0x264653, 0x2a9d8f, 0xe9c46a, 0xf4a261, 0xe76f51])
+  .sections([
+    { id: 'radial', label: 'RADIAL', weight: 2 },
+    { id: 'tangent', label: 'TANGENT', weight: 2, style: { labelOrientation: 'tangential', labelRadius: 0.8 } },
+    { id: 'upright', label: 'UP', weight: 1.5, style: { labelOrientation: 'upright', labelSize: 34 } },
+    { id: 'blank', label: '', weight: 1, style: { fill: 0x111111 } },
+    { id: 'gold', label: 'x100', weight: 0.7, style: { fill: 0xf1c40f, labelColor: 0x2b1d00, labelWeight: '900', labelSize: 30 } },
+    { id: 'thin', label: 'a long label that shrinks', weight: 1.2, style: { labelColor: 0xffffff } },
+  ])
+  .skin({ type: 'graphics', rim: { width: 10, color: 0x2b2b2b }, hub: { radius: 36, color: 0x2b2b2b, ringColor: 0xe9c46a } })
+  .speed('normal', SpinPresets.TURBO)
+  .ticker(app.ticker)
+  .build();
+
+return { wheel };
+```
+
+#### pointer-flap
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// Three pointers on one ring: a stiff tongue at the top, a loose needle at
+// four o'clock, and a rigid triangle at eight. Every divider that passes
+// under any of them fires pointer:tick with the speed, which is the hook
+// for the ratchet click; the console shows the first pointer's ticks.
+const wheel = new WheelBuilder()
+  .radius(230, 30)
+  .sections(Array.from({ length: 16 }, (_, i) => ({ id: `s${i}`, label: '' })))
+  .pointer({ id: 'top', angle: -90, flap: { maxAngle: 24, stiffness: 520, damping: 14, kick: 1000 } })
+  .pointer({ id: 'loose', angle: 30, skin: { type: 'graphics', shape: 'needle', color: 0xffd166, length: 90, width: 26 }, flap: { maxAngle: 35, stiffness: 160, damping: 8, kick: 700 } })
+  .pointer({ id: 'rigid', angle: 150, skin: { type: 'graphics', shape: 'triangle', color: 0x64d2ff, length: 60, width: 34 }, flap: false })
+  .skin({ type: 'graphics', dividers: { width: 3 }, bulbs: { count: 16 } })
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+let ticks = 0;
+wheel.events.on('pointer:tick', ({ pointer, speed }) => {
+  if (pointer === 'top' && ++ticks % 8 === 0) console.log(`[tick] ${ticks} dividers, ${Math.round(speed)} deg/s`);
+});
+
+return { wheel };
+```
+
+#### playson-wheel
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, TexturePointerSkin, loadPlaysonWheel, PlaysonWheelSkin, PLAYSON_SECTIONS, app
+
+// Playson's Four Charged Clovers: Super Wheel (used with permission). The
+// twelve authored wedge plates, the bezel, dividers, bulbs and hub come from
+// the game's own atlas; the stopper is the game's stopper. The engine only
+// knows twelve equal sections and where they are.
+const art = await loadPlaysonWheel();
+
+const wheel = new WheelBuilder()
+  .radius(250)
+  .sections(PLAYSON_SECTIONS)
+  .pointer({
+    angle: -90,
+    tipInset: 30,
+    skin: new TexturePointerSkin({ texture: art.textures['wheel/stopper'], artDirection: 'down', pin: { x: 0.5, y: 0.12 }, scale: 250 / 297 }),
+    flap: { maxAngle: 18, stiffness: 600, damping: 16 },
+  })
+  .skin(new PlaysonWheelSkin({ art }))
+  .landing({ mode: 'random', margin: 0.15 })
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+wheel.events.on('spin:landing', ({ section }) => console.log('[playson] landed', section.id));
+
+return {
+  wheel,
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 300));
+    const pick = PLAYSON_SECTIONS[Math.floor(Math.random() * PLAYSON_SECTIONS.length)];
+    wheel.setResult({ section: pick.id }, { anticipation: { bait: 'major' } });
+    await spin;
+  },
+};
+```
+
+#### texture-wheel-pragmatic
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, TexturePointerSkin, loadPragmaticWheel, app, PIXI
+
+// Studio art on a painted face: the golden ring frame, the pointer and the
+// logo from Pragmatic Play's Wheel of Happiness (used with permission), on a
+// red-and-gold graphics face. The frame is a fixed sprite on the overlay; the
+// pointer is the game's own stopper as a TexturePointerSkin.
+const art = await loadPragmaticWheel();
+
+const RED = 0x9b111e, DARK = 0x5c0a12, GOLD = 0xf3c15a;
+const values = [50, 100, 200, 500, 100, 50, 1000, 100, 200, 50, 500, 100];
+const wheel = new WheelBuilder()
+  .radius(240, 46)
+  .sections(values.map((v, i) => ({
+    id: `p${i}`, label: String(v), value: v,
+    style: { fill: i % 2 ? DARK : RED, labelColor: GOLD, labelSize: 30, labelWeight: '800' },
+  })))
+  .pointer({ angle: -90, tipInset: 26, skin: new TexturePointerSkin({ texture: art.pointer, artDirection: 'down', pin: { x: 0.5, y: 0.1 }, scale: 0.7 }) })
+  .skin({ type: 'graphics', dividers: { width: 2, color: GOLD, alpha: 0.9 }, rim: false, hub: false, shading: true })
+  .landing({ settle: 'center', mode: 'random' })
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+// Frame and hub from the art set, fixed on the overlay.
+const frame = new PIXI.Sprite(art.bigRing);
+frame.anchor.set(0.5);
+frame.scale.set((2 * 262) / frame.texture.width);
+const hub = new PIXI.Sprite(art.goldRing);
+hub.anchor.set(0.5);
+hub.scale.set(110 / hub.texture.width);
+const coin = new PIXI.Sprite(art.coin);
+coin.anchor.set(0.5);
+coin.scale.set(0.9);
+wheel.main.overlay.addChildAt(frame, 0);
+wheel.main.overlay.addChild(hub, coin);
+
+const logo = new PIXI.Sprite(art.logo);
+logo.anchor.set(0.5, 1);
+logo.scale.set(0.55);
+logo.position.set(0, -285);
+const stage = new PIXI.Container();
+stage.addChild(wheel, logo);
+
+return {
+  wheel,
+  stage,
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 300));
+    wheel.setResult({ value: values[Math.floor(Math.random() * values.length)] }, { anticipation: { bait: 'p6' } });
+    await spin;
+  },
+};
+```
+
+### Starters
+URL: https://pixi-wheels.pages.dev/recipes/starters/
+
+A wheel in ten lines, the two-colour gamble, and building from a template.
+
+#### basic-wheel
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app, mockWheelServer
+
+// Eight multipliers. Two of them are thin: the big wins take less of the rim.
+const wheel = new WheelBuilder()
+  .radius(240, 34)
+  .sections([
+    { id: 'x2a', label: 'x2', value: 2, weight: 3 },
+    { id: 'x5a', label: 'x5', value: 5, weight: 2 },
+    { id: 'x3a', label: 'x3', value: 3, weight: 2.5 },
+    { id: 'x10', label: 'x10', value: 10, weight: 1 },
+    { id: 'x2b', label: 'x2', value: 2, weight: 3 },
+    { id: 'x8', label: 'x8', value: 8, weight: 1.2 },
+    { id: 'x3b', label: 'x3', value: 3, weight: 2.5 },
+    { id: 'x50', label: 'x50', value: 50, weight: 0.5, style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
+  ])
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+// A stand-in for the game server: it picks by odds, not by arc.
+const server = mockWheelServer(wheel, { odds: { x50: 0.2, x10: 0.6 } });
+
+return {
+  wheel,
+  onSpin: async () => {
+    const spin = wheel.spin();                 // wind up, cruise...
+    const response = await server.spin();      // ...while the server decides
+    wheel.setResult({ value: response.value }); // any section carrying that value
+    await spin;
+  },
+};
+```
+
+#### gamble-red-green
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// The most common wheel there is: a coin flip with a rim. Two sections,
+// random landing so the pointer never sits on the divider, quick profile
+// because a gamble is spun over and over.
+const wheel = new WheelBuilder()
+  .radius(200, 26)
+  .sections([
+    { id: 'red', label: '', value: 'red', style: { fill: 0xd7263d } },
+    { id: 'green', label: '', value: 'green', style: { fill: 0x1e9e5a } },
+  ])
+  .skin({ type: 'graphics', dividers: { width: 5, color: 0xffffff }, hub: { radius: 26, color: 0x111111 } })
+  .landing({ mode: 'random', margin: 0.08 })
+  .speed('normal', SpinPresets.QUICK)
+  .ticker(app.ticker)
+  .build();
+
+let balance = 100;
+wheel.events.on('spin:landing', ({ section }) => {
+  balance = section.id === 'green' ? balance * 2 : 0;
+  console.log(`[gamble] ${section.id} -> balance ${balance}`);
+});
+
+return {
+  wheel,
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 200));
+    wheel.setResult({ value: Math.random() < 0.5 ? 'red' : 'green' });
+    await spin;
+  },
+};
+```
+
+#### gamble-dynamic
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// Red / green whose split moves after every spin. The odds live on the
+// server; the arc is cosmetic and follows a step list. The pointer still
+// lands on whichever colour the server said.
+const wheel = new WheelBuilder()
+  .radius(200, 26)
+  .sections([
+    { id: 'red', label: '', value: 'red', style: { fill: 0xd7263d } },
+    { id: 'green', label: '', value: 'green', style: { fill: 0x1e9e5a } },
+  ])
+  .dynamic({
+    steps: [
+      { red: 1, green: 1 },
+      { red: 3, green: 2 },
+      { red: 2, green: 1 },
+      { red: 3, green: 1 },
+      { red: 5, green: 1 },
+    ],
+    durationMs: 600,
+    ease: 'sine.inOut',
+  })
+  .skin({ type: 'graphics', dividers: { width: 5, color: 0xffffff }, hub: { radius: 26, color: 0x111111 } })
+  .landing({ mode: 'random', margin: 0.1 })
+  .speed('normal', SpinPresets.QUICK)
+  .ticker(app.ticker)
+  .build();
+
+return {
+  wheel,
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 200));
+    const won = Math.random() < 0.5;
+    wheel.setResult({ value: won ? 'green' : 'red' });
+    await spin;
+    // Each win shrinks the green: the next step is the next state.
+    await wheel.nextStep();
+  },
+};
+```
+
+#### from-template
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, WheelTemplates, app
+
+// Templates are plain configs. Load one, add the ticker, build. Everything
+// the studio exports has this shape too.
+const config = WheelTemplates.jackpots();
+
+const wheel = WheelBuilder.fromConfig(config).ticker(app.ticker).build();
+
+return {
+  wheel,
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 300));
+    // The template records how its server answers: { jackpot: { tier } }.
+    wheel.setResult({ section: ['mini', 'minor', 'major', 'grand'][Math.floor(Math.random() * 4)] });
+    await spin;
+  },
+};
+```
+
+### Stopping
+URL: https://pixi-wheels.pages.dev/recipes/stopping/
+
+Where the pointer ends up - centre, random or an exact angle - and what happens after it lands.
+
+#### stop-modes
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, DebugRingSkin, app
+
+// Where inside the section the pointer ends up. Each spin cycles the mode:
+// center (the middle), random (anywhere, away from the edges), exact (the
+// offset the server sent: here 0.9, right by the edge).
+const wheel = new WheelBuilder()
+  .radius(220, 30)
+  .sections(Array.from({ length: 8 }, (_, i) => ({ id: `s${i}`, label: `${i}`, value: i })))
+  .skin(new DebugRingSkin())
+  .speed('normal', SpinPresets.TURBO)
+  .ticker(app.ticker)
+  .build();
+
+const modes = ['center', 'random', 'exact'];
+let i = 0;
+
+return {
+  wheel,
+  onSpin: async () => {
+    const mode = modes[i++ % modes.length];
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 200));
+    const target = mode === 'exact' ? { index: 3, offset: 0.9 } : { index: 3 };
+    wheel.setResult(target, { mode });
+    const result = await spin;
+    console.log(`[stop-modes] ${mode}: offset ${result.offset.toFixed(2)} inside ${result.section.id}`);
+  },
+};
+```
+
+#### settle-center
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// Land exactly where the server said, pause, then glide to the middle of the
+// section so the prize presentation is centred. The result reports the
+// landing offset; the settle is presentation only.
+const wheel = new WheelBuilder()
+  .radius(220, 30)
+  .sections(Array.from({ length: 6 }, (_, i) => ({ id: `p${i}`, label: `${(i + 1) * 100}`, value: (i + 1) * 100 })))
+  .landing({
+    mode: 'random',
+    margin: 0.06,
+    settle: { mode: 'center', delayMs: 350, durationMs: 700, ease: 'sine.inOut' },
+  })
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+wheel.events.on('spin:landing', ({ section, landingAngle }) => console.log('[settle] landed', section.id, 'at', landingAngle.toFixed(1)));
+wheel.events.on('spin:settle:start', () => console.log('[settle] centring...'));
+wheel.events.on('spin:settle:end', () => console.log('[settle] centred'));
+
+return { wheel };
+```
+
+#### settle-bounce
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// A mechanical stop: the wheel overshoots by a few degrees and springs back.
+const wheel = new WheelBuilder()
+  .radius(220, 30)
+  .sections(Array.from({ length: 10 }, (_, i) => ({ id: `s${i}`, label: `${i * 5 + 5}` })))
+  .landing({ mode: 'center', settle: { mode: 'bounce', bounceDeg: 5, durationMs: 520, ease: 'power2.out' } })
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+return { wheel };
+```
+
+#### stop-exact-angle
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, DebugRingSkin, app
+
+// Some backends send the final angle, not a section. `{ angle }` is
+// wheel-local degrees; the engine reports which section that is.
+const wheel = new WheelBuilder()
+  .radius(220, 30)
+  .startAngle(0)
+  .sections(Array.from({ length: 12 }, (_, i) => ({ id: `s${i}`, label: `${i * 30}`, value: i })))
+  .skin(new DebugRingSkin())
+  .speed('normal', SpinPresets.TURBO)
+  .ticker(app.ticker)
+  .build();
+
+return {
+  wheel,
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 200));
+    const angle = Math.round(Math.random() * 360);
+    wheel.setResult({ angle });
+    const r = await spin;
+    console.log(`[exact] asked for ${angle} deg -> ${r.section.id}, under pointer now ${wheel.main.localAngleUnderPointer().toFixed(1)}`);
+  },
+};
+```
+
+#### skip-configs
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// Press the button again while the wheel turns to skip. This wheel refuses
+// a skip in its first 1200 ms and takes 300 ms to land when it accepts one.
+// A press made before the server answered is queued with requestSkip().
+const wheel = new WheelBuilder()
+  .radius(220, 30)
+  .sections(Array.from({ length: 8 }, (_, i) => ({ id: `s${i}`, label: `${i + 1}` })))
+  .skip({ allowed: true, minimumSpinTime: 1200 })
+  .speed('normal', { ...SpinPresets.CINEMATIC, skipDuration: 300 })
+  .ticker(app.ticker)
+  .build();
+
+wheel.events.on('skip:requested', () => console.log('[skip] accepted'));
+wheel.events.on('skip:completed', () => console.log('[skip] landed'));
+wheel.events.on('spin:complete', (r) => console.log('[skip] complete, skipped =', r.wasSkipped));
+
+return {
+  wheel,
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 900)); // a slow server
+    wheel.setResult({ index: Math.floor(Math.random() * 8) });
+    await spin;
+  },
+  onSkip: () => {
+    // Before the result: queue. After: land now.
+    try { wheel.skip(); } catch { wheel.requestSkip(); }
+  },
+};
+```
+
+#### speed-profiles
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// Four feels on one wheel. Each spin uses the next profile; the label under
+// the pointer says which. Profiles decide wind-up, cruise speed, turn count
+// and how long the stop takes.
+const names = ['normal', 'turbo', 'cinematic', 'quick'];
+const wheel = new WheelBuilder()
+  .radius(220, 30)
+  .sections(names.map((n, i) => ({ id: n, label: n.toUpperCase(), value: i })).concat([
+    { id: 'a', label: '', value: 4 }, { id: 'b', label: '', value: 5 }, { id: 'c', label: '', value: 6 }, { id: 'd', label: '', value: 7 },
+  ]))
+  .speed('normal', SpinPresets.NORMAL)
+  .speed('turbo', SpinPresets.TURBO)
+  .speed('cinematic', SpinPresets.CINEMATIC)
+  .speed('quick', SpinPresets.QUICK)
+  .ticker(app.ticker)
+  .build();
+
+let i = 0;
+return {
+  wheel,
+  onSpin: async () => {
+    const name = names[i++ % names.length];
+    wheel.setSpeed(name);
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 200));
+    wheel.setResult({ section: name });
+    const r = await spin;
+    console.log(`[speed] ${name}: ${r.duration} ms, ${r.turns} turns`);
+  },
+};
+```
+

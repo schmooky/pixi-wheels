@@ -1,0 +1,23 @@
+---
+title: Configs and templates
+order: 13
+eyebrow: Building blocks
+description: The JSON a wheel round-trips through, the templates, and how the studio uses both.
+---
+
+```ts
+const cfg = builder.toConfig();                                   // WheelConfig, plain JSON
+const wheel = WheelBuilder.fromConfig(cfg, { assets }).ticker(app.ticker).build();
+```
+
+A `WheelConfig` holds the rings (sections, radii, pointers, skin config, dynamic steps), the speed profiles, landing and skip defaults, idle, and the server adapter. Skins given as instances are recorded as `{ type: 'custom' }`; give them as configs to stay serialisable. Textures and Spine files are referenced by key and resolved through an `AssetResolver`.
+
+`assertWheelConfig(json)` checks a config from a file or a form before `fromConfig()`.
+
+## Templates
+
+`WheelTemplates.gamble()`, `gambleDynamic()`, `multipliers()`, `jackpots()`, `dynamicJackpot()`, `twoRing()`, `debug()` return configs to start from. `WHEEL_TEMPLATE_NAMES` lists them.
+
+## Studio
+
+The [studio](/studio/) edits a `WheelConfig` in forms, rebuilds the wheel on every change, shows the fluent code the config stands for, takes your uploads, and exports the JSON or a runnable Vite project with the assets under `public/assets/`.

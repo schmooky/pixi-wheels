@@ -1,0 +1,46 @@
+---
+/**
+ * Generated stand-in for a missing recipe preview: a faux wheel tinted with
+ * a stable per-recipe hue, a monogram badge, and optional caption / hint.
+ * Theme-aware, so it reads as an intentional placeholder rather than a
+ * broken image.
+ */
+import { hueFor, monogram } from '../lib/recipeMedia.ts';
+
+interface Props {
+  title: string;
+  caption?: string;
+  hint?: string;
+}
+
+const { title, caption, hint } = Astro.props as Props;
+const hue = hueFor(title);
+const mono = monogram(title);
+const tintSoft = `hsl(${hue} 70% 55% / 0.16)`;
+const tintBadge = `hsl(${hue} 68% 52%)`;
+const wedges = 10;
+const r = 40;
+const paths = Array.from({ length: wedges }, (_, i) => {
+  const a0 = (i / wedges) * Math.PI * 2 - Math.PI / 2;
+  const a1 = ((i + 1) / wedges) * Math.PI * 2 - Math.PI / 2;
+  return `M80 50 L${(80 + Math.cos(a0) * r).toFixed(2)} ${(50 + Math.sin(a0) * r).toFixed(2)} A${r} ${r} 0 0 1 ${(80 + Math.cos(a1) * r).toFixed(2)} ${(50 + Math.sin(a1) * r).toFixed(2)} Z`;
+});
+---
+<div
+  class="relative flex h-full w-full items-center justify-center overflow-hidden bg-muted/40"
+  style={`background-image: linear-gradient(135deg, ${tintSoft}, transparent 72%);`}
+>
+  <svg class="absolute inset-0 h-full w-full text-foreground/[0.07]" viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    {paths.map((d, i) => <path d={d} fill="currentColor" opacity={i % 2 === 0 ? 1 : 0.55} />)}
+    <circle cx="80" cy="50" r="6" fill="currentColor" opacity="0.9" />
+    <path d="M80 4 L75 14 L85 14 Z" fill="currentColor" />
+  </svg>
+
+  <div class="relative flex flex-col items-center gap-2 px-5 text-center">
+    <div class="flex h-11 w-11 items-center justify-center rounded-xl text-sm font-bold tracking-tight text-white shadow-sm" style={`background: ${tintBadge};`}>
+      {mono}
+    </div>
+    {caption && <div class="max-w-[34ch] text-xs font-medium leading-snug text-muted-foreground">{caption}</div>}
+    {hint && <code class="rounded bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/80">{hint}</code>}
+  </div>
+</div>

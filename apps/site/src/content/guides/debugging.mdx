@@ -1,0 +1,34 @@
+---
+title: Debugging
+order: 15
+eyebrow: For authors
+description: The debug skin, the overlay, the ASCII arc and the window handle.
+---
+
+PixiJS draws to a canvas; the debug tools describe the wheel in words and lines.
+
+```ts
+import { enableDebug, debugOverlay, debugArc, DebugRingSkin } from 'pixi-wheels';
+
+enableDebug(wheel);                       // window.__PIXI_WHEELS_DEBUG
+debugOverlay(wheel, { live: true, ticker: app.ticker });
+console.log(debugArc(wheel));
+```
+
+```
+main  rot 123.4  state stopping  speed -210.3 deg/s
+|  x2  |x5| x3  |x10|  x2  |x8|  x3 |x50|
+             ^ pointer -> x3
+```
+
+In the console:
+
+```
+__PIXI_WHEELS_DEBUG.log()        // arc + state
+__PIXI_WHEELS_DEBUG.snapshot()   // plain JSON: rings, sections, pointers, target, planned legs
+__PIXI_WHEELS_DEBUG.trace(true)  // log every event (ticks included)
+__PIXI_WHEELS_DEBUG.overlay()    // dividers, angles, pointer lines, landing marker, HUD
+__PIXI_WHEELS_DEBUG.land('x50')  // setResult on the current spin
+```
+
+`DebugRingSkin` is the plain look for wiring a wheel before the art exists. Every recipe on this site has a Debug button that toggles the overlay.

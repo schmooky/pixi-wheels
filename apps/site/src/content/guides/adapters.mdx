@@ -1,0 +1,30 @@
+---
+title: Server adapters
+order: 11
+eyebrow: Building blocks
+description: Turning whatever the backend sends into a WheelTarget, as a serialisable config.
+---
+
+`setResult()` takes a `WheelTarget`:
+
+```ts
+{ section: 'grand' }                       // by id
+{ index: 3 }                               // by position
+{ value: 8, pick: 'random' }               // any section with that value
+{ angle: 123 }                             // wheel-local degrees
+{ position: 0.34 }                         // fraction of the way round
+{ section: 'grand', offset: 0.2 }          // plus an exact spot inside
+```
+
+For a real response, describe how to read it once:
+
+```ts
+import { createTargetAdapter } from 'pixi-wheels';
+
+const toTarget = createTargetAdapter({ by: 'value', path: 'bonus.wheel.multiplier', pick: 'random' });
+wheel.setResult(toTarget(response));
+```
+
+`by` is `section | index | value | angle | position`; `path` is dotted; `indexBase: 1` handles backends that count from one; `offsetPath` reads an exact offset. The config is JSON, so the studio stores it next to the wheel (`config.adapter`) and the exported project reads it back.
+
+`resolveTarget(geometry, target, { mode, margin, rng })` is the pure function behind `setResult()`, for pre-computing a landing.

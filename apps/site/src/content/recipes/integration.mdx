@@ -1,0 +1,36 @@
+---
+title: "Server, events and debugging"
+group: integration
+oneLiner: Adapters for real server responses, every sound hook, the debug view, and configs that round-trip.
+order: 60
+tags:
+  - adapter
+  - events
+  - audio
+  - debug
+  - config
+---
+
+## Server adapters
+
+Three shapes of response, one adapter each. An adapter is a small serialisable config (`by` + dotted `path`), so it lives next to the wheel config.
+
+<RecipeDemo code="server-adapter" />
+
+## Sound hooks
+
+Every audio cue as an event listener. Replace `console.log` with your audio layer; the tick volume and pitch follow the ring speed.
+
+<RecipeDemo code="sound-hooks" />
+
+## Debug view
+
+The plain skin plus the live overlay: dividers with angles, the pointer line, the planned landing in yellow, a HUD with state, speed and the current leg. `debugArc()` prints the same as text in the console.
+
+<RecipeDemo code="debug-view" />
+
+## Config round trip
+
+Build with the fluent API, export the config, rebuild from it. The console shows the JSON.
+
+<RecipeDemo code="config-round-trip" />

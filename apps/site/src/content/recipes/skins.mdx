@@ -1,0 +1,42 @@
+---
+title: "Skins and assets"
+group: presentation
+oneLiner: Painted, textured and studio-art wheels, per-section styles, and pointers that flap.
+order: 50
+tags:
+  - skin
+  - texture
+  - pointer
+  - playson
+  - pragmatic
+---
+
+A ring owns the motion; a skin owns the pixels. Swap `GraphicsRingSkin` for a texture or a Spine skeleton and nothing about the spin changes.
+
+## Labels and styles
+
+Fills, label colours, tangential and upright labels, a section with no label. Labels fit the room they have and re-centre when weights move.
+
+<RecipeDemo code="labels-and-styles" />
+
+## Pointers that flap
+
+Three pointers on one ring with different spring settings. Every divider under any of them fires `pointer:tick`.
+
+<RecipeDemo code="pointer-flap" />
+
+## Playson: Four Charged Clovers, Super Wheel
+
+The twelve authored wedge plates, bezel, dividers, bulbs, hub and stopper from the game's own atlas. The engine knows twelve equal sections and where they are; the skin knows how they look.
+
+<RecipeDemo code="playson-wheel" height={440} />
+
+<AssetCredit studio="Playson" />
+
+## Pragmatic Play: Wheel of Happiness
+
+The golden ring frame, the pointer and the logo on a painted red-and-gold face, with a `TexturePointerSkin` for the stopper.
+
+<RecipeDemo code="texture-wheel-pragmatic" height={460} />
+
+<AssetCredit studio="Pragmatic Play" />

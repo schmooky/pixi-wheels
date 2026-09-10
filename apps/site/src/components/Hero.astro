@@ -1,0 +1,42 @@
+---
+import CopyCommand from './CopyCommand.astro';
+---
+<section class="relative overflow-hidden border-b border-border/60">
+  <div class="grid-bg absolute inset-0 opacity-50 pointer-events-none" aria-hidden></div>
+
+  <div class="container relative flex flex-col items-center py-24 text-center sm:py-32">
+    <h1 class="max-w-3xl text-balance text-4xl font-semibold tracking-tight sm:text-6xl">
+      Bonus wheels, <span class="text-muted-foreground">ready to spin.</span>
+    </h1>
+
+    <p class="mt-5 max-w-xl text-balance text-lg text-muted-foreground">
+      A fluent wheel engine for PixiJS v8.<br/>From <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em] text-foreground">npm install</code> to a
+      spinning, baiting, landing wheel in ten lines.<br/>Typed events, headless tests, MIT.
+    </p>
+
+    <div class="mt-8 flex flex-col items-center gap-3 sm:flex-row">
+      <a
+        href="/guides/getting-started/"
+        class="inline-flex h-11 items-center justify-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+      >
+        Get started
+      </a>
+      <a
+        href="/recipes/"
+        class="inline-flex h-11 items-center justify-center rounded-md border border-border bg-background px-6 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+      >
+        Browse recipes
+      </a>
+      <a
+        href="/studio/"
+        class="inline-flex h-11 items-center justify-center rounded-md border border-border bg-background px-6 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+      >
+        Open the studio
+      </a>
+    </div>
+
+    <div class="mt-6">
+      <CopyCommand command="npm i pixi-wheels" />
+    </div>
+  </div>
+</section>

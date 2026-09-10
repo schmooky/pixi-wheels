@@ -1,0 +1,53 @@
+---
+title: Sections and arcs
+order: 3
+eyebrow: Building blocks
+description: Ids, values, weights, styles, start angle and layout direction - the geometry every other feature reads.
+---
+
+A ring is a list of sections laid out clockwise from `startAngle` (default -90, twelve o'clock). Each section's arc is its `weight` share of 360 degrees.
+
+```ts
+.startAngle(-90)
+.sections([
+  { id: 'mini',  label: 'MINI',  value: 'mini', weight: 5 },
+  { id: 'grand', label: 'GRAND', value: 'grand', weight: 0.5 },
+])
+```
+
+## Ids, labels, values
+
+- `id` names the section in `setResult({ section })`, in events and in the debug output. Unique per ring.
+- `label` is what a label-drawing skin writes. Defaults to the id; `''` draws nothing.
+- `value` is the payload the section stands for. Several sections may share one, and `setResult({ value })` lands on one of them.
+- `tags` are yours. Skins on this site use them to pick authored plates.
+
+## Weights
+
+Relative, positive, finite. `weight: 0.5` is half a default section. Change them at run time with `wheel.setWeights()`; see [Dynamic sections](/guides/dynamic-sections/).
+
+## Styles
+
+Per-section overrides for the painted skin and for labels on any skin:
+
+```ts
+style: {
+  fill: 0xf1c40f, alpha: 1, stroke: 0xffffff,
+  labelColor: 0x2b1d00, labelSize: 30, labelFont: 'Roboto Condensed', labelWeight: '800',
+  labelOrientation: 'radial' | 'tangential' | 'upright',
+  labelRadius: 0.68,   // fraction of the outer radius
+}
+```
+
+Sections without a `fill` cycle the ring's palette (`.palette([...])`).
+
+## Reading the geometry
+
+```ts
+const s = wheel.geometry.byId('grand');      // { startAngle, endAngle, midAngle, arc, ... }
+wheel.geometry.sectionAt(localAngle);        // which section covers a wheel-local angle
+wheel.sectionUnderPointer();                 // right now
+wheel.main.localAngleUnderPointer();         // wheel-local degrees under the pointer
+```
+
+Angles are wheel-local: they turn with the disc. A point at local angle `a` is on screen at `a + rotation`, so the pointer at screen angle `p` reads local `p - rotation`. A clockwise spin therefore sweeps *decreasing* local angles under the pointer: it enters a section through its `endAngle` and leaves through its `startAngle`. `geometry.entryAngle(section, direction)` spells this out; the anticipation planner relies on it.

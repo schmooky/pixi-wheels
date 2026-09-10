@@ -1,0 +1,36 @@
+---
+title: "Starters"
+group: starters
+oneLiner: A wheel in ten lines, the two-colour gamble, and building from a template.
+order: 10
+tags:
+  - starter
+  - gamble
+  - template
+---
+
+The shapes most wheels start from. Every demo here is complete: copy it, swap the sections, ship.
+
+## A wheel in ten lines
+
+Unequal arcs, a server that decides by odds rather than by arc, and `setResult({ value })` landing on any section carrying that value.
+
+<RecipeDemo code="basic-wheel" />
+
+## Gamble, red and green
+
+Two sections, random landing so the pointer never rests on the divider, and the quick profile because a gamble is spun again and again.
+
+<RecipeDemo code="gamble-red-green" />
+
+## Gamble with a moving split
+
+The same coin flip whose arc share follows a step list. The odds are the server's; the arc is a cosmetic state that advances after every spin.
+
+<RecipeDemo code="gamble-dynamic" />
+
+## From a template
+
+`WheelTemplates` are plain configs. `WheelBuilder.fromConfig()` reads them, and everything the studio exports has the same shape.
+
+<RecipeDemo code="from-template" />

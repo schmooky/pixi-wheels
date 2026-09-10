@@ -1,0 +1,72 @@
+---
+title: Wheel and Ring
+order: 2
+eyebrow: API
+description: The runtime surface - spin, setResult, skip, idle, weights, geometry, speeds, teardown.
+---
+
+`Wheel` is a `Container` holding one or more `Ring`s. Methods without a `ring` argument address the main ring.
+
+## Spin
+
+```ts
+wheel.spin({ ring?, direction?, resultTimeoutMs? }): Promise<WheelSpinResult>
+wheel.setResult(target: WheelTarget, { ring?, mode?, margin?, settle?, anticipation? }): void
+wheel.skip(ring?): boolean          // throws before setResult(); false when disabled / too early
+wheel.requestSkip(ring?): void      // queue a press until the result is in
+wheel.slamStop(ring?): void         // snap to the final position, complete synchronously
+wheel.isSpinning: boolean
+```
+
+## Speed
+
+```ts
+wheel.setSpeed(name, ring?)         // 'speed:changed'
+wheel.activeSpeed; wheel.speedNames
+ring.addSpeed(name, profile)
+```
+
+## Idle
+
+```ts
+wheel.idle.start(config?, ring?)    // config from the builder when omitted
+wheel.idle.stop(ring?)
+```
+
+## Dynamic sections
+
+```ts
+wheel.setWeights({ id: weight }, { durationMs?, ease?, ring? }): Promise<void>
+wheel.setStep(index, options?): Promise<void>
+wheel.nextStep(options?): Promise<void>
+wheel.step: number | null
+```
+
+## Reading
+
+```ts
+wheel.sections; wheel.geometry     // main ring
+wheel.sectionUnderPointer(pointerId?)
+wheel.rotationDeg                  // settable while not spinning
+wheel.radius                       // largest outer radius
+wheel.main; wheel.ring(id); wheel.rings; wheel.hasRing(id)
+wheel.highlight(sectionId | null, ring?)
+```
+
+## Ring
+
+Everything above without the `ring` argument, plus:
+
+```ts
+ring.id; ring.outerRadius; ring.innerRadius; ring.direction
+ring.state: 'idle' | 'idling' | 'starting' | 'cruising' | 'stopping' | 'settling'
+ring.speed                          // signed deg/s, last frame
+ring.disc; ring.overlay             // containers a custom skin or effect can draw into
+ring.pointers; ring.skin; ring.controller
+ring.localAngleUnderPointer(pointerId?)
+ring.update(deltaMS)                // called by the ticker; call by hand with a fake one
+```
+
+## Teardown
+
+`wheel.destroy()` destroys every ring (skins, pointers, ticker callbacks), emits `destroyed`, drops all listeners, and destroys the container tree.

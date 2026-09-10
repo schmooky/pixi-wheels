@@ -1,0 +1,38 @@
+---
+title: Spin profiles
+order: 4
+eyebrow: API
+description: The SpinProfile fields, the presets, and how the planner turns them into a stop.
+---
+
+```ts
+interface SpinProfile {
+  spinSpeed: number;          // deg/s at cruise
+  accelerationMs: number;     // rest to cruise
+  accelerationEase?: Ease;    // default 'power2.in'
+  minimumSpinTime: number;    // the stop may not begin before this many ms since spin()
+  minCruiseMs: number;        // nor before this long at cruise
+  stopDuration: number;       // what the deceleration should take (target)
+  stopEase?: Ease;            // an ease-out; default 'power3.out'
+  minTurns: number;           // fewest full turns while stopping
+  maxTurns: number;           // most
+  skipDuration: number;       // the fast-forward on skip
+}
+```
+
+| Preset | spinSpeed | accel | min spin | stop | turns |
+|---|---|---|---|---|---|
+| `NORMAL` | 540 | 900 | 1400 | 4200 `power3.out` | 2-8 |
+| `TURBO` | 720 | 400 | 600 | 1800 `power3.out` | 1-4 |
+| `CINEMATIC` | 450 | 1400 | 2200 | 6500 `power4.out` | 3-10 |
+| `QUICK` | 900 | 250 | 400 | 1300 `power2.out` | 1-3 |
+
+## How the stop duration is chosen
+
+The planner matches the ease's start slope to the cruise speed so the hand-off is smooth. That fixes the duration for any given distance: `T = distance * slope / speed`. It then tries every turn count from `minTurns` to `maxTurns` and keeps the one whose `T` is closest to `stopDuration`. The actual duration is therefore near the target, not equal to it; `spin:stopping` reports it.
+
+`power3.out` has slope 4, `power2.out` 3, `power1.out` 2, `expo.out` about 7. An `inOut` ease starts at slope 0 and is clamped with a one-time warning; use an `out` curve.
+
+## Eases
+
+Names follow the GSAP vocabulary without depending on it: `none`, `linear`, `power1..4.in|out|inOut` (`quad`, `cubic`, `quart`, `quint` are aliases), `sine.*`, `expo.*`, `circ.*`, `back.in|out(1.7)`. Or pass a `(t) => number`. `EASE_NAMES` lists them; `resolveEase(name)` throws on a typo with the list.

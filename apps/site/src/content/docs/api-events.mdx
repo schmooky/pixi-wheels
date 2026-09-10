@@ -1,0 +1,36 @@
+---
+title: Events
+order: 3
+eyebrow: API
+description: The typed WheelEvents interface.
+---
+
+`wheel.events` is an `EventEmitter<WheelEvents>`. `on(name, fn)`, `once`, `off`, `removeAllListeners`, `listenerCount`. A listener that throws stops the remaining listeners for that emit and propagates into the engine; wrap anything that can throw.
+
+```ts
+interface WheelEvents {
+  'spin:start':        [{ ring; fromIdle; direction }];
+  'spin:cruise':       [{ ring; speed }];
+  'spin:resultSet':    [{ ring; target: ResolvedTarget }];
+  'spin:stopping':     [{ ring; turns; duration; anticipation: AnticipationStyle | null }];
+  'spin:landing':      [{ ring; section: ResolvedSection; landingAngle }];
+  'spin:settle:start': [{ ring; mode: 'center' | 'bounce' }];
+  'spin:settle:end':   [{ ring }];
+  'spin:complete':     [WheelSpinResult];
+  'anticipation:start': [{ ring; bait: ResolvedSection; style }];
+  'anticipation:bait':  [{ ring; bait }];
+  'anticipation:end':   [{ ring; bait }];
+  'pointer:tick':      [{ ring; pointer; from: ResolvedSection; to: ResolvedSection; speed; direction }];
+  'skip:requested':    [{ ring; protectedByAnticipation }];
+  'skip:completed':    [{ ring }];
+  'idle:start':        [{ ring; speed; direction }];
+  'idle:stop':         [{ ring }];
+  'sections:changed':  [{ ring; sections; step: number | null }];
+  'sections:transition:start': [{ ring; durationMs; step }];
+  'sections:transition:end':   [{ ring; step }];
+  'speed:changed':     [{ ring; name; profile; previous }];
+  'destroyed':         [];
+}
+```
+
+Order within a spin: `spin:start`, `spin:resultSet` and `spin:cruise` in whichever order the server and the wind-up finish, `spin:stopping`, `anticipation:start`, `anticipation:bait`, `anticipation:end`, `spin:landing`, `spin:settle:start`, `spin:settle:end`, `spin:complete`. A skip inserts `skip:requested` when pressed and `skip:completed` right before `spin:landing`.

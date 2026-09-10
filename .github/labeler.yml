@@ -1,0 +1,76 @@
+# Config for actions/labeler. Labels are applied to PRs based on which
+# paths the PR touches. Keep this list in sync with the repo layout.
+#
+# Syntax: https://github.com/actions/labeler#create-labelsyml
+
+area/ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/**'
+          - '.github/actions/**'
+          - '.github/dependabot.yml'
+          - '.github/labeler.yml'
+          - '.husky/**'
+          - 'scripts/**'
+
+area/docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - '**/*.mdx'
+          - 'logo.svg'
+          - '.github/ISSUE_TEMPLATE/**'
+          - '.github/pull_request_template.md'
+
+area/library:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/pixi-wheels/**'
+
+area/site:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'apps/site/**'
+
+area/tools:
+  - changed-files:
+      - any-glob-to-any-file:
+
+area/spine:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/pixi-wheels/src/spine/**'
+          - 'packages/pixi-wheels/src/symbols/SpineSymbol.ts'
+
+area/spin:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/pixi-wheels/src/spin/**'
+
+area/skins:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/pixi-wheels/src/skins/**'
+          - 'packages/pixi-wheels/src/pointer/**'
+
+area/testing:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/pixi-wheels/src/testing/**'
+
+area/release:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.changeset/**'
+          - 'scripts/snapshot-release.mjs'
+          - 'scripts/build-all-publishable.mjs'
+
+area/tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.test.ts'
+          - '**/*.test.tsx'
+          - '**/*.spec.ts'
+          - '**/*.spec.tsx'
+          - 'vitest.config.ts'
+          - 'vitest.setup.ts'

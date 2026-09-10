@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a question (GitHub Discussions)
+    url: https://github.com/igaming-bulochka/pixi-wheels/discussions/categories/q-a
+    about: Open-ended "how do I" or "is this a bug" questions go here.
+  - name: Share an idea (GitHub Discussions)
+    url: https://github.com/igaming-bulochka/pixi-wheels/discussions/categories/ideas
+    about: Rough feature ideas to kick around before filing a formal request.
+  - name: Read the docs
+    url: https://pixi-wheels.pages.dev
+    about: Guides, API reference, live recipes and the studio.

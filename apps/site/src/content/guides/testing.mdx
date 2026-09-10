@@ -1,0 +1,30 @@
+---
+title: Testing
+order: 14
+eyebrow: For authors
+description: Whole spins in Node on a fake ticker - the headless harness.
+---
+
+```ts
+import { createTestWheel, expectPointerOn, captureEvents, seededRng } from 'pixi-wheels/testing';
+
+const h = createTestWheel({
+  sections: [{ id: 'x2', weight: 3 }, { id: 'x50', weight: 0.5 }, { id: 'x5', weight: 2 }],
+  direction: 'cw',
+  landing: { mode: 'random' },
+  rng: seededRng(7),
+});
+
+const log = captureEvents(h.wheel, ['anticipation:bait', 'spin:landing']);
+const result = await h.spinAndLand({ section: 'x2' }, { anticipation: { bait: 'x50' } });
+
+expect(result.section.id).toBe('x2');
+expectPointerOn(h.wheel, 'x2');
+expect(log.map((e) => e.event)).toEqual(['anticipation:bait', 'spin:landing']);
+h.destroy();
+```
+
+- `spinAndLand()` runs frames until the spin completes. `advance(ms)` steps time by hand; `runUntilIdle()` finishes whatever is in flight.
+- `HeadlessRingSkin` and `HeadlessPointerSkin` draw nothing, so no renderer or DOM is needed.
+- `FakeTicker` is duck-compatible with `PIXI.Ticker`; pass it to `WheelBuilder.ticker()` directly for a custom setup.
+- `planStop()` and `resolveTarget()` are pure; test them without a wheel.

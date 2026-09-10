@@ -1,0 +1,49 @@
+---
+title: Rings and subwheels
+order: 7
+eyebrow: Building blocks
+description: Several rings around one centre, each with its own sections, direction and pointers, spinning independently.
+---
+
+```ts
+const wheel = new WheelBuilder()
+  .radius(280, 190)                       // the main ring: outer 280, inner 190
+  .sections(OUTER)
+  .ring('inner', (r) =>
+    r.radius(175, 50)
+     .direction('ccw')
+     .pointer({ angle: 0, facing: 'inward', tipInset: 12 })
+     .sections(INNER)
+     .skin({ type: 'graphics', rim: { width: 6 } }),
+  )
+  .ticker(app.ticker)
+  .build();
+
+const outer = wheel.spin();
+const inner = wheel.spin({ ring: 'inner' });
+wheel.setResult({ section: 'major' });
+wheel.setResult({ section: 'grand' }, { ring: 'inner' });
+await Promise.all([outer, inner]);
+```
+
+- Rings may touch but not overlap; `build()` checks the radii.
+- Every event payload carries `ring`. One `wheel.events` serves them all.
+- `wheel.ring('inner')` is the `Ring` itself: `spin()`, `setResult()`, `skip()`, `setWeights()`, `idle`, `pointers`, `skin`.
+- Methods on `Wheel` without a `ring` option address the main ring.
+
+## Pointers for an inner ring
+
+`facing: 'inward'` seats the pointer on the ring's outer edge with the tip pointing at the hub: on an inner ring that puts it on the outer ring's inner edge, the "special inward arrow". `facing: 'outward'` seats it at the ring's inner radius pointing out.
+
+## One ring triggering another
+
+Listen for the outer landing and start the inner spin from it:
+
+```ts
+wheel.events.on('spin:landing', ({ ring, section }) => {
+  if (ring === 'main' && section.id === 'spin') {
+    const inner = wheel.spin({ ring: 'inner' });
+    wheel.setResult(serverInnerTarget, { ring: 'inner' });
+  }
+});
+```

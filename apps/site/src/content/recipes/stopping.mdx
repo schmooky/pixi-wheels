@@ -1,0 +1,49 @@
+---
+title: "Stopping"
+group: landing
+oneLiner: Where the pointer ends up - centre, random or an exact angle - and what happens after it lands.
+order: 20
+tags:
+  - landing
+  - settle
+  - skip
+  - speed
+---
+
+The result decides the section; these settings decide the exact spot and the last half second.
+
+## Center, random, exact
+
+Three landing modes on one wheel. `exact` takes the `offset` the server sent, here 0.9: right by the edge.
+
+<RecipeDemo code="stop-modes" />
+
+## Land, then glide to the middle
+
+Land wherever the server said, pause, then centre the section for the prize presentation. The result reports the landing offset; the settle is presentation only.
+
+<RecipeDemo code="settle-center" />
+
+## Bounce
+
+A mechanical stop: overshoot by a few degrees and spring back.
+
+<RecipeDemo code="settle-bounce" />
+
+## An exact angle from the server
+
+Some backends send degrees. `{ angle }` is wheel-local; the engine reports which section that is.
+
+<RecipeDemo code="stop-exact-angle" />
+
+## Skip configs
+
+Press again while the wheel turns. This wheel refuses a skip in its first 1200 ms and takes 300 ms to land when it accepts one; a press during the server round-trip is queued with `requestSkip()`.
+
+<RecipeDemo code="skip-configs" />
+
+## Speed profiles
+
+Four feels on one wheel: each spin uses the next profile. A profile sets the wind-up, the cruise speed, the turn count and how long the stop takes.
+
+<RecipeDemo code="speed-profiles" />

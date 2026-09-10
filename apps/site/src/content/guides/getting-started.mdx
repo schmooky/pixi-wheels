@@ -1,0 +1,75 @@
+---
+title: Getting started
+order: 0
+eyebrow: Start here
+description: Install pixi-wheels and spin your first wheel in under two minutes.
+---
+
+pixi-wheels is a bonus wheel engine. You drop it into a PixiJS v8 app.
+
+## You need
+
+- Node 20+, and pnpm, npm or yarn
+- A PixiJS v8 app. The engine advances on `app.ticker`
+- Spine skins? Also install `@esotericsoftware/spine-pixi-v8`
+
+## Install
+
+```bash
+pnpm add pixi-wheels pixi.js
+# only if you want Spine skins or pointers
+pnpm add @esotericsoftware/spine-pixi-v8
+```
+
+## Boot Pixi, build a wheel
+
+```ts
+import { Application } from 'pixi.js';
+import { WheelBuilder, SpinPresets } from 'pixi-wheels';
+
+const app = new Application();
+await app.init({ width: 800, height: 600, background: '#0b0d12' });
+document.body.appendChild(app.canvas);
+
+const wheel = new WheelBuilder()
+  .radius(240, 36)
+  .sections([
+    { id: 'x2',  label: 'x2',  value: 2,  weight: 3 },
+    { id: 'x5',  label: 'x5',  value: 5,  weight: 2 },
+    { id: 'x10', label: 'x10', value: 10, weight: 1 },
+    { id: 'x2b', label: 'x2',  value: 2,  weight: 3 },
+  ])
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+wheel.position.set(400, 300);
+app.stage.addChild(wheel);
+
+const spin = wheel.spin();
+const response = await fetch('/api/wheel').then((r) => r.json()); // your server
+wheel.setResult({ value: response.multiplier });
+const result = await spin;
+console.log(result.section.id, result.offset);
+```
+
+## Did it work
+
+The wheel winds up, cruises until the result is in, decelerates without a jerk and stops with the pointer on a section carrying the value you passed.
+
+Nothing happened? One of these:
+
+| You see | Do this |
+|---|---|
+| A blank canvas | The wheel sits at (0, 0) with its centre there. Set `wheel.position`. |
+| `ticker(app.ticker) must be called` | You forgot `.ticker(app.ticker)`. |
+| It spins and never stops | Nothing called `setResult()`. The wheel waits for its server. Pass `resultTimeoutMs` to `spin()` if you want a guard. |
+| `Unknown ease "..."` | A typo in a profile's `stopEase`. The message lists every name. |
+
+## Where next
+
+- **Build a real one** -> [Your first wheel](/guides/your-first-wheel/)
+- **Understand the spin** -> [Spin lifecycle](/guides/spin-lifecycle/)
+- **Tease the player** -> [Anticipation](/guides/anticipation/)
+- **See what is possible** -> [Recipes](/recipes/)
+- **Click instead of type** -> [Studio](/studio/)

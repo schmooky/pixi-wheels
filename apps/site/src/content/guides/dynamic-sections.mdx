@@ -1,0 +1,46 @@
+---
+title: Dynamic sections
+order: 6
+eyebrow: Building blocks
+description: Arc shares that change step by step while labels re-centre - cosmetic states with no coupling to the outcome.
+---
+
+Some features change the wheel's look as a round progresses: a jackpot sector grows, a gamble's green half shrinks. In pixi-wheels a section's arc is its weight, and weights can change any time. Labels and skins re-lay out on every frame of the transition; the spin's landing angle is fixed when the result arrives and does not move.
+
+## Direct
+
+```ts
+await wheel.setWeights({ grand: 2, mini: 3 }, { durationMs: 600, ease: 'sine.inOut' });
+```
+
+Unnamed sections keep their weights. `durationMs: 0` snaps.
+
+## Steps
+
+```ts
+.dynamic({
+  steps: [
+    { mini: 5, major: 1.5, grand: 0.6 },
+    { mini: 4, major: 2,   grand: 1 },
+    { mini: 3, major: 3,   grand: 1.6 },
+  ],
+  durationMs: 700,
+  initialStep: 0,
+})
+
+await wheel.setStep(2);
+await wheel.nextStep();     // wraps around
+wheel.step;                 // current index, or null without steps
+```
+
+## Quantised
+
+Think of the rim as N slots and use integer weights: a step moves a border by exactly one slot and the static sections never drift.
+
+## Events
+
+`sections:transition:start`, `sections:transition:end`, `sections:changed` (also fires for a snap). The payload names the ring and the step.
+
+## Skins
+
+`GraphicsRingSkin` and `TextureRingSkin` follow weights (wedges, labels and per-section decorations move). Authored art (`PlaysonWheelSkin` on this site, `SpineRingSkin`) is painted for fixed arcs and does not.

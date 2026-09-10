@@ -1,0 +1,60 @@
+---
+title: Spin lifecycle
+order: 2
+eyebrow: Building blocks
+description: What happens between spin() and spin:complete - the states, the planned stop, and which method is allowed when.
+---
+
+```
+idle -> starting -> cruising -> stopping -> [settling] -> idle
+  ^                    |            ^
+  |               setResult()   the plan: decel [+ bait legs] [+ settle legs]
+idling (optional slow rotation while nothing happens)
+```
+
+## States
+
+| State | What the ring does | Allowed calls |
+|---|---|---|
+| `idle` | Nothing. | `spin()`, `idle.start()`, `setWeights()` |
+| `idling` | Turns slowly at the idle speed. | `spin()` (ramps from the idle speed), `idle.stop()` |
+| `starting` | Accelerates to `spinSpeed` over `accelerationMs`. | `setResult()`, `requestSkip()` |
+| `cruising` | Constant speed, waiting for the result and the minimum times. | `setResult()`, `skip()`, `requestSkip()` |
+| `stopping` | Plays the planned legs: deceleration, anticipation, landing. | `skip()`, `slamStop()` |
+| `settling` | Plays the settle legs (centre glide or bounce). | nothing; wait |
+
+`spin()` while spinning throws. `setResult()` twice throws. `setResult()` after the stop began throws. Read `wheel.main.state` if you need to branch.
+
+## The planned stop
+
+The moment the stop may begin, the engine plans it as a list of legs and plays them back. The first leg starts at the cruise speed: its ease's initial slope is matched to the speed, so the distance fixes the duration and the planner picks the number of full turns that gets closest to the profile's `stopDuration`. There is no velocity step when the result arrives.
+
+- Plain stop: one leg to the landing angle.
+- Creep: a leg to the bait's entry edge ending at `creepSpeed`, then a crawl to the landing.
+- Stutter: a leg to a halt inside the bait, a dwell, a push over the line.
+- Overshoot: a leg past the landing into the bait, a dwell, a roll back.
+- Settle: a dwell and a glide to the centre, or a bounce out and back.
+
+`spin:stopping` reports the turn count and total duration; the debug overlay draws the current leg.
+
+## Landing angle
+
+`setResult()` resolves the target to a wheel-local angle at once: the section's middle, a random spot inside it, or the exact offset or angle you passed. The stop is planned against that angle, so a dynamic-section change during the spin does not move the landing.
+
+## Skip and slam
+
+`skip()` replaces the remaining legs with a short fast-forward to the landing (at least a third of a turn) and keeps the settle. With `protectAnticipation`, the first press fast-forwards to the bait instead and the second lands. `slamStop()` snaps to the final position and completes synchronously; it is what the test harness uses.
+
+## Result
+
+```ts
+interface WheelSpinResult {
+  ring: string;          // 'main' on a single-ring wheel
+  section: ResolvedSection;
+  landingAngle: number;  // wheel-local degrees under the pointer
+  offset: number;        // 0..1 inside the section
+  wasSkipped: boolean;
+  duration: number;      // ms from spin() to complete
+  turns: number;         // full turns made
+}
+```

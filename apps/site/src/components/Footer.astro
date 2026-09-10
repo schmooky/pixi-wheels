@@ -1,0 +1,58 @@
+---
+const cols = [
+  {
+    title: 'Learn',
+    items: [
+      { href: '/guides/getting-started/', label: 'Getting started' },
+      { href: '/guides/your-first-wheel/', label: 'Your first wheel' },
+      { href: '/guides/anticipation/', label: 'Anticipation' },
+      { href: '/guides/testing/', label: 'Testing' },
+    ],
+  },
+  {
+    title: 'Reference',
+    items: [
+      { href: '/docs/api-builder/', label: 'Builder API' },
+      { href: '/docs/api-events/', label: 'Events' },
+      { href: '/docs/glossary/', label: 'Glossary' },
+      { href: '/changelog/', label: 'Changelog' },
+    ],
+  },
+  {
+    title: 'Play',
+    items: [
+      { href: '/recipes/', label: 'Recipes' },
+      { href: '/studio/', label: 'Studio' },
+      { href: 'https://github.com/igaming-bulochka/pixi-wheels', label: 'GitHub' },
+    ],
+  },
+];
+---
+<footer class="mt-20 border-t border-border/60 bg-card/30">
+  <div class="container py-12">
+    <div class="grid grid-cols-2 gap-10 md:grid-cols-4">
+      <div>
+        <div class="flex items-center gap-2 font-mono text-sm font-semibold">
+          <span>pixi-wheels</span>
+        </div>
+        <p class="mt-3 max-w-xs text-sm text-muted-foreground">
+          Open-source bonus wheels for PixiJS v8. Spin, bait, land, and every event in between.
+        </p>
+      </div>
+      {cols.map((col) => (
+        <div class="flex flex-col gap-2">
+          <div class="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">{col.title}</div>
+          {col.items.map((item) => (
+            <a href={item.href} class="text-sm text-muted-foreground transition-colors hover:text-foreground">
+              {item.label}
+            </a>
+          ))}
+        </div>
+      ))}
+    </div>
+    <div class="mt-10 flex flex-col gap-2 border-t border-border/50 pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+      <span>MIT licensed. Studio art on this site belongs to Playson and Pragmatic Play and is used with permission.</span>
+      <span>Built with Astro, React, shadcn/ui and PixiJS.</span>
+    </div>
+  </div>
+</footer>

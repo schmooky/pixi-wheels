@@ -1,0 +1,70 @@
+---
+const snippet = `import { WheelBuilder, SpinPresets } from 'pixi-wheels';
+
+const wheel = new WheelBuilder()
+  .radius(260, 40)
+  .sections([
+    { id: 'x2',  label: 'x2',  value: 2,  weight: 3 },
+    { id: 'x5',  label: 'x5',  value: 5,  weight: 2 },
+    { id: 'x10', label: 'x10', value: 10, weight: 1 },
+    { id: 'x2b', label: 'x2',  value: 2,  weight: 3 },
+    { id: 'x50', label: 'x50', value: 50, weight: 0.5 },
+  ])
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+const spin = wheel.spin();                       // wind up and cruise
+const response = await api.spinWheel();          // your server decides
+wheel.setResult({ value: response.multiplier }, {
+  anticipation: { bait: 'x50' },                // almost the big one...
+});
+const result = await spin;                       // ...lands on x10`;
+
+const bullets = [
+  { bold: 'One import', rest: '. WheelBuilder wires geometry, motion, pointers and skin.' },
+  { bold: 'Server-driven', rest: '. spin() starts the wheel; setResult() decides where it lands. The math stays on your server.' },
+  { bold: 'Feel, not tweens', rest: '. the stop is planned from the cruise speed, so there is no jerk when the result arrives.' },
+  { bold: 'Tests in Node', rest: '. a fake ticker runs the whole spin without a renderer.' },
+];
+---
+<section class="border-b border-border/60 py-20">
+  <div class="container">
+    <div class="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+      <div>
+        <h2 class="text-3xl font-semibold tracking-tight sm:text-4xl">
+          One fluent builder, one typed event stream.
+        </h2>
+        <ul class="mt-6 space-y-3">
+          {bullets.map((b) => (
+            <li class="flex items-start gap-2.5 text-muted-foreground">
+              <span class="mt-[7px] inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-primary"></span>
+              <span><strong class="text-foreground font-semibold">{b.bold}</strong>{b.rest}</span>
+            </li>
+          ))}
+        </ul>
+        <div class="mt-8">
+          <a
+            href="/guides/your-first-wheel/"
+            class="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow transition-colors hover:bg-primary/90"
+          >
+            Build your first wheel
+          </a>
+        </div>
+      </div>
+
+      <div class="relative">
+        <div class="absolute -inset-4 rounded-2xl bg-foreground/5 blur-2xl opacity-70" aria-hidden></div>
+        <div class="surface-code relative overflow-hidden rounded-xl shadow-2xl shadow-black/20">
+          <div class="flex items-center gap-1.5 border-b px-4 py-2.5" style="border-color: hsl(var(--code-border));">
+            <span class="h-2.5 w-2.5 rounded-full bg-white/20"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-white/30"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-white/40"></span>
+            <span class="ml-2 font-mono text-[11px]" style="color: hsl(var(--code-muted));">your-first-wheel.ts</span>
+          </div>
+          <pre class="overflow-x-auto p-5 font-mono text-[13px] leading-relaxed"><code>{snippet}</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

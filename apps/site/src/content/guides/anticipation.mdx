@@ -1,0 +1,47 @@
+---
+title: Anticipation
+order: 5
+eyebrow: Building blocks
+description: Creep, stutter and overshoot near-misses, how the bait must sit relative to the landing, and protected skips.
+---
+
+Anticipation baits the player with one section and lands on another. It is planned from the result, so it is deterministic, testable and always lands where the server said.
+
+```ts
+wheel.setResult({ value: 2 }, {
+  anticipation: {
+    bait: 'x50',              // section id, or { index }
+    style: 'auto',            // 'creep' | 'stutter' | 'overshoot' | 'auto'
+    creepSpeed: 40,           // deg/s entering the bait (creep)
+    dwellMs: 700,             // hold time (stutter, overshoot)
+    pushMs: 900,              // final nudge (stutter)
+    overshootDeg: 6,          // how far into the bait (overshoot)
+    returnMs: 800,            // roll back (overshoot)
+    maxDistanceDeg: 150,      // how far the bait may be from the landing
+    protectSkip: false,
+  },
+});
+```
+
+Set `.landing({ anticipation: { bait: 'x50' } })` on the builder to bait every spin.
+
+## Geometry
+
+A clockwise wheel sweeps decreasing local angles under the pointer, so it meets the section *after* the landing (in layout order) first. In the spin direction:
+
+- **bait before landing** (the pointer passes the bait, then reaches the landing): `creep` or `stutter`.
+- **bait after landing** (the pointer would reach the landing first): `overshoot`.
+
+`'auto'` picks by distance. If the bait is farther than `maxDistanceDeg` on both sides the tease is dropped with a warning (`bait-too-far`) and the wheel lands plainly. An explicit style with the wrong geometry warns (`bait-order`) and is dropped too. Nothing ever moves the landing.
+
+## Events
+
+| Event | When |
+|---|---|
+| `anticipation:start` | The stop was planned with a tease. Carries `bait` and `style`. |
+| `anticipation:bait` | The pointer reached the bait: creep begins, or the wheel halts inside it. |
+| `anticipation:end` | The tease resolved, just before `spin:landing`. |
+
+## Protected skip
+
+With `protectSkip: true` (or `.skip({ protectAnticipation: true })`) the first press fast-forwards to the bait and lets the tease play; the second press lands. `skip:requested` carries `protectedByAnticipation` so audio can tell the two apart.

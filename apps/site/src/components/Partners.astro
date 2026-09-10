@@ -1,0 +1,40 @@
+---
+import { ASSET_PARTNERS } from '../content/partners.ts';
+import playsonSvg from '../../public/credits/playson.svg?raw';
+
+/**
+ * "Assets provided by" strip on the landing page. The recipes on this site
+ * use real production art with the studios' permission; this is where the
+ * studios are named. Logos inline as SVG so `currentColor` follows the theme.
+ */
+const SVG_BY_LOGO: Record<string, string> = {
+  '/credits/playson.svg': playsonSvg,
+};
+---
+<section class="border-b border-border/60 py-16" aria-labelledby="partners-heading">
+  <div class="container">
+    <div class="mx-auto mb-8 max-w-2xl text-center">
+      <h2 id="partners-heading" class="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
+        Studio art in the recipes
+      </h2>
+      <p class="mt-3 text-muted-foreground">
+        The textured and Spine wheels on this site run on production assets provided by these studios.
+      </p>
+    </div>
+    <ul class="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-10" role="list">
+      {ASSET_PARTNERS.map((p) => {
+        const svg = p.logo ? SVG_BY_LOGO[p.logo] : undefined;
+        return (
+          <li>
+            <a href={p.url} target="_blank" rel="noopener noreferrer" aria-label={p.blurb} class="flex flex-col items-center gap-2 opacity-80 transition-opacity hover:opacity-100">
+              {svg
+                ? <span role="img" aria-label={`${p.name} logo`} class="block text-foreground [&>svg]:h-10 [&>svg]:w-auto" set:html={svg} />
+                : <span class="font-semibold tracking-tight text-foreground text-xl">{p.name}</span>}
+              <span class="text-xs text-muted-foreground">Assets provided by {p.name}</span>
+            </a>
+          </li>
+        );
+      })}
+    </ul>
+  </div>
+</section>

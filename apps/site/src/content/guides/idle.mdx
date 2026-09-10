@@ -1,0 +1,19 @@
+---
+title: Idle spin
+order: 9
+eyebrow: Building blocks
+description: A wheel parked beside the reels that turns slowly until the feature fires.
+---
+
+```ts
+.idle({ speed: 14, direction: 'cw', autoStart: true, rampMs: 800 })
+
+wheel.idle.start();          // or start({ speed }) without builder config
+wheel.idle.stop();           // ramps down
+```
+
+- `spin()` from idle ramps from the idle speed; `spin:start` reports `fromIdle: true`.
+- Idle resumes on its own after the spin completes while `idle.start()` is in effect.
+- `idle:start` and `idle:stop` events bracket it.
+
+Placement is yours: scale the wheel down and park it in a corner, then tween it over the reels for the feature. The [side wheel recipe](/recipes/sections-rings-idle/#a-wheel-beside-the-reels) shows the whole move.

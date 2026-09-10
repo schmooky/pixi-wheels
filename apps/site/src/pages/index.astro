@@ -1,0 +1,16 @@
+---
+import Base from '../layouts/Base.astro';
+import Hero from '../components/Hero.astro';
+import CodeShowcase from '../components/CodeShowcase.astro';
+import FeatureGrid from '../components/FeatureGrid.astro';
+import Partners from '../components/Partners.astro';
+import { SITE, softwareApplicationLd, softwareSourceCodeLd, webSiteLd, breadcrumbLd } from '../lib/seo.ts';
+
+const jsonLd = [webSiteLd(), softwareApplicationLd(), softwareSourceCodeLd(), breadcrumbLd([{ name: SITE.name, url: '/' }])];
+---
+<Base title={`${SITE.name}. ${SITE.tagline}`} description={SITE.description} path="/" type="website" jsonLd={jsonLd}>
+  <Hero />
+  <CodeShowcase />
+  <FeatureGrid />
+  <Partners />
+</Base>

@@ -1,0 +1,84 @@
+---
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import SEO from '../components/SEO.astro';
+import '../styles/global.css';
+import { SITE, ogUrlForPath, type PageSeo } from '../lib/seo.ts';
+
+interface Props extends Partial<PageSeo> {
+  title?: string;
+  description?: string;
+}
+const {
+  title = `${SITE.name}. ${SITE.tagline}`,
+  description = SITE.description,
+  path,
+  image,
+  type,
+  article,
+  jsonLd,
+  noIndex,
+} = Astro.props as Props;
+
+// Every route gets its own generated OG card (pages/og/[...path].png.ts),
+// resolved from the path. A page can still override via the `image` prop.
+const ogImage = image ?? ogUrlForPath(path ?? Astro.url.pathname);
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    {/*
+      Set the theme class before first paint so there's no flash of the wrong
+      mode. Reads an explicit choice from localStorage, else the OS preference.
+      Kept inline (is:inline) so it ships verbatim and runs synchronously.
+    */}
+    <script is:inline>
+      (() => {
+        const stored = localStorage.getItem('theme');
+        const dark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+      })();
+    </script>
+    <SEO
+      title={title}
+      description={description}
+      path={path}
+      image={ogImage}
+      type={type}
+      article={article}
+      jsonLd={jsonLd}
+      noIndex={noIndex}
+    />
+    {/*
+      Roboto Condensed is used by the debug CardSymbol inside recipe canvases;
+      Fira Code is the readout face for recipe HUDs and section labels, where
+      its ligatures turn an ASCII `->` into a single arrow glyph - which both
+      reads better and is narrower, and narrow matters when a label has to fit
+      inside one section's width.
+
+      Both are in ONE request so this stays a single stylesheet, loaded
+      asynchronously so it never blocks first paint on pages that render
+      neither. Pattern: preload + onload-promote, with a no-JS fallback.
+      https://web.dev/articles/defer-non-critical-css
+    */}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Roboto+Condensed:wght@400;700&display=swap"
+      onload="this.onload=null;this.rel='stylesheet'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Roboto+Condensed:wght@400;700&display=swap"
+      />
+    </noscript>
+  </head>
+  <body>
+    <Nav />
+    <main><slot /></main>
+    <Footer />
+  </body>
+</html>

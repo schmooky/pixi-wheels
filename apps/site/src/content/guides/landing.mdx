@@ -1,0 +1,40 @@
+---
+title: Landing and settle
+order: 4
+eyebrow: Building blocks
+description: Centre, random or exact landing; the settle that follows; skip rules.
+---
+
+## Where inside the section
+
+```ts
+.landing({ mode: 'center' })                 // the middle (default)
+.landing({ mode: 'random', margin: 0.12 })   // anywhere, kept off the edges
+wheel.setResult({ section: 'x5', offset: 0.9 })   // exact: 0 = clockwise start edge, 1 = end edge
+wheel.setResult({ angle: 123.4 })                 // exact: an absolute wheel-local angle
+wheel.setResult({ position: 0.25 })               // a quarter of the way round from the layout start
+```
+
+The per-spin options in `setResult(target, options)` override the builder defaults.
+
+## Settle
+
+What happens once the pointer has reached the landing angle:
+
+```ts
+settle: 'none'                                                     // stay put (default)
+settle: { mode: 'center', delayMs: 300, durationMs: 700, ease: 'sine.inOut' }
+settle: { mode: 'bounce', bounceDeg: 5, durationMs: 500 }
+```
+
+`spin:landing` fires when the pointer reaches the landing angle, `spin:settle:start` / `spin:settle:end` bracket the move, `spin:complete` fires after everything. The result's `landingAngle` is the pre-settle angle.
+
+## Skip
+
+```ts
+.skip({ allowed: true, minimumSpinTime: 800, protectAnticipation: false })
+```
+
+`wheel.skip()` returns `true` when it did something. It throws before `setResult()`; `wheel.requestSkip()` queues the press for the moment the result lands. `wheel.slamStop()` snaps to the final position synchronously.
+
+The profile's `skipDuration` is the length of the fast-forward.

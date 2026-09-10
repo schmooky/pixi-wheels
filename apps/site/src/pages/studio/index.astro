@@ -1,0 +1,19 @@
+---
+import Base from '../../layouts/Base.astro';
+import Studio from '../../components/Studio.tsx';
+---
+<Base
+  title="Studio - pixi-wheels"
+  description="Live wheel workbench: define sections and their styles, tune the spin and the anticipation, upload your own textures or Spine bundles, and export a config or a runnable project."
+>
+  <section class="py-6 pb-14">
+    <div class="container">
+      <Studio client:only="react">
+        <div slot="fallback" class="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_minmax(380px,560px)]">
+          <div class="flex min-h-[520px] items-center justify-center rounded-xl border border-border bg-card text-xs text-muted-foreground">Loading studio...</div>
+          <div class="h-[600px] rounded-xl border border-border bg-card"></div>
+        </div>
+      </Studio>
+    </div>
+  </section>
+</Base>

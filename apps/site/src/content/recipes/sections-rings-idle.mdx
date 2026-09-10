@@ -1,0 +1,53 @@
+---
+title: "Dynamic sectors, rings and idle"
+group: shapes
+oneLiner: Sector shares that move step by step, an inner ring spun by the outer one, and a wheel that idles beside the reels.
+order: 40
+tags:
+  - dynamic
+  - rings
+  - subwheel
+  - idle
+---
+
+## Jackpot sectors that move
+
+The studio brief: solid-fill sectors whose arcs change step by step as a cosmetic state, with the titles sliding to the middle of whatever arc they own. The landing is decided by the server and never by the arcs.
+
+<RecipeDemo code="dynamic-jackpot-steps" height={380} />
+
+## Steps on a grid
+
+Think of the rim as slots. Integer weights are the slots, so a step moves a border by exactly one slot and the static sectors never drift.
+
+<RecipeDemo code="dynamic-quantized" />
+
+## Weights from server state
+
+No step list: the server sends a state with every round and the client animates `setWeights` to it.
+
+<RecipeDemo code="dynamic-from-state" />
+
+## Two rings
+
+An outer ring of tiers and an inner ring read by its own inward-facing pointer at three o'clock. The rings spin independently and share one event stream.
+
+<RecipeDemo code="two-ring-jackpot" height={420} />
+
+## The outer ring triggers the inner one
+
+Landing on SPIN starts the inner ring from the landing event; anything else ends the round.
+
+<RecipeDemo code="outer-triggers-inner" height={420} />
+
+## A wheel beside the reels
+
+A small wheel idling next to a reel panel. The feature scales it up, spins it from its idle speed, lands, and seats it back. Idle resumes on its own.
+
+<RecipeDemo code="idle-side-wheel" height={380} />
+
+## Idle on demand
+
+Start, spin from idle, resume, stop with a ramp.
+
+<RecipeDemo code="idle-controls" />
