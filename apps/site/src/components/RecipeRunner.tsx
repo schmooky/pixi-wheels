@@ -185,7 +185,7 @@ export function RecipeRunner({ code, height = 340 }: RecipeRunnerProps) {
       fitRef.current?.();
       return;
     }
-    overlayRef.current = [debugOverlay(wheel, { layers: 'all', live: true, ticker: app.ticker })];
+    overlayRef.current = [debugOverlay(wheel, { layers: 'all', live: true, ticker: app.ticker, hud: 'bottom-left', screen: app.screen })];
     setDebugOn(true);
     // The overlay adds to the wheel's bounds; refit so nothing is cropped.
     fitRef.current?.();

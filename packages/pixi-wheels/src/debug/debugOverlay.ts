@@ -3,17 +3,28 @@ import type { Wheel } from '../core/Wheel.js';
 import type { Ring } from '../core/Ring.js';
 import { DEG_TO_RAD, normalizeDeg } from '../utils/angles.js';
 import type { Disposable } from '../utils/Disposable.js';
+import { noticeWarnOnce } from '../utils/notify.js';
 import { TickerRef } from '../utils/TickerRef.js';
 
 /**
  * Overlay layers.
- *   - `sections`  divider lines, section ids and start angles, drawn on the disc.
- *   - `pointers`  a line at every pointer angle plus its local angle.
+ *   - `sections`  divider lines on the disc, plus an upright pill just inside the rim with each section's id and start angle.
+ *   - `pointers`  a marker at every pointer angle and a pill with the local angle under it.
  *   - `pegs`      the pegs the tongues touch, the peg being ridden, and each tongue's contact zone.
- *   - `target`    the landing angle of the current result, on the disc.
- *   - `hud`       state, rotation, speed, current leg, section under the pointer.
+ *   - `target`    the landing angle of the current result: a line on the disc and a pill naming it.
+ *   - `hud`       a panel per ring in screen space: state, rotation, speed, current leg, section under the pointer, flap.
+ *
+ * Text is drawn at a constant screen size whatever scale the wheel is shown
+ * at, on dark pills that read on any background.
  */
 export type DebugOverlayLayer = 'sections' | 'pointers' | 'pegs' | 'target' | 'hud';
+
+/**
+ * Where the HUD panel goes, in screen pixels on the wheel's root container
+ * (the stage). Corners on the right or bottom need `screen`; `{ x, y }` pins
+ * it exactly; `false` draws no panel.
+ */
+export type DebugHudPlacement = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | { x: number; y: number } | false;
 
 export interface DebugOverlayOptions {
   layers?: DebugOverlayLayer[] | 'all';
@@ -21,12 +32,12 @@ export interface DebugOverlayOptions {
   live?: boolean;
   /** Ticker for the live redraw. Default `Ticker.shared`; pass the wheel's own to stay in step. */
   ticker?: Ticker;
-  /**
-   * Where the HUD text sits. `'inside'` (default) pins it to the top-left of
-   * the ring's bounding square, so a canvas fitted to the wheel never crops
-   * it. `'below'` puts it under the wheel; re-fit the canvas after enabling.
-   */
-  hud?: 'inside' | 'below';
+  /** HUD placement. Default `'top-left'`. */
+  hud?: DebugHudPlacement;
+  /** The canvas size, for right and bottom placements: `app.screen` is live and does. */
+  screen?: { width: number; height: number };
+  /** Screen-pixel size of the overlay text. Default 12. */
+  fontSize?: number;
 }
 
 export interface DebugOverlayHandle extends Disposable {
@@ -36,123 +47,243 @@ export interface DebugOverlayHandle extends Disposable {
 
 export const OVERLAY_LABEL = 'pixi-wheels:debugOverlay';
 const ALL: readonly DebugOverlayLayer[] = ['sections', 'pointers', 'pegs', 'target', 'hud'];
+const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+const INK = 0xffffff;
+const PANEL = 0x0b0d12;
+const CYAN = 0x32ade6;
+const RED = 0xff453a;
+const GOLD = 0xffcc00;
+const PINK = 0xff2d95;
+
+/** A small upright label on a dark plate, drawn at a constant screen size. */
+class Pill extends Container {
+  private readonly _back = new Graphics();
+  private readonly _text: Text;
+
+  constructor(fontSize: number) {
+    super();
+    this._text = new Text({ text: '', style: { fontFamily: MONO, fontSize, fill: INK, lineHeight: Math.round(fontSize * 1.25) } });
+    this._text.anchor.set(0.5);
+    this.addChild(this._back, this._text);
+  }
+
+  set(text: string, accent: number, worldScale: number): void {
+    this._text.text = text;
+    const w = this._text.width + 10;
+    const h = this._text.height + 4;
+    this._back.clear();
+    this._back.roundRect(-w / 2, -h / 2, w, h, 4).fill({ color: PANEL, alpha: 0.86 }).stroke({ color: accent, width: 1, alpha: 0.9 });
+    this.scale.set(1 / worldScale);
+    this.visible = true;
+  }
+
+  /** Half the plate height in wheel px at the given scale, to keep pills off the rim. */
+  halfHeight(worldScale: number): number {
+    return (this._text.height + 4) / 2 / worldScale;
+  }
+}
+
+/** A HUD panel for one ring, in screen space. */
+class Panel extends Container {
+  private readonly _back = new Graphics();
+  private readonly _text: Text;
+
+  constructor(fontSize: number) {
+    super();
+    this._text = new Text({ text: '', style: { fontFamily: MONO, fontSize, fill: INK, lineHeight: Math.round(fontSize * 1.35) } });
+    this._text.position.set(10, 7);
+    this.addChild(this._back, this._text);
+  }
+
+  set(lines: string[]): { width: number; height: number } {
+    this._text.text = lines.join('\n');
+    const w = this._text.width + 20;
+    const h = this._text.height + 14;
+    this._back.clear();
+    this._back.roundRect(0, 0, w, h, 8).fill({ color: PANEL, alpha: 0.86 }).stroke({ color: INK, width: 1, alpha: 0.14 });
+    return { width: w, height: h };
+  }
+}
+
+function worldScaleOf(node: Container): number {
+  const m = node.worldTransform;
+  const s = Math.sqrt(m.a * m.a + m.b * m.b);
+  return s > 1e-6 ? s : 1;
+}
+
+function rootOf(node: Container): Container {
+  let n = node;
+  while (n.parent) n = n.parent;
+  return n;
+}
 
 /**
- * Draw the wheel's invisible geometry over it: dividers with angles, pointer
- * lines, the planned landing angle and a text HUD per ring. Everything a
- * developer stares at the canvas to guess is written out.
+ * Draw the wheel's invisible geometry over it: dividers with their angles,
+ * pointer markers with the local angle under them, the pegs and the tongue's
+ * contact, the planned landing angle, and a HUD panel per ring. Everything a
+ * developer stares at the canvas to guess is written out, at a readable size
+ * whatever scale the wheel is drawn at.
  */
 export function debugOverlay(wheel: Wheel, options: DebugOverlayOptions = {}): DebugOverlayHandle {
   let layers = new Set<DebugOverlayLayer>(options.layers === undefined || options.layers === 'all' ? ALL : options.layers);
+  const fontSize = options.fontSize ?? 12;
   const perRing = wheel.rings.map((ring) => {
     const disc = new Graphics();
     disc.label = `${OVERLAY_LABEL}:disc:${ring.id}`;
     const fixed = new Graphics();
     fixed.label = `${OVERLAY_LABEL}:fixed:${ring.id}`;
-    const labels = new Container();
-    const hud = new Text({ text: '', style: { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13, fill: 0xffffff, lineHeight: 16 } });
-    const hudBack = new Graphics();
-    ring.disc.addChild(disc, labels);
-    ring.overlay.addChild(fixed, hudBack, hud);
-    return { ring, disc, fixed, labels, hud, hudBack, texts: [] as Text[] };
+    const pills = new Container();
+    pills.label = `${OVERLAY_LABEL}:pills:${ring.id}`;
+    ring.disc.addChild(disc);
+    ring.overlay.addChild(fixed, pills);
+    return { ring, disc, fixed, pills, pool: [] as Pill[], used: 0, panel: new Panel(fontSize) };
   });
+  const hudRoot = new Container();
+  hudRoot.label = `${OVERLAY_LABEL}:hud`;
+  for (const e of perRing) hudRoot.addChild(e.panel);
   let destroyed = false;
 
+  const pill = (e: (typeof perRing)[number]): Pill => {
+    let p = e.pool[e.used];
+    if (!p) {
+      p = new Pill(fontSize);
+      e.pool.push(p);
+      e.pills.addChild(p);
+    }
+    e.used++;
+    return p;
+  };
+  const place = (p: Pill, screenDeg: number, radius: number): void => {
+    const a = screenDeg * DEG_TO_RAD;
+    p.position.set(Math.cos(a) * radius, Math.sin(a) * radius);
+  };
+
   const drawRing = (e: (typeof perRing)[number]): void => {
-    const { ring, disc, fixed, labels, hud, hudBack } = e;
+    const { ring, disc, fixed } = e;
     const R = ring.outerRadius;
     const r = ring.innerRadius;
+    const ws = worldScaleOf(ring.overlay);
+    const px = (n: number): number => n / ws; // screen px expressed in wheel px
+    const rotation = ring.rotationDeg;
     disc.clear();
     fixed.clear();
-    for (const t of e.texts) t.destroy();
-    e.texts = [];
-    labels.removeChildren();
+    e.used = 0;
+
     if (layers.has('sections')) {
-      for (const s of ring.sections) {
+      const sections = ring.sections;
+      const every = Math.max(1, Math.ceil(sections.length / 24));
+      sections.forEach((s, i) => {
         const a = s.startAngle * DEG_TO_RAD;
-        disc.moveTo(Math.cos(a) * r, Math.sin(a) * r).lineTo(Math.cos(a) * (R + 10), Math.sin(a) * (R + 10));
-        disc.stroke({ color: 0x32ade6, width: 2, alpha: 0.9 });
-        const t = new Text({ text: `${s.id} ${Math.round(normalizeDeg(s.startAngle))}`, style: { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 10, fill: 0x9be7ff } });
-        t.anchor.set(0, 0.5);
-        const la = (s.startAngle + 1.5) * DEG_TO_RAD;
-        t.position.set(Math.cos(la) * (R + 12), Math.sin(la) * (R + 12));
-        t.rotation = la;
-        labels.addChild(t);
-        e.texts.push(t);
-      }
+        disc.moveTo(Math.cos(a) * r, Math.sin(a) * r).lineTo(Math.cos(a) * R, Math.sin(a) * R);
+        disc.stroke({ color: CYAN, width: px(1.5), alpha: 0.95 });
+        if (i % every !== 0) return;
+        const p = pill(e);
+        p.set(`${s.id} ${Math.round(normalizeDeg(s.startAngle))}`, CYAN, ws);
+        // Just inside the rim: a canvas fitted to the wheel never crops it.
+        place(p, s.startAngle + rotation, R - px(10) - p.halfHeight(ws));
+      });
     }
     if (layers.has('target')) {
       const target = ring.controller.target;
       if (target) {
         const a = target.landingAngle * DEG_TO_RAD;
-        disc.moveTo(Math.cos(a) * (r + 4), Math.sin(a) * (r + 4)).lineTo(Math.cos(a) * (R - 2), Math.sin(a) * (R - 2));
-        disc.stroke({ color: 0xffcc00, width: 3 });
-        disc.circle(Math.cos(a) * (R - 12), Math.sin(a) * (R - 12), 6).fill({ color: 0xffcc00 });
+        disc.moveTo(Math.cos(a) * (r + px(4)), Math.sin(a) * (r + px(4))).lineTo(Math.cos(a) * (R - px(2)), Math.sin(a) * (R - px(2)));
+        disc.stroke({ color: GOLD, width: px(2.5), alpha: 0.95 });
+        disc.circle(Math.cos(a) * (R - px(10)), Math.sin(a) * (R - px(10)), px(5)).fill({ color: GOLD });
+        const p = pill(e);
+        p.set(`target ${target.section.id} ${target.landingAngle.toFixed(1)}`, GOLD, ws);
+        place(p, target.landingAngle + rotation, R - px(66) - p.halfHeight(ws));
       }
     }
     if (layers.has('pointers')) {
-      for (const p of ring.pointers) {
-        const a = p.angle * DEG_TO_RAD;
-        fixed.moveTo(Math.cos(a) * (R + 24), Math.sin(a) * (R + 24)).lineTo(Math.cos(a) * (r + 2), Math.sin(a) * (r + 2));
-        fixed.stroke({ color: 0xff3b30, width: 2, alpha: 0.85 });
+      for (const ptr of ring.pointers) {
+        const a = ptr.angle * DEG_TO_RAD;
+        fixed.moveTo(Math.cos(a) * (R - px(8)), Math.sin(a) * (R - px(8))).lineTo(Math.cos(a) * (R + px(14)), Math.sin(a) * (R + px(14)));
+        fixed.stroke({ color: RED, width: px(2), alpha: 0.95 });
+        const p = pill(e);
+        p.set(`${ptr.id} ${ring.localAngleUnderPointer(ptr.id).toFixed(1)}`, RED, ws);
+        place(p, ptr.angle, R - px(38) - p.halfHeight(ws));
       }
     }
     const pegs = ring.pegs;
     if (layers.has('pegs') && pegs) {
-      const ridden = new Set(ring.pointers.map((p) => p.engagedPeg).filter((i): i is number => i !== null));
+      const ridden = new Set(ring.pointers.map((ptr) => ptr.engagedPeg).filter((i): i is number => i !== null));
       pegs.angles.forEach((deg, i) => {
         const a = deg * DEG_TO_RAD;
         disc.circle(Math.cos(a) * pegs.radius, Math.sin(a) * pegs.radius, pegs.size);
-        if (ridden.has(i)) disc.fill({ color: 0xff2d95, alpha: 0.9 });
-        disc.stroke({ color: 0x32ade6, width: 1.5, alpha: 0.95 });
+        if (ridden.has(i)) disc.fill({ color: PINK, alpha: 0.9 });
+        disc.stroke({ color: CYAN, width: px(1.5), alpha: 0.95 });
       });
-      for (const p of ring.pointers) {
-        if (!p.flap) continue;
-        // The contact zone: where a peg centre starts pushing the tongue and where it lets go.
-        const c = p.contactHalfWidth(pegs);
+      for (const ptr of ring.pointers) {
+        if (!ptr.flap) continue;
+        const c = ptr.contactHalfWidth(pegs);
         const half = c / pegs.radius;
-        const a = p.angle * DEG_TO_RAD;
+        const a = ptr.angle * DEG_TO_RAD;
         fixed.moveTo(Math.cos(a - half) * pegs.radius, Math.sin(a - half) * pegs.radius).arc(0, 0, pegs.radius, a - half, a + half);
-        fixed.stroke({ color: 0xff2d95, width: Math.max(3, pegs.size), alpha: 0.35 });
+        fixed.stroke({ color: PINK, width: Math.max(px(3), pegs.size), alpha: 0.3 });
       }
     }
-    if (layers.has('hud')) {
+    for (let i = e.used; i < e.pool.length; i++) e.pool[i].visible = false;
+
+    if (layers.has('hud') && options.hud !== false) {
       const c = ring.controller;
       const leg = c.legs[c.currentLegIndex];
       const under = ring.pointers[0] ? ring.sectionUnderPointer().id : '-';
       const tongue = ring.pointers[0];
-      const flapLine = tongue?.flap
-        ? `flap ${tongue.deflection.toFixed(1)} deg${tongue.engagedPeg !== null ? `  on peg ${tongue.engagedPeg}` : ''}`
-        : null;
       const lines = [
         `ring ${ring.id}  ${c.state}${c.isIdling ? ' (idle)' : ''}`,
-        `rot ${normalizeDeg(ring.rotationDeg).toFixed(1)}  speed ${ring.speed.toFixed(0)} deg/s`,
-        `under pointer: ${under}`,
-        c.target ? `target: ${c.target.section.id} @ ${c.target.landingAngle.toFixed(1)}` : 'target: -',
-        leg ? `leg ${c.currentLegIndex + 1}/${c.legs.length} ${leg.kind} ${leg.distance.toFixed(0)}deg ${Math.round(leg.duration)}ms` : 'leg: -',
+        `rot ${normalizeDeg(rotation).toFixed(1)}  speed ${ring.speed.toFixed(0)} deg/s`,
+        `under pointer  ${under}`,
+        c.target ? `target  ${c.target.section.id} @ ${c.target.landingAngle.toFixed(1)}` : 'target  -',
+        leg ? `leg ${c.currentLegIndex + 1}/${c.legs.length}  ${leg.kind} ${leg.distance.toFixed(0)} deg ${Math.round(leg.duration)} ms` : 'leg  -',
         ring.step !== null ? `step ${ring.step}/${ring.stepCount - 1}` : '',
+        tongue?.flap ? `flap ${tongue.deflection.toFixed(1)} deg${tongue.engagedPeg !== null ? `  on peg ${tongue.engagedPeg}` : ''}` : '',
       ].filter((l) => l !== '');
-      if (flapLine) lines.push(flapLine);
-      hud.text = lines.join('\n');
-      hud.visible = true;
-      const pad = 6;
-      // A fixed plate width keeps the overlay's bounds stable while the lines change length.
-      const plateW = Math.max(hud.width + pad * 2, Math.min(2 * R, 300));
-      const plateH = hud.height + pad * 2;
-      const x = -R;
-      const y = (options.hud ?? 'inside') === 'below' ? R + 16 : -R;
-      hud.position.set(x + pad, y + pad);
-      hudBack.clear();
-      hudBack.roundRect(x, y, plateW, plateH, 6).fill({ color: 0x000000, alpha: 0.72 });
+      e.panel.visible = true;
+      e.panel.set(lines);
     } else {
-      hud.visible = false;
-      hudBack.clear();
+      e.panel.visible = false;
     }
+  };
+
+  const placeHud = (): void => {
+    if (!layers.has('hud') || options.hud === false) {
+      hudRoot.visible = false;
+      return;
+    }
+    hudRoot.visible = true;
+    const root = rootOf(wheel);
+    if (hudRoot.parent !== root) root.addChild(hudRoot);
+    let y = 0;
+    let width = 0;
+    for (const e of perRing) {
+      if (!e.panel.visible) continue;
+      e.panel.position.set(0, y);
+      const b = e.panel.getLocalBounds();
+      y += b.height + 8;
+      width = Math.max(width, b.width);
+    }
+    const height = Math.max(0, y - 8);
+    const margin = 8;
+    const placement = options.hud ?? 'top-left';
+    if (typeof placement === 'object') {
+      hudRoot.position.set(placement.x, placement.y);
+      return;
+    }
+    const screen = options.screen;
+    const needsScreen = placement !== 'top-left';
+    if (needsScreen && !screen) {
+      noticeWarnOnce('debug-hud-screen', `debugOverlay: hud '${placement}' needs the \`screen\` option (pass app.screen); using 'top-left'.`);
+    }
+    const right = screen && (placement === 'top-right' || placement === 'bottom-right');
+    const bottom = screen && (placement === 'bottom-left' || placement === 'bottom-right');
+    hudRoot.position.set(right && screen ? screen.width - width - margin : margin, bottom && screen ? screen.height - height - margin : margin);
   };
 
   const redraw = (): void => {
     if (destroyed) return;
     for (const e of perRing) drawRing(e);
+    placeHud();
   };
   redraw();
 
@@ -176,12 +307,13 @@ export function debugOverlay(wheel: Wheel, options: DebugOverlayOptions = {}): D
       destroyed = true;
       tickerRef?.destroy();
       for (const e of perRing) {
-        for (const t of e.texts) t.destroy();
-        for (const c of [e.disc, e.fixed, e.labels, e.hud, e.hudBack]) {
+        for (const c of [e.disc, e.fixed, e.pills]) {
           c.parent?.removeChild(c);
           c.destroy({ children: true });
         }
       }
+      hudRoot.parent?.removeChild(hudRoot);
+      hudRoot.destroy({ children: true });
     },
   };
 }

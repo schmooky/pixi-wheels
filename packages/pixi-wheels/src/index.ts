@@ -120,6 +120,6 @@ export type { LogLevel } from './utils/notify.js';
 export { debugSnapshot, debugRingSnapshot, debugArc, enableDebug } from './debug/debug.js';
 export type { DebugSnapshot, DebugRingSnapshot, DebugSectionSnapshot } from './debug/debug.js';
 export { debugOverlay, OVERLAY_LABEL } from './debug/debugOverlay.js';
-export type { DebugOverlayLayer, DebugOverlayOptions, DebugOverlayHandle } from './debug/debugOverlay.js';
+export type { DebugOverlayLayer, DebugOverlayOptions, DebugOverlayHandle, DebugHudPlacement } from './debug/debugOverlay.js';
 
 // Testing utilities ship at the `pixi-wheels/testing` subpath.

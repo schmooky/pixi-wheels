@@ -11,7 +11,7 @@ PixiJS draws to a canvas; the debug tools describe the wheel in words and lines.
 import { enableDebug, debugOverlay, debugArc, DebugRingSkin } from 'pixi-wheels';
 
 enableDebug(wheel);                       // window.__PIXI_WHEELS_DEBUG
-debugOverlay(wheel, { live: true, ticker: app.ticker });
+debugOverlay(wheel, { live: true, ticker: app.ticker, hud: 'bottom-left', screen: app.screen });
 console.log(debugArc(wheel));
 ```
 
@@ -34,3 +34,15 @@ __PIXI_WHEELS_DEBUG.land('x50')  // setResult on the current spin
 `DebugRingSkin` is the plain look for wiring a wheel before the art exists. Every recipe on this site has a Debug button that toggles the overlay.
 
 The overlay's `pegs` layer draws the pegs the tongues touch, fills the one being ridden, and marks each tongue's contact zone on the rim; the HUD prints the first tongue's deflection. Tune `elasticity`, `friction`, `stiffness` and `damping` while watching it.
+
+## Reading the overlay
+
+Everything the overlay writes is drawn at a constant screen size, on dark pills, whatever scale the wheel is shown at:
+
+- cyan lines on the dividers, and a pill just inside the rim with each section's id and start angle (every other one past 24 sections), so a canvas fitted to the wheel never crops them;
+- a red marker at each pointer with the local angle under it;
+- the pegs, the one being ridden filled pink, and each tongue's contact zone;
+- the landing angle in yellow with a `target` pill once the result is in;
+- the HUD panel: one per ring, in a corner of the canvas. `hud` takes `'top-left'` (default), `'top-right'`, `'bottom-left'`, `'bottom-right'`, an exact `{ x, y }`, or `false`. Corners on the right or bottom need `screen: app.screen`.
+
+Pick the layers with `layers: ['sections', 'target']` or `handle.setLayers([...])`; `fontSize` scales the text.

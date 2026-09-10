@@ -1,10 +1,12 @@
 // @ts-nocheck
 // Injected globals: WheelBuilder, SpinPresets, DebugRingSkin, debugArc, debugOverlay, app
 
-// The plain skin plus the live overlay: dividers with their angles, the
-// pointer line, the planned landing angle in yellow, and a HUD with the
-// state, speed and current leg. debugArc() prints the same as text; it is
-// what an agent reads when it cannot see the canvas. Open the console.
+// The plain skin plus the live overlay: dividers with their angles on pills
+// outside the rim, the pointer marker with the local angle under it, the
+// pegs, the planned landing angle in yellow, and a HUD panel in the corner
+// of the canvas with the state, speed and current leg. Text stays readable
+// at any wheel scale. debugArc() prints the same as text; it is what an
+// agent reads when it cannot see the canvas. Open the console.
 const wheel = new WheelBuilder()
   .radius(230, 40)
   .sections([
@@ -19,7 +21,7 @@ const wheel = new WheelBuilder()
   .ticker(app.ticker)
   .build();
 
-debugOverlay(wheel, { layers: 'all', live: true, ticker: app.ticker });
+debugOverlay(wheel, { layers: 'all', live: true, ticker: app.ticker, hud: 'bottom-left', screen: app.screen });
 wheel.events.on('spin:stopping', () => console.log(debugArc(wheel)));
 wheel.events.on('spin:complete', () => console.log(debugArc(wheel)));
 

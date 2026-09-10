@@ -299,7 +299,7 @@ export default function Studio() {
       fitRef.current?.();
       return;
     }
-    overlayRef.current = debugOverlay(wheel, { layers: 'all', live: true, ticker: app.ticker });
+    overlayRef.current = debugOverlay(wheel, { layers: 'all', live: true, ticker: app.ticker, hud: 'bottom-left', screen: app.screen });
     setDebugOn(true);
     fitRef.current?.();
   }
