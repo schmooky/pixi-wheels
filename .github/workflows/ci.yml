@@ -76,6 +76,39 @@ jobs:
         run: pnpm check:doc-links
 
 
+  e2e:
+    # Browser coverage of the recipe pages and the studio through the real
+    # stack: WebGL, the PixiJS ticker, asset loading. Asserts on mounted
+    # canvases and a clean console, never on pixels.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: pnpm/action-setup@b307475762933b98ed359c036b0e51f26b63b74b # v5.0.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build docs site
+        run: pnpm --filter @pixi-wheels/site build
+
+      - name: e2e
+        run: pnpm test:e2e
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
+
   changeset-gate:
     # Fails the PR when library source changed but no changeset file was added.
     # Escape hatches:
