@@ -198,8 +198,19 @@ export function debugOverlay(wheel: Wheel, options: DebugOverlayOptions = {}): D
     if (layers.has('pointers')) {
       for (const ptr of ring.pointers) {
         const a = ptr.angle * DEG_TO_RAD;
-        fixed.moveTo(Math.cos(a) * (R - px(8)), Math.sin(a) * (R - px(8))).lineTo(Math.cos(a) * (R + px(14)), Math.sin(a) * (R + px(14)));
+        // The pointer's real body: pin to tip, the same span the art covers,
+        // swung by the deflection so the mark lies along the drawn tongue
+        // instead of being a stub near the rim.
+        const pinX = Math.cos(a) * ptr.pinRadius;
+        const pinY = Math.sin(a) * ptr.pinRadius;
+        const rest = ptr.facing === 'inward' ? a + Math.PI : a;
+        const swung = rest + ptr.deflection * DEG_TO_RAD;
+        const len = ptr.skin.length;
+        fixed.moveTo(pinX, pinY).lineTo(Math.cos(a) * ptr.tipRadius, Math.sin(a) * ptr.tipRadius);
+        fixed.stroke({ color: RED, width: px(1.5), alpha: 0.35 });
+        fixed.moveTo(pinX, pinY).lineTo(pinX + Math.cos(swung) * len, pinY + Math.sin(swung) * len);
         fixed.stroke({ color: RED, width: px(2), alpha: 0.95 });
+        fixed.circle(pinX, pinY, px(3.5)).fill({ color: RED, alpha: 0.95 });
         const p = pill(e);
         p.set(`${ptr.id} ${ring.localAngleUnderPointer(ptr.id).toFixed(1)}`, RED, ws);
         place(p, ptr.angle, R - px(38) - p.halfHeight(ws));
