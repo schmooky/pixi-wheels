@@ -79,6 +79,7 @@ export class Pointer implements Disposable {
   private _moveSign = 1;
   private _movingNow = false;
   private _baseHalf = 0;
+  private _lastPegs: ResolvedPegs | null = null;
   private _isDestroyed = false;
 
   constructor(config: PointerConfig, skin: PointerSkin) {
@@ -255,6 +256,7 @@ export class Pointer implements Disposable {
     // at the tip. Narrow on purpose - a wedge wide enough to matter at the pin
     // would sweep half the rim as it swings.
     this._baseHalf = f.tipWidth / 2;
+    this._lastPegs = pegs;
     let bestIndex = -1;
     let bestX = Number.POSITIVE_INFINITY;
     for (let i = 0; i < pegs.angles.length; i++) {
@@ -369,9 +371,31 @@ export class Pointer implements Disposable {
     noticeWarnOnce(
       `pointer-maxangle-${this.id}`,
       `Pointer "${this.id}": the blade cannot clear a peg within maxAngle ${f.maxAngle} deg, so it rides through them. ` +
-        'Raise maxAngle, lift the tip (smaller tipInset), or use smaller pegs.',
+        `This geometry needs about ${Math.ceil(this._worstClearance(sign, f))} deg. ` +
+        'Raise maxAngle, lift the tip (smaller tipInset), or set the pegs deeper (larger pegs.inset).',
     );
     return f.maxAngle;
+  }
+
+  /**
+   * The largest swing this geometry will ever ask for, degrees. Only used to
+   * put a number in the warning above, so it may take its time: it re-solves
+   * the clearance against an uncapped blade at the angle the peg is at.
+   */
+  private _worstClearance(sign: number, f: Required<FlapConfig>): number {
+    const pegs = this._lastPegs;
+    if (!pegs) return 0;
+    const wide = { ...f, maxAngle: 150 };
+    const pad = pegs.size * Math.max(1, f.elasticity) * (1 + Math.max(0, f.friction));
+    const span = this._contactSpan(pegs, f) * 2;
+    let worst = 0;
+    for (let i = -12; i <= 12; i++) {
+      const a = (this.angle + (span * i) / 12) * DEG_TO_RAD;
+      const qx = Math.cos(a) * pegs.radius;
+      const qy = Math.sin(a) * pegs.radius;
+      worst = Math.max(worst, this._clearance((deg) => pegClearsBlade(this._blade(deg), qx, qy, pad), sign, wide));
+    }
+    return worst;
   }
 
   /** How far a peg dead under the pointer would hold the tongue, degrees. */

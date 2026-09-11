@@ -87,6 +87,36 @@ How far it swings comes from how deep the tip dips. A peg whose shoulder bites 2
 
 The lever the peg turns is `pinRadius - pegs.radius`, so a long tongue swings through a smaller angle for the same shove. `flap: false` keeps a pointer rigid: no contact, no spring, just a tick.
 
+## Pegs on the rim
+
+The other arrangement: studs right at the edge of the wheel and a long flapper lying across them, the way a carnival wheel is built. The contact does not change - the blade still may not touch a peg - but the way out does. A peg sitting deep under the tip cannot slip past it sideways, so the blade has to ride up until its tip lifts clear over the peg entirely.
+
+That is a big swing, and it is the right one: watch any real wheel and the flapper lifts a long way over every peg. The arrangement below asks for about 48 degrees, past the default cap of 45.
+
+```ts
+.radius(215)
+.pegs({ size: 11, inset: 4 })       // centres 4 px inside the rim: on the edge
+.pointer({
+  tipInset: 50,                     // the tip hangs below the pegs, between them
+  skin: { type: 'graphics', shape: 'tongue', length: 84, width: 30 },
+  flap: { maxAngle: 70, stiffness: 240, damping: 9, friction: 0.3 },
+})
+```
+
+<RecipeDemo code="rim-pegs" height={440} />
+
+`maxAngle` is the thing to get right. Leave it at the default 45 here and the blade cannot clear a peg at all, so it rides through them - the engine says so once and tells you the angle this geometry actually needs. The readout above shows the largest lift of the last spin; set the cap a little above it.
+
+Between the two arrangements:
+
+| | Pegs on the rim | Pegs inside the tip |
+|---|---|---|
+| `pegs.inset` | small: 0 to a peg's width | the default, `tipInset + size - 2` |
+| Escape | the tip lifts clear over the peg | the peg's shoulder slips past a shallow bite |
+| Swing | 40 to 60 degrees | 10 to 20 |
+| `maxAngle` | set it deliberately, well above the lift | the default has room |
+| Reads as | a carnival wheel, a big slow clack | a tight ratchet |
+
 ## The release is a spring
 
 <Figure src="/recipes/tongue/spring.svg" caption="Same push, three materials. Damping is what stops a floppy tongue looking like jelly." />
