@@ -418,13 +418,18 @@ export interface FlapConfig {
   /** Spring damping (1/s). Default 14; lower rings longer after a release. */
   damping?: number;
   /**
-   * How far the tongue yields, as a multiple of the swing that just clears
-   * the peg. Default 1: exactly enough, never less - a value under 1 is
-   * clamped, because a tongue that yields less than the geometry demands is
-   * a tongue drawn through a peg. Over 1 throws it further than it needs.
+   * How far the tongue yields, as a padding on the peg. Default 1: exactly
+   * enough to clear it. Over 1 treats the peg as fatter than it is, so the
+   * blade swings wider and looks floppier. Under 1 is clamped - a tongue
+   * that yields less than the geometry demands is one drawn through a peg.
    */
   elasticity?: number;
-  /** Extra carry after a peg has passed under the tip, as a fraction of the contact width. Default 0.35; 0 lets go as soon as the peg is through, 1 drags a whole width more. */
+  /**
+   * How long the peg drags the tongue on, as a fraction of the peg's radius
+   * added to it. Default 0.35. A fatter peg takes longer to get out from
+   * under the blade, so the tongue is held up further past it; 0 lets go the
+   * moment the real peg is through, 1 hangs on a long way.
+   */
   friction?: number;
   /**
    * Width of the blade where the pegs cross it, px. Default 14. The contact

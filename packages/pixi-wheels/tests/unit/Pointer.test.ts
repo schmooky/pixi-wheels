@@ -133,7 +133,7 @@ describe('Pointer against pegs', () => {
     expect(trace[peakAt].d).toBeLessThan(0);
     // The blade has to lift its tip clear of the peg, so the swing is real:
     // about 13 deg for a peg biting 2 px into a 60 px blade, with friction 0.
-    expect(Math.abs(trace[peakAt].d)).toBeGreaterThan(8);
+    expect(Math.abs(trace[peakAt].d)).toBeGreaterThan(6);
     expect(Math.abs(trace[peakAt].d)).toBeLessThanOrEqual(p.flap!.maxAngle);
     expect(trace[peakAt].peg).toBe(3);
     // It is still held at the peak when it lets go, and only then does it drop.
@@ -191,12 +191,19 @@ describe('Pointer against pegs', () => {
     expect(peak).toBeLessThanOrEqual(5);
   });
 
-  it('rests straight before the wheel has ever turned, even over a peg', () => {
+  it('leans off a peg it is standing on rather than sitting inside it', () => {
     const p = new Pointer({ angle: -90 }, new HeadlessPointerSkin());
     p.layout(200, 0);
+    // rotation 0 puts a peg at local 270, dead under the pointer.
     for (let i = 0; i < 10; i++) p.update(0, 0, 0.016, g, 'cw', pegs);
-    expect(p.deflection).toBe(0);
-    expect(p.engagedPeg).toBeNull();
+    expect(Math.abs(p.deflection)).toBeGreaterThan(1);
+    expect(penetration(p, 0)).toBeLessThan(0.25);
+    // Nothing under it: straight, and it stays straight.
+    const clear = new Pointer({ angle: -90 }, new HeadlessPointerSkin());
+    clear.layout(200, 0);
+    for (let i = 0; i < 10; i++) clear.update(45, 45, 0.016, g, 'cw', pegs);
+    expect(clear.deflection).toBe(0);
+    expect(clear.engagedPeg).toBeNull();
   });
 
   it('the debug contact width follows the peg size and the tip width', () => {

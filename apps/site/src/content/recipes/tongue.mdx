@@ -67,13 +67,18 @@ Three things follow, and they are the three things a flapper does:
 - **It yields as far as the peg needs and no further.** Not a curve fitted to look about right: the angle is the geometry.
 - **It never cuts through a peg.** There is no setting, no speed and no frame rate at which it can.
 - **It does not fall until the peg has gone.** On the way down the spring does the work, but it may only descend into clear air, so a blade resting on a peg comes down as the peg leaves and not one degree before.
+- **It rides, it is not thrown.** While a peg carries it the blade has no velocity of its own, so when the peg finally lets go the spring starts from rest: one clean swing home instead of a flung overshoot and a chatter against the peg it just cleared.
+
+Both knobs that soften the contact are padding on the peg rather than fudge on the angle. `elasticity` makes the blade treat every peg as fatter, so it swings wider; `friction` adds padding that has to clear as well, so the peg drags the blade further past itself before letting go. Either way the blade is measured against something at least as big as the peg, which is why it can never touch one.
+
+A wheel standing still with a peg under the tongue leans the tongue off it, to whichever side it was already on. A blade resting inside a peg is the one arrangement that never happens.
 
 How far it swings comes from how deep the tip dips. A peg whose shoulder bites 2 px into the blade - what `.pegs()` gives you by default - asks about 13 degrees of a 60 px tongue. Push the pegs out past the tip and the blade has to lift clear over them entirely, which is a much bigger flap; `maxAngle` caps it, and the engine says so once when the cap makes clearing impossible.
 
 | Knob | Feel | Try |
 |---|---|---|
-| `elasticity` | how far past the minimum it is thrown | `1` exactly enough, `1.4` flings it. Under 1 is clamped: less than the geometry is a blade drawn through a peg |
-| `friction` | how much the peg drags it: a fatter peg, held longer | `0` lets go at once, `1` hangs on a long way |
+| `elasticity` | how far it yields: padding on the peg | `1` exactly enough, `1.4` swings wide and floppy. Under 1 is clamped |
+| `friction` | how long the peg drags it on: more padding | `0` lets go the moment the peg is through, `1` hangs on a long way |
 | `stiffness` | how hard it snaps back | `140` rubber, `420` default, `700` steel |
 | `damping` | how quickly the ringing dies | `5` rings audibly, `14` default, `18` dead |
 | `maxAngle` | the hard limit | `45`; set below what the geometry needs and the blade rides through the pegs |

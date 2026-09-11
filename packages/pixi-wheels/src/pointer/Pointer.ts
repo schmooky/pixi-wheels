@@ -77,7 +77,6 @@ export class Pointer implements Disposable {
   private _drag = 0;
   private _engaged: number | null = null;
   private _moveSign = 1;
-  private _moved = false;
   private _movingNow = false;
   private _baseHalf = 0;
   private _isDestroyed = false;
@@ -191,7 +190,6 @@ export class Pointer implements Disposable {
     const speed = dt > 0 ? Math.abs(delta) / dt : 0;
     this._movingNow = Math.abs(delta) > 1e-9;
     if (this._movingNow) {
-      this._moved = true;
       this._moveSign = delta > 0 ? 1 : -1;
       const a0 = this.localAngle(prevRotation);
       const dist = Math.min(360, Math.abs(delta));
@@ -214,8 +212,7 @@ export class Pointer implements Disposable {
       void direction;
     }
     if (this._flap) {
-      // A wheel that has never turned rests its tongue straight, even with a peg right under it.
-      if (pegs && pegs.angles.length > 0 && this._moved) this._contact(rotation + dragOffset, dt, pegs, crossings.length);
+      if (pegs && pegs.angles.length > 0) this._contact(rotation + dragOffset, dt, pegs, delta);
       else {
         this._stepSpring(dt);
         this._releaseDrag(dt);
@@ -238,7 +235,7 @@ export class Pointer implements Disposable {
    * until the peg has actually gone: on the way down the spring does the
    * work, clamped so it can never drop back into the peg it just cleared.
    */
-  private _contact(rotation: number, dt: number, pegs: ResolvedPegs, crossingCount: number): void {
+  private _contact(rotation: number, dt: number, pegs: ResolvedPegs, delta: number): void {
     const f = this._flap!;
     if (!this.reaches(pegs)) {
       // Nothing to push it: let it settle rather than deflect out of thin air.
@@ -268,23 +265,35 @@ export class Pointer implements Disposable {
       }
     }
     const u = bestX * this._moveSign;
-    const sign = this._moveSign * (this.facing === 'inward' ? -1 : 1) * (f.invert ? -1 : 1);
+    let sign = this._moveSign * (this.facing === 'inward' ? -1 : 1) * (f.invert ? -1 : 1);
     const pegAngle = (pegs.angles[bestIndex] + rotation) * DEG_TO_RAD;
     const qx = Math.cos(pegAngle) * pegs.radius;
     const qy = Math.sin(pegAngle) * pegs.radius;
-    // `friction` is a fatter peg: it takes a bigger swing to clear, stays in
-    // contact longer, and the real peg is never touched on the way past.
-    const r = pegs.size * (1 + Math.max(0, f.friction));
-    const clearAt = (deg: number): boolean => pegClearsBlade(this._blade(deg), qx, qy, r);
-    const cur = this._deflection * sign;
+    // `elasticity` and `friction` are both padding on the peg: a fatter peg
+    // takes a bigger swing to clear and stays in contact longer, and the real
+    // peg is never touched on the way past.
+    const pad = pegs.size * Math.max(1, f.elasticity) * (1 + Math.max(0, f.friction));
+    const clearAt = (deg: number): boolean => pegClearsBlade(this._blade(deg), qx, qy, pad);
 
+    if (!this._movingNow) {
+      // A wheel standing still with a peg under the tongue: the tongue is
+      // sitting on it, so it leans off to one side. Whichever side it was
+      // already on, or the nearer one if it is straight.
+      if (this._deflection !== 0) sign = Math.sign(this._deflection);
+      else if (this._clearance(clearAt, -sign, f) < this._clearance(clearAt, sign, f)) sign = -sign;
+    }
+
+    // The blade rides the peg it is touching. Everything is measured from
+    // where it stands, never from rest: a blade shoved past a peg cannot get
+    // home by the way it came, and a solver that looks for "the smallest
+    // swing from zero" hands it an answer on the wrong side of the peg.
     if (!clearAt(this._deflection)) {
-      // The peg has moved into the blade: ride up its face, no further than
-      // the first angle that clears it.
-      const need = this._clearance(clearAt, sign, f, cur);
-      const want = Math.min(f.maxAngle, Math.max(need, need * f.elasticity));
-      this._deflectionVel = dt > 0 ? (sign * want - this._deflection) / dt : 0;
+      const from = Math.max(0, this._deflection * sign);
+      const want = Math.min(f.maxAngle, this._clearance(clearAt, sign, f, from));
       this._deflection = sign * want;
+      // Carried by the peg, not thrown by it: no momentum to hand the spring
+      // when the peg finally lets go, so the release is one clean swing.
+      this._deflectionVel = 0;
       this._engaged = bestIndex;
       // Climbing the peg, the tongue pushes back: the ring is held by up to
       // `drag` of a contact width of arc. Past the crown the peg is winning,
@@ -297,10 +306,7 @@ export class Pointer implements Disposable {
       return;
     }
 
-    // Clear where it stands, so the spring may bring it down - but only into
-    // air. A blade resting on a peg comes down as the peg leaves and not one
-    // degree before, which is what makes the fall land after the peg and not
-    // through it.
+    // Standing clear: the spring brings it home, as far as the peg allows.
     this._releaseDrag(dt);
     const from = this._deflection;
     this._stepSpring(dt);
@@ -318,15 +324,20 @@ export class Pointer implements Disposable {
       return;
     }
     this._engaged = null;
-    if (crossingCount > 0) {
+    if (Math.abs(delta) > this._contactSpan(pegs, f)) {
+      // The peg crossed the whole contact inside this one frame: nothing was
+      // ever seen pushing, so flick the tongue to where it would have held it.
       const crown = this._crownAngle(pegs, f);
       if (Math.abs(this._deflection) < crown * 0.5) {
-        // A peg crossed the whole zone inside one frame: nothing was ever seen
-        // pushing, so flick the tongue to where that peg would have held it.
         this._deflection = clamp(sign * crown, -f.maxAngle, f.maxAngle);
         this._deflectionVel = 0;
       }
     }
+  }
+
+  /** How much rotation it takes for a peg to cross the whole contact, degrees. */
+  private _contactSpan(pegs: ResolvedPegs, f: Required<FlapConfig>): number {
+    return ((2 * this.contactHalfWidth(pegs)) / Math.max(1, pegs.radius)) * RAD_TO_DEG;
   }
 
   /**

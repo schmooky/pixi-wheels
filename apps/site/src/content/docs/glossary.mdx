@@ -145,7 +145,7 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **Blade**: the tongue as the contact model sees it - a triangle hinged at the pin, `tipWidth` across at its base, tapering to a point at the tip. A peg is a circle, and the two may never overlap. [The tongue](/recipes/tongue/)
 
-**Flap**: the tongue's deflection against the pegs: the smallest swing that keeps the peg outside the blade (`elasticity` throws it further), held while the peg passes (`friction` holds it longer), sprung back (`stiffness`, `damping`), never past `maxAngle`. [Pointers](/guides/pointers/)
+**Flap**: the tongue's deflection against the pegs: the smallest swing from where it stands that keeps the peg outside the blade, held while the peg passes, sprung back (`stiffness`, `damping`), never past `maxAngle`. `elasticity` and `friction` are padding on the peg - a fatter peg swings the blade wider and holds it longer. [Pointers](/guides/pointers/)
 
 **Peg**: a small circle on the disc the tongue touches, one per divider by default (`.pegs({ size, inset, angles })`). The debug overlay draws them; `GraphicsRingSkin` can too. [Pointers](/guides/pointers/)
 
