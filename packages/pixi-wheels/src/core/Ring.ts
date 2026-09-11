@@ -11,7 +11,7 @@ import type {
   WeightTransitionOptions,
   WheelSpinResult,
   WheelTarget, PegConfig, ResolvedPegs } from '../config/types.js';
-import { DEFAULTS, DEFAULT_PEGS } from '../config/defaults.js';
+import { DEFAULTS, DEFAULT_PEGS, DEFAULT_POINTER } from '../config/defaults.js';
 import type { EventEmitter } from '../events/EventEmitter.js';
 import type { WheelEvents } from '../events/WheelEvents.js';
 import type { Pointer } from '../pointer/Pointer.js';
@@ -220,9 +220,17 @@ export class Ring extends Container implements Disposable {
       this._pegs = null;
       return;
     }
+    const size = cfg.size ?? DEFAULT_PEGS.size;
+    // Default depth: just inside the first tongue's tip, so a peg bites a
+    // couple of pixels into the blade. Pegs further out than that are past
+    // the tip, and a blade has to lift clear over its whole width to let one
+    // by - a huge swing that reads as a broken hinge rather than a ratchet.
+    const bite = DEFAULT_PEGS.bite;
+    const tip = this.pointers[0]?.tipInset ?? DEFAULT_POINTER.tipInset;
+    const inset = cfg.inset ?? tip + size - bite;
     this._pegs = {
-      size: cfg.size ?? DEFAULT_PEGS.size,
-      radius: this.outerRadius - (cfg.inset ?? DEFAULT_PEGS.inset),
+      size,
+      radius: this.outerRadius - Math.max(size, inset),
       angles: (cfg.angles ?? this.geometry.boundaries()).map((a) => normalizeDeg(a)),
     };
   }

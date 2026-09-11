@@ -5,10 +5,10 @@ import { RingGeometry } from '../../src/core/RingGeometry.js';
 import { HeadlessPointerSkin } from '../../src/testing/testHarness.js';
 
 const g = new RingGeometry(Array.from({ length: 4 }, (_, i) => ({ id: `s${i}` })), { startAngle: 0 });
-// Pegs on the dividers, 9 px inside a 200 px rim. The headless skin is 60 px long,
-// so an inward pointer with the default tipInset pins at 242: 51 px above the pegs.
-const pegs: ResolvedPegs = { size: 6, radius: 191, angles: [0, 90, 180, 270] };
-const crownDeg = (Math.atan((6 + 7) / 51) * 180) / Math.PI;
+// Pegs where a ring puts them by default: `tipInset + size - bite` inside a
+// 200 px rim, so the peg's shoulder bites 2 px into the blade. The headless
+// skin is 60 px long, so an inward pointer pins at 242.
+const pegs: ResolvedPegs = { size: 6, radius: 200 - (18 + 6 - 2), angles: [0, 90, 180, 270] };
 
 describe('Pointer crossings', () => {
   it('reports each divider once, in order, for a clockwise step', () => {
@@ -64,63 +64,114 @@ function crawl(p: Pointer, from: number, to: number, stepDeg: number): Array<{ r
   return out;
 }
 
+
+/**
+ * How far the nearest peg reaches inside the blade, px. Re-derived here on
+ * purpose: the test states the geometry itself rather than asking the code
+ * under test whether it is happy with its own work.
+ */
+function penetration(p: Pointer, rotation: number): number {
+  const flap = p.flap!;
+  const a = (p.angle * Math.PI) / 180;
+  const L = p.skin.length;
+  const baseHalf = flap.tipWidth / 2;
+  const pin = { x: Math.cos(a) * p.pinRadius, y: Math.sin(a) * p.pinRadius };
+  const dir = a + Math.PI + (p.deflection * Math.PI) / 180;
+  const u = { x: Math.cos(dir), y: Math.sin(dir) };
+  const tri = [
+    { x: pin.x - u.y * baseHalf, y: pin.y + u.x * baseHalf },
+    { x: pin.x + u.y * baseHalf, y: pin.y - u.x * baseHalf },
+    { x: pin.x + u.x * L, y: pin.y + u.y * L },
+  ];
+  let worst = 0;
+  for (const deg of pegs.angles) {
+    const q = { x: Math.cos(((deg + rotation) * Math.PI) / 180) * pegs.radius, y: Math.sin(((deg + rotation) * Math.PI) / 180) * pegs.radius };
+    const side = (i: number, j: number): number =>
+      (tri[j].x - tri[i].x) * (q.y - tri[i].y) - (tri[j].y - tri[i].y) * (q.x - tri[i].x);
+    const s = [side(0, 1), side(1, 2), side(2, 0)];
+    const inside = s.every((v) => v >= 0) || s.every((v) => v <= 0);
+    const edge = (i: number, j: number): number => {
+      const dx = tri[j].x - tri[i].x;
+      const dy = tri[j].y - tri[i].y;
+      const len = dx * dx + dy * dy;
+      const t = Math.max(0, Math.min(1, ((q.x - tri[i].x) * dx + (q.y - tri[i].y) * dy) / len));
+      return Math.hypot(q.x - (tri[i].x + dx * t), q.y - (tri[i].y + dy * t));
+    };
+    const d = Math.min(edge(0, 1), edge(1, 2), edge(2, 0));
+    worst = Math.max(worst, inside ? pegs.size + d : pegs.size - d);
+  }
+  return worst;
+}
+
 describe('Pointer against pegs', () => {
-  it('is pushed aside as a peg approaches, carried on its crown, then released into the spring', () => {
-    const p = new Pointer({ angle: -90 }, new HeadlessPointerSkin());
+  it('never lets a peg into the blade, at any speed', () => {
+    for (const step of [0.2, 1.5, 6, 40]) {
+      const p = new Pointer({ angle: -90 }, new HeadlessPointerSkin());
+      p.layout(200, 0);
+      let worst = 0;
+      let rot = -40;
+      while (rot < 40) {
+        const next = rot + step;
+        p.update(rot, next, 0.016, g, 'cw', pegs);
+        worst = Math.max(worst, penetration(p, next));
+        rot = next;
+      }
+      // A hair of tolerance for the bisection that finds the clearing angle.
+      expect(worst, `step ${step} deg`).toBeLessThan(0.25);
+    }
+  });
+
+  it('is pushed aside as a peg comes through, then falls only once it has gone', () => {
+    const p = new Pointer({ angle: -90, flap: { friction: 0 } }, new HeadlessPointerSkin());
     p.layout(200, 0);
-    // The peg at local 270 sits under the pointer at rotation 0. Come in from 12 deg before it.
-    const trace = crawl(p, -12, 14, 0.25);
-    const c = p.contactHalfWidth(pegs); // 13 px
-    expect(c).toBe(13);
-    const touchDeg = (c / pegs.radius) * (180 / Math.PI); // ~3.9 deg before the axis
-    const releaseDeg = touchDeg * 1.35; // friction 0.35
-    const before = trace.filter((t) => t.rot < -touchDeg - 0.3);
-    expect(before.every((t) => t.d === 0 && t.peg === null)).toBe(true);
-    const approach = trace.filter((t) => t.rot > -touchDeg + 0.3 && t.rot < -0.3);
-    expect(approach.length).toBeGreaterThan(5);
-    for (let i = 1; i < approach.length; i++) expect(Math.abs(approach[i].d)).toBeGreaterThan(Math.abs(approach[i - 1].d));
-    expect(approach.every((t) => t.peg === 3)).toBe(true);
-    // On the crown and carried: the full geometric deflection, held flat until release.
-    const carried = trace.filter((t) => t.rot > 0.3 && t.rot < releaseDeg - 0.3);
-    expect(carried.length).toBeGreaterThan(3);
-    for (const t of carried) expect(Math.abs(t.d)).toBeCloseTo(crownDeg, 4);
-    // Inward pointer, clockwise disc: the tongue is thrown to negative deflection.
-    expect(carried[0].d).toBeLessThan(0);
-    // Released: no peg, and the spring brings it home.
-    const after = trace.filter((t) => t.rot > releaseDeg + 0.3);
-    expect(after.every((t) => t.peg === null)).toBe(true);
-    for (let i = 0; i < 300; i++) p.update(14, 14, 0.016, g, 'cw', pegs);
+    const trace = crawl(p, -14, 20, 0.2);
+    const peakAt = trace.reduce((best, t, i) => (Math.abs(t.d) > Math.abs(trace[best].d) ? i : best), 0);
+    expect(trace[0].d).toBe(0);
+    expect(trace[0].peg).toBeNull();
+    // A monotone ride up the peg's face, thrown negative: inward pointer, cw disc.
+    for (let i = 1; i <= peakAt; i++) expect(Math.abs(trace[i].d)).toBeGreaterThanOrEqual(Math.abs(trace[i - 1].d) - 1e-9);
+    expect(trace[peakAt].d).toBeLessThan(0);
+    // The blade has to lift its tip clear of the peg, so the swing is real:
+    // about 13 deg for a peg biting 2 px into a 60 px blade, with friction 0.
+    expect(Math.abs(trace[peakAt].d)).toBeGreaterThan(8);
+    expect(Math.abs(trace[peakAt].d)).toBeLessThanOrEqual(p.flap!.maxAngle);
+    expect(trace[peakAt].peg).toBe(3);
+    // It is still held at the peak when it lets go, and only then does it drop.
+    const after = trace.slice(peakAt + 1);
+    const released = after.findIndex((t) => t.peg === null);
+    expect(released).toBeGreaterThanOrEqual(0);
+    for (let i = 0; i < released; i++) expect(Math.abs(after[i].d)).toBeGreaterThan(Math.abs(trace[peakAt].d) * 0.85);
+    expect(Math.abs(after[released].d)).toBeLessThan(Math.abs(trace[peakAt].d));
+    for (let i = 0; i < 500; i++) p.update(20, 20, 0.016, g, 'cw', pegs);
     expect(p.deflection).toBe(0);
   });
 
-  it('elasticity scales the push and friction sets the carry', () => {
-    const soft = new Pointer({ angle: -90, flap: { elasticity: 0.5, friction: 0 } }, new HeadlessPointerSkin());
-    soft.layout(200, 0);
-    const trace = crawl(soft, -12, 14, 0.25);
-    const peak = Math.max(...trace.map((t) => Math.abs(t.d)));
-    expect(peak).toBeCloseTo(crownDeg * 0.5, 3);
-    // friction 0: lets go as soon as the peg centre has passed the tip, one contact half-width past the axis
-    const touch = (13 / pegs.radius) * (180 / Math.PI);
-    const carried0 = trace.filter((t) => t.rot > 0 && t.peg !== null);
-    expect(carried0.length).toBeGreaterThan(0);
-    expect(Math.max(...carried0.map((t) => t.rot))).toBeLessThanOrEqual(touch + 0.3);
-    const sticky = new Pointer({ angle: -90, flap: { friction: 1 } }, new HeadlessPointerSkin());
-    sticky.layout(200, 0);
-    const carried = crawl(sticky, -12, 14, 0.25).filter((t) => t.peg !== null && t.rot > 0);
-    const touchDeg = (13 / pegs.radius) * (180 / Math.PI);
-    expect(Math.max(...carried.map((t) => t.rot))).toBeGreaterThan(touchDeg * 1.9);
+  it('friction holds it up longer, elasticity throws it further', () => {
+    const heldTo = (friction: number): number => {
+      const p = new Pointer({ angle: -90, flap: { friction } }, new HeadlessPointerSkin());
+      p.layout(200, 0);
+      return Math.max(...crawl(p, -14, 24, 0.2).filter((t) => t.peg !== null).map((t) => t.rot));
+    };
+    expect(heldTo(1)).toBeGreaterThan(heldTo(0) + 1);
+
+    const peak = (elasticity: number): number => {
+      const p = new Pointer({ angle: -90, flap: { elasticity, maxAngle: 120 } }, new HeadlessPointerSkin());
+      p.layout(200, 0);
+      return Math.max(...crawl(p, -14, 20, 0.2).map((t) => Math.abs(t.d)));
+    };
+    expect(peak(1.4)).toBeGreaterThan(peak(1) * 1.2);
+    // Under 1 is clamped: yielding less than the geometry means cutting through.
+    expect(peak(0.4)).toBeCloseTo(peak(1), 6);
   });
 
-  it('a peg that passes within one frame flicks the tongue to the crown and it springs back', () => {
+  it('a peg that passes within one frame flicks the tongue and it springs back', () => {
     const skin = new HeadlessPointerSkin();
     const p = new Pointer({ angle: -90 }, skin);
     p.layout(200, 0);
     p.update(0, 100, 0.016, g, 'cw', pegs);
-    // Flicked to the crown, then one frame of spring already applied.
-    expect(Math.abs(p.deflection)).toBeGreaterThan(crownDeg * 0.8);
-    expect(Math.abs(p.deflection)).toBeLessThanOrEqual(crownDeg);
+    expect(Math.abs(p.deflection)).toBeGreaterThan(4);
     expect(skin.ticks).toBe(1);
-    for (let i = 0; i < 300; i++) p.update(100, 100, 0.016, g, 'cw', pegs);
+    for (let i = 0; i < 400; i++) p.update(100, 100, 0.016, g, 'cw', pegs);
     expect(p.deflection).toBe(0);
   });
 
@@ -136,14 +187,13 @@ describe('Pointer against pegs', () => {
     expect(rigid.flap).toBeNull();
     const capped = new Pointer({ angle: -90, flap: { maxAngle: 5, elasticity: 3 } }, new HeadlessPointerSkin());
     capped.layout(200, 0);
-    const peak = Math.max(...crawl(capped, -12, 14, 0.25).map((t) => Math.abs(t.d)));
+    const peak = Math.max(...crawl(capped, -14, 16, 0.2).map((t) => Math.abs(t.d)));
     expect(peak).toBeLessThanOrEqual(5);
   });
 
   it('rests straight before the wheel has ever turned, even over a peg', () => {
     const p = new Pointer({ angle: -90 }, new HeadlessPointerSkin());
     p.layout(200, 0);
-    // rotation 0 puts the peg at local 270 exactly under the pointer
     for (let i = 0; i < 10; i++) p.update(0, 0, 0.016, g, 'cw', pegs);
     expect(p.deflection).toBe(0);
     expect(p.engagedPeg).toBeNull();

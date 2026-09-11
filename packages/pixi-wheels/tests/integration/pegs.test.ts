@@ -10,7 +10,7 @@ describe('pegs', () => {
     try {
       const pegs = h.wheel.main.pegs!;
       expect(pegs.size).toBe(6);
-      expect(pegs.radius).toBe(200 - 9);
+      expect(pegs.radius).toBe(200 - (18 + 6 - 2));
       expect([...pegs.angles]).toEqual([0, 90, 180, 270]);
       await h.wheel.main.setWeights({ s0: 3 }, { durationMs: 0 });
       expect([...h.wheel.main.pegs!.angles]).toEqual(h.wheel.main.geometry.boundaries());
@@ -62,7 +62,7 @@ describe('pegs', () => {
       deep.destroy();
     }
 
-    const ok = createTestWheel({ sections: 6, startAngle: 0, pegs: { size: 6, inset: 12 } });
+    const ok = createTestWheel({ sections: 6, startAngle: 0, pegs: { size: 6, inset: 22 } });
     try {
       const tongue = ok.wheel.main.pointers[0];
       expect(tongue.reaches(ok.wheel.main.pegs!)).toBe(true);

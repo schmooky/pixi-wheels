@@ -14,7 +14,7 @@ const make = (drag, label) => {
   const wheel = new WheelBuilder()
     .radius(150, 26)
     .sections(Array.from({ length: 10 }, (_, i) => ({ id: `s${i}`, label: `${i + 1}` })))
-    .pegs({ size: 8, inset: 12 })
+    .pegs({ size: 8 })
     .pointer({
       angle: -90,
       skin: { type: 'graphics', shape: 'tongue', color: 0xfff2cc, length: 64, width: 30 },

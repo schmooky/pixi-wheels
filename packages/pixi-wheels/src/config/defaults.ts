@@ -1,5 +1,5 @@
 import type {
-  FlapConfig, PegConfig,
+  FlapConfig,
   LandingOptions,
   PointerConfig,
   ResolvedSectionStyle,
@@ -34,7 +34,7 @@ export const DEFAULT_POINTER: Required<Omit<PointerConfig, 'flap'>> & { flap: Fl
 };
 
 export const DEFAULT_FLAP: Required<FlapConfig> = {
-  maxAngle: 28,
+  maxAngle: 45,
   stiffness: 420,
   damping: 14,
   elasticity: 1,
@@ -46,10 +46,17 @@ export const DEFAULT_FLAP: Required<FlapConfig> = {
 };
 
 /** Pegs when a ring asks for them without details. */
-export const DEFAULT_PEGS: Required<Omit<PegConfig, 'angles'>> = {
+export const DEFAULT_PEGS = {
   size: 6,
-  inset: 9,
-};
+  /**
+   * How far a peg reaches past the tongue's tip, px. A ring with no `inset`
+   * of its own derives one from the first pointer: `tipInset + size - bite`.
+   * Out of the box a peg bites this much into the blade, which is a modest
+   * swing to get by; pegs set further out sit past the tip, and the blade
+   * then has to lift clear over its whole width to let one through.
+   */
+  bite: 2,
+} as const;
 
 export const DEFAULT_SETTLE: Required<SettleConfig> = {
   mode: 'none',

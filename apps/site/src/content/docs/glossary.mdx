@@ -143,13 +143,17 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **Facing**: `'inward'` seats a pointer on the rim with the tip toward the hub; `'outward'` seats it at the hub pointing out (the inner ring's arrow in a two-ring wheel). [Pointers](/guides/pointers/)
 
-**Flap**: the tongue's deflection against the pegs: pushed aside as a peg comes through (`elasticity`), carried past its crown (`friction`), sprung back (`stiffness`, `damping`), never past `maxAngle`. [Pointers](/guides/pointers/)
+**Blade**: the tongue as the contact model sees it - a triangle hinged at the pin, `tipWidth` across at its base, tapering to a point at the tip. A peg is a circle, and the two may never overlap. [The tongue](/recipes/tongue/)
+
+**Flap**: the tongue's deflection against the pegs: the smallest swing that keeps the peg outside the blade (`elasticity` throws it further), held while the peg passes (`friction` holds it longer), sprung back (`stiffness`, `damping`), never past `maxAngle`. [Pointers](/guides/pointers/)
 
 **Peg**: a small circle on the disc the tongue touches, one per divider by default (`.pegs({ size, inset, angles })`). The debug overlay draws them; `GraphicsRingSkin` can too. [Pointers](/guides/pointers/)
 
 **Contact width**: the stretch of rim over which a peg is in touch with the tongue: the peg radius plus half the `tipWidth`, either side of the tongue's axis.
 
 **Crown**: the moment a peg's centre is under the tongue's axis, where the push is largest.
+
+**Bite**: how far a peg's shoulder reaches past the tongue's tip. `pegs.inset` defaults to `tipInset + size - 2`, a 2 px bite; pegs set out past the tip make the blade lift clear over them instead, which is a much bigger flap.
 
 **Drag**: `flap.drag`, 0..1: how hard the tongue holds the ring back while a peg climbs it, released at `dragRelease` once the peg is over the crown. Drawn only - it moves `ring.visualRotationDeg`, never `rotationDeg`, and always relaxes to zero, so the landing is untouched. [The tongue](/recipes/tongue/)
 

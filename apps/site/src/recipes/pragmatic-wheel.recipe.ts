@@ -24,7 +24,7 @@ const wheel = new WheelBuilder()
     angle: 90,
     tipInset: 40 * k,
     skin: new TexturePointerSkin({ texture: art.pointer, artDirection: 'up', pin: { x: 0.5, y: 0.86 }, scale: k * 1.35 }),
-    flap: { maxAngle: 10, stiffness: 500, damping: 18 },
+    flap: { maxAngle: 30, stiffness: 500, damping: 18 },
   })
   .skin(new PragmaticWheelSkin({ art }))
   // The tease rests by the line; the settle then centres the winning plate under the pointer.

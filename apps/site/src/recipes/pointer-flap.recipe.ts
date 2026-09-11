@@ -12,7 +12,7 @@
 const wheel = new WheelBuilder()
   .radius(230, 30)
   .sections(Array.from({ length: 16 }, (_, i) => ({ id: `s${i}`, label: '' })))
-  .pegs({ size: 7, inset: 10 })
+  .pegs({ size: 7 })
   .pointer({ id: 'stiff', angle: -90, flap: { elasticity: 0.8, friction: 0.2, stiffness: 700, damping: 18 } })
   .pointer({
     id: 'floppy',

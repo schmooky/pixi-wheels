@@ -15,7 +15,7 @@ const [tongueArt, gameArt] = await Promise.all([
 const wheel = new WheelBuilder()
   .radius(190, 26)
   .sections(Array.from({ length: 12 }, (_, i) => ({ id: `s${i}`, label: `${i + 1}` })))
-  .pegs({ size: 7, inset: 11 })
+  .pegs({ size: 7 })
   .pointer({
     id: 'drawn',
     angle: -90,

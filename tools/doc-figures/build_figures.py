@@ -347,20 +347,21 @@ def fig_label_slot():
 # ----------------------------------------------------------- tongue diagrams
 
 def fig_tongue_anatomy():
-    s = Svg(430, "Where the tongue sits and what it touches")
+    s = Svg(390, "Where the tongue sits and what it touches")
     s.markers()
-    # Real proportions: the pegs sit just inside the rim, the tip reaches past
-    # them, and the pin floats outside the wheel entirely.
-    cx, cy, R = 400, 920, 640
-    peg_r = R - 26
-    tip_r = R - 46
-    pin_r = tip_r + 152
+    # Real proportions: the tip dips just past the pegs, so a peg's shoulder
+    # bites into the blade and the blade has only a little way to lift.
+    cx, cy, R = 400, 760, 570
+    tip_r = R - 44
+    peg_size = 26
+    peg_r = tip_r - (peg_size - 5)
+    pin_r = tip_r + 168
 
     s.circle(cx, cy, R, stroke=INK, width=2)
     s.circle(cx, cy, peg_r, stroke=LINE, width=1.3, dash="5 5")
     for k in range(-4, 5):
         x, y = polar(cx, cy, peg_r, -90 + k * 7)
-        s.circle(x, y, 13, fill=WASH, stroke=KEY, width=2)
+        s.circle(x, y, peg_size, fill=WASH, stroke=KEY, width=2)
 
     piny, tipy = cy - pin_r, cy - tip_r
     pts = hinged_points(cx, piny, cx, tipy, 34, 9)
@@ -368,22 +369,17 @@ def fig_tongue_anatomy():
     s.circle(cx, piny, 15, fill=INK)
     s.circle(cx, piny, 6.5, fill="var(--fig-hole, #fff)")
 
-    # rules across, named on the left where there is room
-    for radius, label, mono in ((R, "the rim", False), (peg_r, "R - pegs.inset", True), (tip_r, "R - tipInset", True)):
+    for radius, label, mono in ((R, "the rim", False), (tip_r, "R - tipInset", True), (peg_r, "peg centres", False)):
         y = cy - radius
         s.line(180, y, 792, y, LINE, 1.2, dash="4 4")
-        (s.mono if mono else s.text)(14, y + 5, label, MUTED if mono else MUTED, 13.5)
+        (s.mono if mono else s.text)(14, y + 5, label, MUTED, 13.5)
 
     s.arrow(cx + 132, piny, cx + 132, tipy, KEY, 1.8, both=True)
     s.mono(cx + 144, (piny + tipy) / 2 + 5, "skin.length", KEY)
     s.arrow(cx - 132, cy - peg_r, cx - 132, piny, KEY, 1.8, both=True)
     s.text(cx - 144, (piny + cy - peg_r) / 2 + 5, "the lever the peg turns", KEY, 13.5, anchor="end")
-    s.leader(cx, piny, cx + 60, piny - 46, "pin: pinRadius of boss to turn in", INK)
-    s.leader(cx, tipy, 560, tipy + 44, "tip", INK)
-
-    px, py = polar(cx, cy, peg_r, -90)
-    s.arrow(px - 40, py + 62, px + 40, py + 62, KEY, 1.8, both=True)
-    s.text(cx, py + 86, "contact width 2c", KEY, 14, anchor="middle")
+    s.leader(cx, piny, cx + 60, piny - 44, "pin: the boss turns on it", INK)
+    s.leader(cx, tipy - 5, 566, tipy + 40, "the tip bites 2 px past the pegs", INK)
     s.save(TONGUE / "anatomy.svg")
 
 
@@ -410,42 +406,42 @@ def fig_tongue_art():
 def fig_contact():
     s = Svg(330, "One peg going under the tongue")
     s.markers()
-    x0, x1, base = 90, 740, 236
+    x0, x1, base = 90, 740, 240
+    span = (x1 - x0)
 
-    def ux(u):
-        return x0 + (u + 20) * (x1 - x0) / 56
+    def ux(t):  # t in 0..1 across the pass
+        return x0 + span * t
 
     s.line(x0 - 20, base, x1 + 20, base, LINE, 1.6)
     marks = [
-        (-13, "-c", "first touch", 0, "middle", 0),
-        (0, "0", "the crown", 0, "middle", 0),
-        (13, "c", "peg is through", 1, "end", -8),
-        (17.6, "c(1+friction)", "let go", 0, "start", 8),
+        (0.16, "first touch", 0),
+        (0.46, "tip clears the peg", 0),
+        (0.72, "the peg is out", 1),
     ]
-    for u, tag, note, row, anchor, dx in marks:
-        s.line(ux(u), base - 168, ux(u), base + 8 + row * 26, LINE, 1.2, dash="4 4")
-        s.mono(ux(u) + dx, base + 26 + row * 26, tag, KEY, 13.5, anchor=anchor)
-        s.text(ux(u) + dx, base + 44 + row * 26, note, MUTED, 12.5, anchor=anchor)
+    for t, label, row in marks:
+        s.line(ux(t), base - 178, ux(t), base + 8 + row * 22, LINE, 1.2, dash="4 4")
+        s.text(ux(t), base + 26 + row * 22, label, MUTED, 13, anchor="middle")
 
     pts = []
-    for i in range(0, 241):
-        u = -20 + i * 56 / 240
-        if u <= -13:
+    for i in range(0, 361):
+        t = i / 360
+        if t <= 0.16:
             d = 0.0
-        elif u <= 0:
-            d = math.atan((u + 13) / 40) / math.atan(13 / 40)
-        elif u <= 17.6:
+        elif t <= 0.46:
+            k = (t - 0.16) / 0.30
+            d = k * k * (3 - 2 * k)
+        elif t <= 0.72:
             d = 1.0
         else:
-            t = (u - 17.6) / 12
-            d = math.cos(t * 9) * math.exp(-t * 3.2)
-        pts.append((ux(u), base - 150 * d))
+            k = (t - 0.72) / 0.28
+            d = math.cos(k * 11) * math.exp(-k * 4.2)
+        pts.append((ux(t), base - 160 * d))
     s.path("M" + " L".join(f"{f(x)},{f(y)}" for x, y in pts), stroke=INK, width=2.6)
-    s.line(x0 - 20, base - 150, x1 + 20, base - 150, LINE, 1.2, dash="2 7")
-    s.text(x0 - 20, base - 160, "crown deflection", MUTED, 13.5)
-    s.text(x0 - 20, base - 190, "deflection", INK, 14.5)
-    s.arrow(x0, base - 200, x1, base - 200, KEY, 1.6)
-    s.text(x1, base - 210, "direction of travel", KEY, 13.5, anchor="end")
+    s.line(x0 - 20, base - 160, x1 + 20, base - 160, LINE, 1.2, dash="2 7")
+    s.text(x0 - 20, base - 170, "riding the peg", MUTED, 13.5)
+    s.text(x0 - 20, base - 200, "deflection", INK, 14.5)
+    s.arrow(x0, base - 210, x1, base - 210, KEY, 1.6)
+    s.text(x1, base - 220, "the peg's travel", KEY, 13.5, anchor="end")
     s.save(TONGUE / "contact.svg")
 
 

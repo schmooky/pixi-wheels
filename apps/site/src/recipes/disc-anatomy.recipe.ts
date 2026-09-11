@@ -106,7 +106,7 @@ const skin = new LayeredDisc({ face, plate, hub, bezel });
 const wheel = new WheelBuilder()
   .radius(190)
   .sections(VALUES.map((v, i) => ({ id: `s${i}`, label: v })))
-  .pegs({ size: 6, inset: 12 })
+  .pegs({ size: 6 })
   .pointer({ angle: -90, skin: { type: 'graphics', shape: 'tongue', color: 0xfff2cc, length: 66, width: 30 } })
   .skin(skin)
   .speed('normal', SpinPresets.NORMAL)

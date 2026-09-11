@@ -22,7 +22,8 @@ This recipe is all of it. The disc it rides on has [its own recipe](/recipes/dis
 <Figure src="/recipes/tongue/anatomy.svg" caption="Every length is measured from the hub. The tongue pivots at its pin and never moves off it." />
 
 ```ts
-.pegs({ size: 6, inset: 9 })            // the studs on the disc, one per divider
+.pegs({ size: 6 })                      // studs on the disc, one per divider,
+                                        // set just inside the tongue's tip
 .pointer({
   id: 'top',                            // 'pointer' for the first one
   angle: -90,                           // -90 twelve o'clock, 0 three, 90 six
@@ -51,36 +52,41 @@ Pegs are the wheel's half of the contact: small circles on the disc that the tip
 
 - Leave `angles` out and the pegs follow the dividers, so [dynamic sections](/recipes/sections-rings-idle/) carry their pegs with them as the boundaries move.
 - Give `angles` and they are wheel-local degrees, fixed. Twice as many pegs as sections is a common trick: twice the ratchet, same landings.
-- `size` and `inset` are the feel: a bigger, deeper peg starts pushing earlier and pushes further.
+- `inset` defaults to `tipInset + size - 2`: the peg ring lands just inside the tongue's tip, so a peg's shoulder bites 2 px into the blade. Set it smaller and the pegs sit out past the tip, where the blade has to lift over them entirely - a much bigger flap, and `maxAngle` has to allow it.
+- `size` is the rest of the feel: a bigger peg starts pushing earlier and holds on longer.
 - `GraphicsRingSkin` draws them with `pegs: true`; a skin of your own reads `ctx.pegs`. The debug overlay's `pegs` layer always draws them, plus the contact zone and the peg being ridden.
 
 ## One peg, start to finish
 
-<Figure src="/recipes/tongue/contact.svg" caption="u is the peg's position along its own rim, in px, measured against the tongue's rest axis." />
+<Figure src="/recipes/tongue/contact.svg" caption="Rides up the peg's face, holds while it passes underneath, drops once it is out." />
 
-The tip is a point `tipWidth` wide sitting at the peg ring. A peg arrives, pushes the tip aside along its own rim exactly as far as the geometry demands times `elasticity`, and is carried flat once it is over the crown. Two numbers set the scale of all of it: the contact half-width `c` is `pegs.size + tipWidth / 2`, and `D` is the gap between the pin and the peg ring, so a long tongue bends through a smaller angle for the same shove. `friction` decides how much further the peg drags the tongue after it is technically through. Then it lets go, and a spring takes over.
+The blade and the peg are two solids that may not overlap, and that is the whole model. The blade is a triangle hinged at the pin, `tipWidth` across at its base, tapering to a point at the tip; the peg is a circle. Every frame the engine asks one question - what is the smallest swing that keeps the circle outside the triangle - and gives the tongue exactly that.
+
+Three things follow, and they are the three things a flapper does:
+
+- **It yields as far as the peg needs and no further.** Not a curve fitted to look about right: the angle is the geometry.
+- **It never cuts through a peg.** There is no setting, no speed and no frame rate at which it can.
+- **It does not fall until the peg has gone.** On the way down the spring does the work, but it may only descend into clear air, so a blade resting on a peg comes down as the peg leaves and not one degree before.
+
+How far it swings comes from how deep the tip dips. A peg whose shoulder bites 2 px into the blade - what `.pegs()` gives you by default - asks about 13 degrees of a 60 px tongue. Push the pegs out past the tip and the blade has to lift clear over them entirely, which is a much bigger flap; `maxAngle` caps it, and the engine says so once when the cap makes clearing impossible.
 
 | Knob | Feel | Try |
 |---|---|---|
-| `elasticity` | how far the tongue yields | `0.6` a stiff stub, `1` the geometry, `1.5` a floppy strip |
-| `friction` | extra carry once the peg is through | `0` snaps free, `1` drags a whole contact width more |
+| `elasticity` | how far past the minimum it is thrown | `1` exactly enough, `1.4` flings it. Under 1 is clamped: less than the geometry is a blade drawn through a peg |
+| `friction` | how much the peg drags it: a fatter peg, held longer | `0` lets go at once, `1` hangs on a long way |
 | `stiffness` | how hard it snaps back | `140` rubber, `420` default, `700` steel |
 | `damping` | how quickly the ringing dies | `5` rings audibly, `14` default, `18` dead |
-| `maxAngle` | the hard limit | `28`; a tongue pinned there every peg reads as rigid |
-| `tipWidth` | how early a peg starts pushing | `14`; wider tips give longer, softer contacts |
+| `maxAngle` | the hard limit | `45`; set below what the geometry needs and the blade rides through the pegs |
+| `tipWidth` | how wide the blade is | `14`; a wider blade needs a bigger swing to get out of the way |
 | `drag` | how hard it holds the ring back | `0` weightless, `1` the wheel fights every peg |
 
-The lever the peg turns is `pinRadius - pegs.radius`, so a long tongue swings through a smaller angle for the same shove. Lengthening the tongue and keeping the feel means raising `elasticity` to match.
-
-`flap: false` keeps a pointer rigid: no contact, no spring, just a tick.
+The lever the peg turns is `pinRadius - pegs.radius`, so a long tongue swings through a smaller angle for the same shove. `flap: false` keeps a pointer rigid: no contact, no spring, just a tick.
 
 ## The release is a spring
 
 <Figure src="/recipes/tongue/spring.svg" caption="Same push, three materials. Damping is what stops a floppy tongue looking like jelly." />
 
-`maxAngle` clamps whatever comes out of that. A tongue that hits its limit on every peg reads as rigid rather than as fast, so raise it before you raise `elasticity`.
-
-At speed a peg crosses the whole contact zone inside a single frame. Nothing would be seen pushing, so the tongue is flicked straight to the crown deflection instead - which is why a fast wheel keeps it pinned and jittering while a crawling one bends it slowly over every peg and lets it fall all the way back.
+At speed a peg crosses the whole contact inside a single frame. Nothing would ever be seen pushing, so the tongue is flicked straight to the angle that peg would have held it at - which is why a fast wheel keeps it pinned and jittering while a crawling one bends slowly over every peg and falls all the way back.
 
 Three tongues against one set of pegs: a stiff short one at the top, a floppy one with heavy drag at four o'clock, a rigid triangle at eight.
 

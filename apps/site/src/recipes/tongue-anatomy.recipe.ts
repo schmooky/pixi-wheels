@@ -9,14 +9,14 @@
 const wheel = new WheelBuilder()
   .radius(200, 40)
   .sections(Array.from({ length: 8 }, (_, i) => ({ id: `s${i}`, label: `${i + 1}` })))
-  .pegs({ size: 11, inset: 14 })
+  .pegs({ size: 11 })
   .pointer({
     angle: -90,
     tipInset: 30,
     skin: { type: 'graphics', shape: 'tongue', color: 0xfff2cc, length: 84, width: 34, pinRadius: 9 },
     // tipWidth is the width of the body where the pegs meet it, not at the
     // very point: 16 px up from the tip this one is about 12 across.
-    flap: { elasticity: 1.1, friction: 0.45, stiffness: 260, damping: 9, maxAngle: 34, tipWidth: 12 },
+    flap: { elasticity: 1.1, friction: 0.45, stiffness: 260, damping: 9, maxAngle: 65, tipWidth: 12 },
   })
   .skin({ type: 'graphics', dividers: { width: 3 }, pegs: { color: 0xfff2cc, rimColor: 0x6b4a06 } })
   .idle({ speed: 24, autoStart: true })

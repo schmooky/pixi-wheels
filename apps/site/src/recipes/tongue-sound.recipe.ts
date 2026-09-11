@@ -10,7 +10,7 @@
 const wheel = new WheelBuilder()
   .radius(210, 30)
   .sections(Array.from({ length: 24 }, (_, i) => ({ id: `s${i}`, label: `${i + 1}` })))
-  .pegs({ size: 6, inset: 10 })
+  .pegs({ size: 6 })
   .pointer({
     angle: -90,
     skin: { type: 'graphics', shape: 'tongue', color: 0xfff2cc, length: 66, width: 28 },

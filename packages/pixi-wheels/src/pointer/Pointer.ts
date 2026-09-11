@@ -8,6 +8,41 @@ import type { Disposable } from '../utils/Disposable.js';
 import { noticeWarnOnce } from '../utils/notify.js';
 import type { PointerSkin } from './PointerSkin.js';
 
+/** The tongue's blade as the contact model sees it: a triangle in wheel space. */
+interface Triangle {
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  cx: number;
+  cy: number;
+}
+
+function segmentDistance(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len = dx * dx + dy * dy;
+  const t = len > 0 ? clamp(((px - ax) * dx + (py - ay) * dy) / len, 0, 1) : 0;
+  return Math.hypot(px - (ax + dx * t), py - (ay + dy * t));
+}
+
+/** True when a peg of radius `r` centred at `(px, py)` does not touch the blade. */
+function pegClearsBlade(t: Triangle, px: number, py: number, r: number): boolean {
+  const side = (ax: number, ay: number, bx: number, by: number): number =>
+    (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+  const s1 = side(t.ax, t.ay, t.bx, t.by);
+  const s2 = side(t.bx, t.by, t.cx, t.cy);
+  const s3 = side(t.cx, t.cy, t.ax, t.ay);
+  const inside = (s1 >= 0 && s2 >= 0 && s3 >= 0) || (s1 <= 0 && s2 <= 0 && s3 <= 0);
+  if (inside) return false;
+  const d = Math.min(
+    segmentDistance(px, py, t.ax, t.ay, t.bx, t.by),
+    segmentDistance(px, py, t.bx, t.by, t.cx, t.cy),
+    segmentDistance(px, py, t.cx, t.cy, t.ax, t.ay),
+  );
+  return d >= r;
+}
+
 /** A divider crossing, as `Pointer.update()` reports it. */
 export interface PointerCrossing {
   pointer: string;
@@ -44,6 +79,7 @@ export class Pointer implements Disposable {
   private _moveSign = 1;
   private _moved = false;
   private _movingNow = false;
+  private _baseHalf = 0;
   private _isDestroyed = false;
 
   constructor(config: PointerConfig, skin: PointerSkin) {
@@ -121,7 +157,9 @@ export class Pointer implements Disposable {
   reaches(pegs: ResolvedPegs): boolean {
     const lo = Math.min(this._pinRadius, this._tipRadius);
     const hi = Math.max(this._pinRadius, this._tipRadius);
-    return pegs.radius >= lo && pegs.radius <= hi;
+    // The peg's whole disc, not just its centre: a peg just under the tip
+    // still catches the blade with its shoulder, which is the usual setup.
+    return pegs.radius + pegs.size >= lo && pegs.radius - pegs.size <= hi;
   }
 
   /** Half the width of the contact zone at the peg ring, px: peg radius plus half the tongue tip. */
@@ -189,11 +227,16 @@ export class Pointer implements Disposable {
   }
 
   /**
-   * The tongue against the pegs. `u` is the nearest peg's position along its
-   * rim relative to the tongue's rest axis, in px, positive once it is past
-   * the axis in the direction of motion. Contact runs from `-c` (first
-   * touch) to `c * (1 + friction)` (release); the push grows to the crown at
-   * `u = 0` and is carried flat after it.
+   * The tongue against the pegs, as two solids that may not overlap.
+   *
+   * The blade is a triangle hinged at the pin: `tipWidth` across where it
+   * crosses the peg ring, tapering to a point at the tip. The peg is a
+   * circle. Each frame this asks the only question that matters - what is
+   * the smallest swing that keeps the circle outside the triangle - and
+   * gives the tongue exactly that. So it is pushed aside as far as the peg
+   * needs and no further, it never cuts through one, and it does not fall
+   * until the peg has actually gone: on the way down the spring does the
+   * work, clamped so it can never drop back into the peg it just cleared.
    */
   private _contact(rotation: number, dt: number, pegs: ResolvedPegs, crossingCount: number): void {
     const f = this._flap!;
@@ -211,8 +254,10 @@ export class Pointer implements Disposable {
       return;
     }
     const c = this.contactHalfWidth(pegs);
-    // The lever: pin to the peg ring. A long tongue turns less for the same shove.
-    const D = Math.max(1, Math.abs(this._pinRadius - pegs.radius));
+    // The blade: a triangle `tipWidth` across at the pin, tapering to a point
+    // at the tip. Narrow on purpose - a wedge wide enough to matter at the pin
+    // would sweep half the rim as it swings.
+    this._baseHalf = f.tipWidth / 2;
     let bestIndex = -1;
     let bestX = Number.POSITIVE_INFINITY;
     for (let i = 0; i < pegs.angles.length; i++) {
@@ -224,12 +269,22 @@ export class Pointer implements Disposable {
     }
     const u = bestX * this._moveSign;
     const sign = this._moveSign * (this.facing === 'inward' ? -1 : 1) * (f.invert ? -1 : 1);
-    const crown = f.elasticity * Math.atan(c / D) * RAD_TO_DEG;
-    if (u > -c && u < c * (1 + Math.max(0, f.friction))) {
-      const push = u <= 0 ? u + c : c;
-      const target = clamp(sign * f.elasticity * Math.atan(push / D) * RAD_TO_DEG, -f.maxAngle, f.maxAngle);
-      this._deflectionVel = dt > 0 ? (target - this._deflection) / dt : 0;
-      this._deflection = target;
+    const pegAngle = (pegs.angles[bestIndex] + rotation) * DEG_TO_RAD;
+    const qx = Math.cos(pegAngle) * pegs.radius;
+    const qy = Math.sin(pegAngle) * pegs.radius;
+    // `friction` is a fatter peg: it takes a bigger swing to clear, stays in
+    // contact longer, and the real peg is never touched on the way past.
+    const r = pegs.size * (1 + Math.max(0, f.friction));
+    const clearAt = (deg: number): boolean => pegClearsBlade(this._blade(deg), qx, qy, r);
+    const cur = this._deflection * sign;
+
+    if (!clearAt(this._deflection)) {
+      // The peg has moved into the blade: ride up its face, no further than
+      // the first angle that clears it.
+      const need = this._clearance(clearAt, sign, f, cur);
+      const want = Math.min(f.maxAngle, Math.max(need, need * f.elasticity));
+      this._deflectionVel = dt > 0 ? (sign * want - this._deflection) / dt : 0;
+      this._deflection = sign * want;
       this._engaged = bestIndex;
       // Climbing the peg, the tongue pushes back: the ring is held by up to
       // `drag` of a contact width of arc. Past the crown the peg is winning,
@@ -241,14 +296,101 @@ export class Pointer implements Disposable {
       }
       return;
     }
-    this._engaged = null;
+
+    // Clear where it stands, so the spring may bring it down - but only into
+    // air. A blade resting on a peg comes down as the peg leaves and not one
+    // degree before, which is what makes the fall land after the peg and not
+    // through it.
     this._releaseDrag(dt);
-    if (crossingCount > 0 && Math.abs(this._deflection) < Math.abs(crown) * 0.5) {
-      // The peg went through within one frame: nothing was seen pushing, so flick to the crown.
-      this._deflection = clamp(sign * crown, -f.maxAngle, f.maxAngle);
-      this._deflectionVel = 0;
-    }
+    const from = this._deflection;
     this._stepSpring(dt);
+    if (!clearAt(this._deflection)) {
+      let blocked = this._deflection;
+      let ok = from;
+      for (let k = 0; k < 14; k++) {
+        const mid = (blocked + ok) / 2;
+        if (clearAt(mid)) ok = mid;
+        else blocked = mid;
+      }
+      this._deflection = ok;
+      this._deflectionVel = 0;
+      this._engaged = bestIndex;
+      return;
+    }
+    this._engaged = null;
+    if (crossingCount > 0) {
+      const crown = this._crownAngle(pegs, f);
+      if (Math.abs(this._deflection) < crown * 0.5) {
+        // A peg crossed the whole zone inside one frame: nothing was ever seen
+        // pushing, so flick the tongue to where that peg would have held it.
+        this._deflection = clamp(sign * crown, -f.maxAngle, f.maxAngle);
+        this._deflectionVel = 0;
+      }
+    }
+  }
+
+  /**
+   * The smallest swing, in degrees and unsigned, that puts the peg outside
+   * the blade. Zero when the resting blade is already clear. Scans in the
+   * direction the tongue is being pushed, then bisects, so the rise is
+   * smooth rather than stepped.
+   */
+  private _clearance(clearAt: (deg: number) => boolean, sign: number, f: Required<FlapConfig>, fromDeg = 0): number {
+    const clear = (deg: number): boolean => clearAt(sign * deg);
+    if (clear(fromDeg)) return fromDeg;
+    const STEPS = 24;
+    let blocked = fromDeg;
+    for (let i = 1; i <= STEPS; i++) {
+      const deg = fromDeg + ((f.maxAngle - fromDeg) * i) / STEPS;
+      if (clear(deg)) {
+        // Between `blocked` and `deg` is the first angle that works.
+        let lo = blocked;
+        let hi = deg;
+        for (let k = 0; k < 7; k++) {
+          const mid = (lo + hi) / 2;
+          if (clear(mid)) hi = mid;
+          else lo = mid;
+        }
+        return hi;
+      }
+      blocked = deg;
+    }
+    noticeWarnOnce(
+      `pointer-maxangle-${this.id}`,
+      `Pointer "${this.id}": the blade cannot clear a peg within maxAngle ${f.maxAngle} deg, so it rides through them. ` +
+        'Raise maxAngle, lift the tip (smaller tipInset), or use smaller pegs.',
+    );
+    return f.maxAngle;
+  }
+
+  /** How far a peg dead under the pointer would hold the tongue, degrees. */
+  private _crownAngle(pegs: ResolvedPegs, f: Required<FlapConfig>): number {
+    const a = this.angle * DEG_TO_RAD;
+    const qx = Math.cos(a) * pegs.radius;
+    const qy = Math.sin(a) * pegs.radius;
+    return this._clearance((deg) => pegClearsBlade(this._blade(deg), qx, qy, pegs.size), 1, f);
+  }
+
+  /**
+   * The blade at a given deflection: a triangle from the pin, `tipWidth`
+   * across where it crosses the peg ring, to a point at the tip.
+   */
+  private _blade(deflectionDeg: number): Triangle {
+    const a = this.angle * DEG_TO_RAD;
+    const px = Math.cos(a) * this._pinRadius;
+    const py = Math.sin(a) * this._pinRadius;
+    const dir = (this.facing === 'inward' ? a + Math.PI : a) + deflectionDeg * DEG_TO_RAD;
+    const ux = Math.cos(dir);
+    const uy = Math.sin(dir);
+    const L = Math.max(1, this.skin.length);
+    return {
+      ax: px + -uy * this._baseHalf,
+      ay: py + ux * this._baseHalf,
+      bx: px - -uy * this._baseHalf,
+      by: py - ux * this._baseHalf,
+      cx: px + ux * L,
+      cy: py + uy * L,
+    };
   }
 
   /** Let the held arc go, so the ring is drawn where it logically is again. */

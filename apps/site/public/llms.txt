@@ -423,7 +423,7 @@ URL: https://pixi-wheels.schmooky.dev/guides/pointers/
   angle: -90,             // screen degrees: -90 top, 0 right, 90 bottom
   facing: 'inward',       // sits on the rim, tip toward the hub; 'outward' sits at the hub
   tipInset: 18,           // how far the tip reaches into the sections
-  flap: { elasticity: 1, friction: 0.35, stiffness: 420, damping: 14, maxAngle: 28, tipWidth: 14, drag: 0 },
+  flap: { elasticity: 1, friction: 0.35, stiffness: 420, damping: 14, maxAngle: 45, tipWidth: 14, drag: 0 },
   skin: new GraphicsPointerSkin({ shape: 'tongue' | 'triangle' | 'needle', length: 72, width: 36, pinRadius: 8, color: 0xffffff }),
 })
 ```
@@ -432,24 +432,20 @@ Results are read against the first pointer. Add more for decoration or a second 
 
 ## Pegs and the tongue
 
-Every ring has pegs: small circles on the disc, one per divider, 9 px inside the rim, 6 px across. `.pegs({ size, inset, angles })` changes them, `.pegs(false)` removes them (a flapping pointer then stays at rest). The debug overlay draws them (`pegs` layer) and `GraphicsRingSkin` will too with `pegs: true`. Dynamic sections move their pegs with their lines.
+Every ring has pegs: small circles on the disc, one per divider. `.pegs({ size, inset, angles })` changes them, `.pegs(false)` removes them (a flapping pointer then stays at rest). `inset` defaults to `tipInset + size - 2`, which puts the peg ring just inside the first tongue's tip, so a peg's shoulder bites 2 px into the blade. The debug overlay draws them (`pegs` layer) and `GraphicsRingSkin` will too with `pegs: true`. Dynamic sections move their pegs with their lines.
 
-The tongue tip is a point `tipWidth` wide at the peg ring. As a peg comes toward it, the peg pushes the tip aside along its own rim, exactly as far as the geometry demands times `elasticity`. At the peg's crown the push is largest; the peg then carries the tongue flat until it is through, plus `friction` of the contact width, and lets go. From there a spring (`stiffness`, `damping`) brings the tongue back, ringing if the damping is low. At speed a peg goes through within one frame and the tongue is flicked to the crown deflection instead, so a fast wheel keeps it pinned and jittering while a crawling one bends it slowly over every peg and lets it fall back.
+The contact is two solids that may not overlap. The blade is a triangle hinged at the pin, `tipWidth` across at its base and tapering to a point at the tip; the peg is a circle. Each frame the engine finds the smallest swing that keeps the circle outside the triangle and gives the tongue exactly that, so it yields as far as the peg needs and no further, never cuts through one, and cannot fall until the peg has gone: the spring brings it down, but only into clear air. Then it rings back under `stiffness` and `damping`. At speed a peg crosses the whole contact inside one frame and the tongue is flicked straight to the angle that peg would have held it at.
 
 | Knob | Feel |
 |---|---|
-| `elasticity` | how far the tongue yields: 0.6 a stiff stub, 1 the geometry, 1.5 a floppy strip |
-| `friction` | extra carry once the peg is through: 0 lets go at once, 1 drags a whole contact width more |
+| `elasticity` | how far past the minimum it is thrown: 1 exactly enough, 1.4 flings it. Under 1 is clamped |
+| `friction` | a fatter peg: bigger swing, held longer |
 | `stiffness` | how hard it snaps back |
 | `damping` | how quickly the ringing dies |
-| `maxAngle` | the hard limit |
-| `tipWidth` | how early a peg starts pushing |
+| `maxAngle` | the hard limit. Below what the geometry needs, the blade rides through the pegs and says so once |
+| `tipWidth` | how wide the blade is |
 | `drag` | how hard the tongue holds the ring back, 0 off, 1 the wheel fights every peg |
-| pegs `size` / `inset` | bigger or deeper pegs push earlier and harder |
-
-Every drawn shape is the same body: a boss around the pin, tapering to the tip, with the far edge of the tip exactly `length` from the pin. `pinRadius` sizes the pin the boss is hung on, and the boss grows to clear it.
-
-A peg can only push the tongue where the tongue actually is, so the peg ring has to run between the pin and the tip. `pegs.inset` deeper than `tipInset` puts the pegs under the tip, where nothing touches them; the pointer says so once and stays still. `pointer.reaches(pegs)`, `pointer.tipRadius` and `pointer.pinRadius` are the numbers behind that.
+| pegs `size` / `inset` | a bigger peg pushes earlier; pegs out past the tip need a much bigger flap |
 
 `flap: false` keeps a pointer rigid. Read `pointer.deflection` and `pointer.engagedPeg` for your own reactions; the HUD prints both.
 
@@ -1196,13 +1192,17 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **Facing**: `'inward'` seats a pointer on the rim with the tip toward the hub; `'outward'` seats it at the hub pointing out (the inner ring's arrow in a two-ring wheel). [Pointers](/guides/pointers/)
 
-**Flap**: the tongue's deflection against the pegs: pushed aside as a peg comes through (`elasticity`), carried past its crown (`friction`), sprung back (`stiffness`, `damping`), never past `maxAngle`. [Pointers](/guides/pointers/)
+**Blade**: the tongue as the contact model sees it - a triangle hinged at the pin, `tipWidth` across at its base, tapering to a point at the tip. A peg is a circle, and the two may never overlap. [The tongue](/recipes/tongue/)
+
+**Flap**: the tongue's deflection against the pegs: the smallest swing that keeps the peg outside the blade (`elasticity` throws it further), held while the peg passes (`friction` holds it longer), sprung back (`stiffness`, `damping`), never past `maxAngle`. [Pointers](/guides/pointers/)
 
 **Peg**: a small circle on the disc the tongue touches, one per divider by default (`.pegs({ size, inset, angles })`). The debug overlay draws them; `GraphicsRingSkin` can too. [Pointers](/guides/pointers/)
 
 **Contact width**: the stretch of rim over which a peg is in touch with the tongue: the peg radius plus half the `tipWidth`, either side of the tongue's axis.
 
 **Crown**: the moment a peg's centre is under the tongue's axis, where the push is largest.
+
+**Bite**: how far a peg's shoulder reaches past the tongue's tip. `pegs.inset` defaults to `tipInset + size - 2`, a 2 px bite; pegs set out past the tip make the blade lift clear over them instead, which is a much bigger flap.
 
 **Drag**: `flap.drag`, 0..1: how hard the tongue holds the ring back while a peg climbs it, released at `dragRelease` once the peg is over the crown. Drawn only - it moves `ring.visualRotationDeg`, never `rotationDeg`, and always relaxes to zero, so the landing is untouched. [The tongue](/recipes/tongue/)
 
@@ -1612,7 +1612,7 @@ const skin = new LayeredDisc({ face, plate, hub, bezel });
 const wheel = new WheelBuilder()
   .radius(190)
   .sections(VALUES.map((v, i) => ({ id: `s${i}`, label: v })))
-  .pegs({ size: 6, inset: 12 })
+  .pegs({ size: 6 })
   .pointer({ angle: -90, skin: { type: 'graphics', shape: 'tongue', color: 0xfff2cc, length: 66, width: 30 } })
   .skin(skin)
   .speed('normal', SpinPresets.NORMAL)
@@ -2432,9 +2432,9 @@ const wheel = new WheelBuilder()
   .sections(PLAYSON_SECTIONS)
   .pointer({
     angle: -90,
-    tipInset: 30,
+    tipInset: 14,
     skin: new TexturePointerSkin({ texture: art.textures['wheel/stopper'], artDirection: 'down', pin: { x: 0.5, y: 0.3 }, scale: 250 / 297 }),
-    flap: { maxAngle: 18, stiffness: 600, damping: 16 },
+    flap: { maxAngle: 45, stiffness: 600, damping: 16 },
   })
   .skin(new PlaysonWheelSkin({ art }))
   .landing({ mode: 'random', margin: 0.15 })
@@ -2495,7 +2495,7 @@ const wheel = new WheelBuilder()
     : { ...s, label: '' })))
   .pointer({
     angle: -90,
-    tipInset: 30,
+    tipInset: 14,
     skin: new SpinePointerSkin({ skeleton: spine.stopper, atlas: spine.atlas, length: spine.stopperLength * k, scale: k, artDirection: 'down', flapRotates: false }),
   })
   .skin(new SpineRingSkin({
@@ -2552,7 +2552,7 @@ const wheel = new WheelBuilder()
     angle: 90,
     tipInset: 40 * k,
     skin: new TexturePointerSkin({ texture: art.pointer, artDirection: 'up', pin: { x: 0.5, y: 0.86 }, scale: k * 1.35 }),
-    flap: { maxAngle: 10, stiffness: 500, damping: 18 },
+    flap: { maxAngle: 30, stiffness: 500, damping: 18 },
   })
   .skin(new PragmaticWheelSkin({ art }))
   // The tease rests by the line; the settle then centres the winning plate under the pointer.
@@ -2942,14 +2942,14 @@ The pointer end to end - where it sits, the pegs it rides, elasticity, friction,
 const wheel = new WheelBuilder()
   .radius(200, 40)
   .sections(Array.from({ length: 8 }, (_, i) => ({ id: `s${i}`, label: `${i + 1}` })))
-  .pegs({ size: 11, inset: 14 })
+  .pegs({ size: 11 })
   .pointer({
     angle: -90,
     tipInset: 30,
     skin: { type: 'graphics', shape: 'tongue', color: 0xfff2cc, length: 84, width: 34, pinRadius: 9 },
     // tipWidth is the width of the body where the pegs meet it, not at the
     // very point: 16 px up from the tip this one is about 12 across.
-    flap: { elasticity: 1.1, friction: 0.45, stiffness: 260, damping: 9, maxAngle: 34, tipWidth: 12 },
+    flap: { elasticity: 1.1, friction: 0.45, stiffness: 260, damping: 9, maxAngle: 65, tipWidth: 12 },
   })
   .skin({ type: 'graphics', dividers: { width: 3 }, pegs: { color: 0xfff2cc, rimColor: 0x6b4a06 } })
   .idle({ speed: 24, autoStart: true })
@@ -3010,7 +3010,7 @@ return {
 const wheel = new WheelBuilder()
   .radius(230, 30)
   .sections(Array.from({ length: 16 }, (_, i) => ({ id: `s${i}`, label: '' })))
-  .pegs({ size: 7, inset: 10 })
+  .pegs({ size: 7 })
   .pointer({ id: 'stiff', angle: -90, flap: { elasticity: 0.8, friction: 0.2, stiffness: 700, damping: 18 } })
   .pointer({
     id: 'floppy',
@@ -3051,7 +3051,7 @@ const make = (drag, label) => {
   const wheel = new WheelBuilder()
     .radius(150, 26)
     .sections(Array.from({ length: 10 }, (_, i) => ({ id: `s${i}`, label: `${i + 1}` })))
-    .pegs({ size: 8, inset: 12 })
+    .pegs({ size: 8 })
     .pointer({
       angle: -90,
       skin: { type: 'graphics', shape: 'tongue', color: 0xfff2cc, length: 64, width: 30 },
@@ -3133,7 +3133,7 @@ const [tongueArt, gameArt] = await Promise.all([
 const wheel = new WheelBuilder()
   .radius(190, 26)
   .sections(Array.from({ length: 12 }, (_, i) => ({ id: `s${i}`, label: `${i + 1}` })))
-  .pegs({ size: 7, inset: 11 })
+  .pegs({ size: 7 })
   .pointer({
     id: 'drawn',
     angle: -90,
@@ -3188,7 +3188,7 @@ return {
 const wheel = new WheelBuilder()
   .radius(210, 30)
   .sections(Array.from({ length: 24 }, (_, i) => ({ id: `s${i}`, label: `${i + 1}` })))
-  .pegs({ size: 6, inset: 10 })
+  .pegs({ size: 6 })
   .pointer({
     angle: -90,
     skin: { type: 'graphics', shape: 'tongue', color: 0xfff2cc, length: 66, width: 28 },

@@ -12,9 +12,9 @@ const wheel = new WheelBuilder()
   .sections(PLAYSON_SECTIONS)
   .pointer({
     angle: -90,
-    tipInset: 30,
+    tipInset: 14,
     skin: new TexturePointerSkin({ texture: art.textures['wheel/stopper'], artDirection: 'down', pin: { x: 0.5, y: 0.3 }, scale: 250 / 297 }),
-    flap: { maxAngle: 18, stiffness: 600, damping: 16 },
+    flap: { maxAngle: 45, stiffness: 600, damping: 16 },
   })
   .skin(new PlaysonWheelSkin({ art }))
   .landing({ mode: 'random', margin: 0.15 })

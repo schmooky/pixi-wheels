@@ -33,7 +33,7 @@ const wheel = new WheelBuilder()
     : { ...s, label: '' })))
   .pointer({
     angle: -90,
-    tipInset: 30,
+    tipInset: 14,
     skin: new SpinePointerSkin({ skeleton: spine.stopper, atlas: spine.atlas, length: spine.stopperLength * k, scale: k, artDirection: 'down', flapRotates: false }),
   })
   .skin(new SpineRingSkin({

@@ -374,7 +374,13 @@ export type PointerFacing = 'inward' | 'outward';
 export interface PegConfig {
   /** Peg radius, px. Default 6. */
   size?: number;
-  /** How far inside the rim the peg centres sit, px. Default 9: under a default tongue tip (`tipInset` 18). */
+  /**
+   * How far inside the rim the peg centres sit, px. Defaults to
+   * `pointer.tipInset + size - 2`, which puts the peg ring just inside the
+   * first tongue's tip so a peg bites 2 px into the blade. Pegs set further
+   * out sit past the tip, and the blade then has to swing clear over its
+   * whole width to let one through.
+   */
   inset?: number;
   /** Local angles of the pegs, degrees. Default every divider, so dynamic sections keep their pegs on the lines. */
   angles?: number[];
@@ -401,17 +407,30 @@ export interface ResolvedPegs {
  * and a crawling one bends it slowly over every peg.
  */
 export interface FlapConfig {
-  /** Largest deflection, degrees. Default 28. */
+  /**
+   * Largest deflection, degrees. Default 45: a blade that dips past the peg
+   * ring has to swing a long way before a peg can get by it, and a cap below
+   * what the geometry needs makes the tongue ride through the pegs instead.
+   */
   maxAngle?: number;
   /** Spring stiffness pulling the tongue back to rest (1/s^2). Default 420. */
   stiffness?: number;
   /** Spring damping (1/s). Default 14; lower rings longer after a release. */
   damping?: number;
-  /** How far the tongue yields to a peg, as a fraction of the geometric push. Default 1. Under 1 a stiff short tongue, over 1 a floppy one. */
+  /**
+   * How far the tongue yields, as a multiple of the swing that just clears
+   * the peg. Default 1: exactly enough, never less - a value under 1 is
+   * clamped, because a tongue that yields less than the geometry demands is
+   * a tongue drawn through a peg. Over 1 throws it further than it needs.
+   */
   elasticity?: number;
   /** Extra carry after a peg has passed under the tip, as a fraction of the contact width. Default 0.35; 0 lets go as soon as the peg is through, 1 drags a whole width more. */
   friction?: number;
-  /** Width of the tongue tip where it meets the pegs, px. Default 14. */
+  /**
+   * Width of the blade where the pegs cross it, px. Default 14. The contact
+   * model is that blade: a triangle from the pin, `tipWidth` across at the
+   * peg ring, tapering to a point at the tip.
+   */
   tipWidth?: number;
   /**
    * How hard the tongue holds the ring back while a peg climbs it, 0..1.
