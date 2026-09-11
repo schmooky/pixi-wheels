@@ -18,6 +18,39 @@ export interface GraphicsPointerSkinOptions {
   shape?: 'tongue' | 'triangle' | 'needle';
   /** Draw the pin cap at the base. Default true. */
   pin?: boolean;
+  /**
+   * Radius of the pin the flapper is hung on, px. The boss - the round heel
+   * the pin sits in - is sized to clear it, so a fat pin gives a heavier
+   * looking hinge. Default a little under a quarter of `width`.
+   */
+  pinRadius?: number;
+}
+
+/**
+ * Outline the convex hull of two circles: the boss around the pin at the
+ * origin, and the tip `L` away. Every shape here is that hull, which is what
+ * a flapper hung on a pin actually looks like - a round heel the pin turns
+ * in, tapering to whatever the tip is. The far edge of the tip circle lands
+ * exactly on `L`, so the pin-to-tip length the ring seats the pointer by is
+ * the length you can measure on screen.
+ */
+function hingedBody(g: Graphics, L: number, boss: number, tip: number): void {
+  const centre = Math.max(1, L - tip);
+  if (centre <= Math.abs(boss - tip)) {
+    // Degenerate: the tip circle is swallowed by the boss. Draw the boss alone.
+    g.circle(0, 0, Math.max(boss, tip));
+    return;
+  }
+  const a = Math.asin((boss - tip) / centre);
+  const sin = Math.sin(a);
+  const cos = Math.cos(a);
+  const near = Math.atan2(-cos, -sin); // where the upper tangent leaves a circle
+  const far = Math.atan2(cos, -sin); //  and where the lower one does
+  g.moveTo(-boss * sin, -boss * cos);
+  g.lineTo(centre - tip * sin, -tip * cos);
+  g.arc(centre, 0, tip, near, far, false); // round the tip, front first
+  g.arc(0, 0, boss, far, near, false); //    round the heel, behind the pin
+  g.closePath();
 }
 
 /** A pointer drawn with `Graphics`. The out-of-the-box tongue. */
@@ -37,24 +70,18 @@ export class GraphicsPointerSkin implements PointerSkin {
     const g = this._body;
     const L = this.length;
     const w = width / 2;
-    if (shape === 'triangle') {
-      g.moveTo(-w * 0.4, -w).lineTo(L, 0).lineTo(-w * 0.4, w).closePath();
-    } else if (shape === 'needle') {
-      g.moveTo(0, -w * 0.25).lineTo(L, 0).lineTo(0, w * 0.25).closePath();
-    } else {
-      // Tongue: a rounded base tapering to a soft point.
-      g.moveTo(-w * 0.9, 0);
-      g.bezierCurveTo(-w * 0.9, -w, 0, -w, w * 0.6, -w * 0.85);
-      g.bezierCurveTo(L * 0.55, -w * 0.55, L * 0.85, -w * 0.2, L, 0);
-      g.bezierCurveTo(L * 0.85, w * 0.2, L * 0.55, w * 0.55, w * 0.6, w * 0.85);
-      g.bezierCurveTo(0, w, -w * 0.9, w, -w * 0.9, 0);
-      g.closePath();
-    }
+    const pinRadius = Math.max(2.5, options.pinRadius ?? width * 0.22);
+    // The boss has to hold the pin: never thinner than the pin plus a wall.
+    const boss = Math.max(pinRadius * 1.55, shape === 'needle' ? w * 0.5 : w);
+    const tip = shape === 'tongue' ? w * 0.2 : Math.max(1.2, w * 0.07);
+    hingedBody(g, L, boss, tip);
     g.fill({ color });
     if (outline !== null) g.stroke({ color: outline, width: outlineWidth, join: 'round' });
     if (options.pin ?? true) {
-      g.circle(0, 0, Math.max(3, w * 0.32)).fill({ color: outline ?? 0x000000, alpha: 0.85 });
-      g.circle(0, 0, Math.max(1.5, w * 0.16)).fill({ color, alpha: 0.9 });
+      // A pin, not a dot: a cap with a hole, centred on the axis it turns about.
+      g.circle(0, 0, pinRadius).fill({ color: outline ?? 0x000000, alpha: 0.85 });
+      g.circle(0, 0, pinRadius * 0.45).fill({ color, alpha: 0.95 });
+      if (outline !== null) g.circle(0, 0, pinRadius).stroke({ color: outline, width: Math.max(1, outlineWidth * 0.5) });
     }
     this.view.addChild(g);
   }

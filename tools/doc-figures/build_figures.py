@@ -145,6 +145,29 @@ def arc_path(cx, cy, r, a0, a1):
     return f"M{f(x0)},{f(y0)} A{f(r)},{f(r)} 0 {large} {sweep} {f(x1)},{f(y1)}"
 
 
+def hinged_points(px, py, tx, ty, boss, tip, steps=36):
+    """The outline of a flapper hung on a pin: the hull of the boss circle at
+    the pin and the tip circle, sampled as a polygon. Same construction as
+    GraphicsPointerSkin, so the figure and the code agree."""
+    dx, dy = tx - px, ty - py
+    d = math.hypot(dx, dy)
+    ux, uy = dx / d, dy / d
+    nx, ny = -uy, ux
+    c = d - tip
+    a = math.asin(max(-1.0, min(1.0, (boss - tip) / c)))
+    to_global = lambda lx, ly: (px + lx * ux + ly * nx, py + lx * uy + ly * ny)
+    th1 = math.atan2(-math.cos(a), -math.sin(a))
+    th2 = math.atan2(math.cos(a), -math.sin(a))
+    pts = [to_global(-boss * math.sin(a), -boss * math.cos(a))]
+    for i in range(steps + 1):
+        th = th1 + (th2 - th1) * i / steps
+        pts.append(to_global(c + tip * math.cos(th), tip * math.sin(th)))
+    for i in range(steps + 1):
+        th = th2 + (th1 + 2 * math.pi - th2) * i / steps
+        pts.append(to_global(boss * math.cos(th), boss * math.sin(th)))
+    return pts
+
+
 # ------------------------------------------------------------- disc diagrams
 
 def fig_disc_layers():
@@ -324,38 +347,43 @@ def fig_label_slot():
 # ----------------------------------------------------------- tongue diagrams
 
 def fig_tongue_anatomy():
-    s = Svg(380, "Where the tongue sits and what it touches")
+    s = Svg(430, "Where the tongue sits and what it touches")
     s.markers()
-    cx, cy, R = 400, 720, 540
+    # Real proportions: the pegs sit just inside the rim, the tip reaches past
+    # them, and the pin floats outside the wheel entirely.
+    cx, cy, R = 400, 920, 640
+    peg_r = R - 26
+    tip_r = R - 46
+    pin_r = tip_r + 152
+
     s.circle(cx, cy, R, stroke=INK, width=2)
-    peg_r = R - 42
     s.circle(cx, cy, peg_r, stroke=LINE, width=1.3, dash="5 5")
-    for k in range(-5, 6):
-        x, y = polar(cx, cy, peg_r, -90 + k * 8)
-        s.circle(x, y, 11, fill=WASH, stroke=KEY, width=1.8)
+    for k in range(-4, 5):
+        x, y = polar(cx, cy, peg_r, -90 + k * 7)
+        s.circle(x, y, 13, fill=WASH, stroke=KEY, width=2)
 
-    tipy = cy - (R - 22)
-    piny = tipy - 104
-    s.path(
-        f"M{cx - 26},{f(piny)} C{cx - 28},{f(piny + 52)} {cx - 16},{f(tipy - 14)} {cx},{f(tipy)} "
-        f"C{cx + 16},{f(tipy - 14)} {cx + 28},{f(piny + 52)} {cx + 26},{f(piny)} z",
-        fill=WASH, stroke=INK, width=2.4,
-    )
-    s.circle(cx, piny, 8, fill=INK)
+    piny, tipy = cy - pin_r, cy - tip_r
+    pts = hinged_points(cx, piny, cx, tipy, 34, 9)
+    s.path("M" + " L".join(f"{f(x)},{f(y)}" for x, y in pts) + " Z", fill=WASH, stroke=INK, width=2.4)
+    s.circle(cx, piny, 15, fill=INK)
+    s.circle(cx, piny, 6.5, fill="var(--fig-hole, #fff)")
 
-    s.leader(cx, piny, 548, piny - 26, "pin: the pivot", INK)
-    s.leader(cx, tipy, 548, tipy + 52, "tip", INK)
-    s.arrow(cx + 150, piny, cx + 150, tipy, KEY, 1.8, both=True)
-    s.mono(cx + 162, (piny + tipy) / 2 + 5, "skin.length", KEY)
-    s.arrow(cx - 150, tipy, cx - 150, cy - R, KEY, 1.8, both=True)
-    s.mono(cx - 162, (tipy + cy - R) / 2 + 5, "tipInset", KEY, anchor="end")
-    s.line(150, cy - R, 790, cy - R, LINE, 1.2, dash="4 4")
-    s.text(14, cy - R + 5, "the rim", MUTED, 13.5)
-    s.line(150, cy - peg_r, 790, cy - peg_r, LINE, 1.2, dash="4 4")
-    s.mono(14, cy - peg_r + 5, "R - pegs.inset", MUTED, 13.5)
+    # rules across, named on the left where there is room
+    for radius, label, mono in ((R, "the rim", False), (peg_r, "R - pegs.inset", True), (tip_r, "R - tipInset", True)):
+        y = cy - radius
+        s.line(180, y, 792, y, LINE, 1.2, dash="4 4")
+        (s.mono if mono else s.text)(14, y + 5, label, MUTED if mono else MUTED, 13.5)
+
+    s.arrow(cx + 132, piny, cx + 132, tipy, KEY, 1.8, both=True)
+    s.mono(cx + 144, (piny + tipy) / 2 + 5, "skin.length", KEY)
+    s.arrow(cx - 132, cy - peg_r, cx - 132, piny, KEY, 1.8, both=True)
+    s.text(cx - 144, (piny + cy - peg_r) / 2 + 5, "the lever the peg turns", KEY, 13.5, anchor="end")
+    s.leader(cx, piny, cx + 60, piny - 46, "pin: pinRadius of boss to turn in", INK)
+    s.leader(cx, tipy, 560, tipy + 44, "tip", INK)
+
     px, py = polar(cx, cy, peg_r, -90)
-    s.arrow(px - 34, py + 52, px + 34, py + 52, KEY, 1.8, both=True)
-    s.text(cx, py + 76, "contact width 2c", KEY, 14, anchor="middle")
+    s.arrow(px - 40, py + 62, px + 40, py + 62, KEY, 1.8, both=True)
+    s.text(cx, py + 86, "contact width 2c", KEY, 14, anchor="middle")
     s.save(TONGUE / "anatomy.svg")
 
 
@@ -365,15 +393,13 @@ def fig_tongue_art():
     bx, by, bw, bh = 250, 28, 200, 264
     s.rect(bx, by, bw, bh, stroke=LINE, width=1.6, dash="6 5")
     cxp = bx + bw / 2
-    s.path(
-        f"M{f(cxp)},{by + 16} C{f(cxp + 38)},{by + 118} {f(cxp + 44)},{by + 192} {f(cxp + 33)},{by + 232} "
-        f"L{f(cxp - 33)},{by + 232} C{f(cxp - 44)},{by + 192} {f(cxp - 38)},{by + 118} {f(cxp)},{by + 16} z",
-        fill=WASH, stroke=INK, width=2.4,
-    )
     piny = by + bh * 0.85
+    pts = hinged_points(cxp, piny, cxp, by + 16, 40, 10)
+    s.path("M" + " L".join(f"{f(x)},{f(y)}" for x, y in pts) + " Z", fill=WASH, stroke=INK, width=2.4)
     s.line(bx - 6, piny, bx + bw + 6, piny, LINE, 1.2, dash="4 4")
     s.line(cxp, by - 6, cxp, by + bh + 6, LINE, 1.2, dash="4 4")
-    s.circle(cxp, piny, 6, fill=KEY)
+    s.circle(cxp, piny, 15, fill=KEY)
+    s.circle(cxp, piny, 6.5, fill="var(--fig-hole, #fff)")
     s.leader(cxp, piny, bx + bw + 30, piny + 4, "pin { x: 0.5, y: 0.85 }", KEY)
     s.leader(cxp, by + 16, bx + bw + 30, by + 18, "tip on the top edge: artDirection 'up'", INK)
     s.arrow(bx - 34, piny, bx - 34, by + 16, KEY, 1.8, both=True)
@@ -653,11 +679,11 @@ def tex_tongue_gold(size=(160, 260)):
     d = ImageDraw.Draw(img)
     w, h = size[0] * SS, size[1] * SS
     tip, pin_y = h * 0.045, h * 0.85
-    d.polygon(
-        [(w / 2, tip), (w * 0.80, h * 0.42), (w * 0.86, pin_y), (w * 0.14, pin_y), (w * 0.20, h * 0.42)],
-        fill=GOLD_LIT, outline=(120, 84, 12, 255), width=int(w * 0.035),
-    )
-    d.polygon([(w / 2, tip + h * 0.06), (w * 0.66, h * 0.45), (w * 0.34, h * 0.45)], fill=(255, 244, 206, 235))
+    boss, tip_r = w * 0.30, w * 0.085
+    pts = hinged_points(w / 2, pin_y, w / 2, tip, boss, tip_r, steps=48)
+    d.polygon(pts, fill=GOLD_LIT, outline=(120, 84, 12, 255), width=int(w * 0.035))
+    inner = hinged_points(w / 2, pin_y - h * 0.02, w / 2, tip + h * 0.05, boss * 0.52, tip_r * 0.6, steps=48)
+    d.polygon(inner, fill=(255, 244, 206, 210))
     _pin_cap(d, w, h, pin_y, (56, 40, 10, 255), GOLD_LIT)
     _save(img, size, TONGUE / "tongue.png", "the default gold tongue, tip up, pin at 0.5 / 0.85")
 

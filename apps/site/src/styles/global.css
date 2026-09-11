@@ -173,6 +173,7 @@
     --fig-line: hsl(var(--foreground) / 0.22);
     --fig-wash: hsl(var(--foreground) / 0.05);
     --fig-key: #a9740c;
+    --fig-hole: hsl(var(--background));
   }
   .dark {
     --fig-line: hsl(var(--foreground) / 0.26);

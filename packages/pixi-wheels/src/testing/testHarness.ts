@@ -59,6 +59,8 @@ export interface TestWheelOptions {
   skip?: SkipConfig;
   idle?: IdleConfig;
   dynamic?: Parameters<RingBuilder['dynamic']>[0];
+  /** Pegs for the main ring. Default: the builder's own (one per divider). */
+  pegs?: Parameters<RingBuilder['pegs']>[0];
   /** Extra rings. Each gets the headless skin and pointer. */
   rings?: Array<{ id: string; outerRadius: number; innerRadius: number; sections: WheelSectionConfig[]; direction?: SpinDirection; pointers?: PointerConfig[] }>;
   /** Random source. Default a fixed seeded generator, so tests are deterministic. */
@@ -126,6 +128,7 @@ export function createTestWheel(options: TestWheelOptions = {}): TestWheelHandle
   if (options.skip) builder.skip(options.skip);
   if (options.idle) builder.idle(options.idle);
   if (options.dynamic) builder.dynamic(options.dynamic);
+  if (options.pegs !== undefined) builder.pegs(options.pegs);
   for (const r of options.rings ?? []) {
     builder.ring(r.id, (rb) => {
       rb.radius(r.outerRadius, r.innerRadius).sections(r.sections).skin(new HeadlessRingSkin());

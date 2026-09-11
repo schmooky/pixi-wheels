@@ -28,7 +28,7 @@ This recipe is all of it. The disc it rides on has [its own recipe](/recipes/dis
   angle: -90,                           // -90 twelve o'clock, 0 three, 90 six
   facing: 'inward',                     // on the rim, tip toward the hub
   tipInset: 18,                         // how far the tip reaches past the rim
-  skin: { type: 'graphics', shape: 'tongue', length: 72, width: 36 },
+  skin: { type: 'graphics', shape: 'tongue', length: 72, width: 36, pinRadius: 8 },
   flap: { elasticity: 1, friction: 0.35, stiffness: 420, damping: 14, maxAngle: 28, tipWidth: 14 },
 })
 ```
@@ -69,6 +69,8 @@ The tip is a point `tipWidth` wide sitting at the peg ring. A peg arrives, pushe
 | `maxAngle` | the hard limit | `28`; a tongue pinned there every peg reads as rigid |
 | `tipWidth` | how early a peg starts pushing | `14`; wider tips give longer, softer contacts |
 | `drag` | how hard it holds the ring back | `0` weightless, `1` the wheel fights every peg |
+
+The lever the peg turns is `pinRadius - pegs.radius`, so a long tongue swings through a smaller angle for the same shove. Lengthening the tongue and keeping the feel means raising `elasticity` to match.
 
 `flap: false` keeps a pointer rigid: no contact, no spring, just a tick.
 

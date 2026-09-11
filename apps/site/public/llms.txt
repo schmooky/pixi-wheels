@@ -424,7 +424,7 @@ URL: https://pixi-wheels.schmooky.dev/guides/pointers/
   facing: 'inward',       // sits on the rim, tip toward the hub; 'outward' sits at the hub
   tipInset: 18,           // how far the tip reaches into the sections
   flap: { elasticity: 1, friction: 0.35, stiffness: 420, damping: 14, maxAngle: 28, tipWidth: 14, drag: 0 },
-  skin: new GraphicsPointerSkin({ shape: 'tongue' | 'triangle' | 'needle', length: 72, width: 36, color: 0xffffff }),
+  skin: new GraphicsPointerSkin({ shape: 'tongue' | 'triangle' | 'needle', length: 72, width: 36, pinRadius: 8, color: 0xffffff }),
 })
 ```
 
@@ -446,6 +446,10 @@ The tongue tip is a point `tipWidth` wide at the peg ring. As a peg comes toward
 | `tipWidth` | how early a peg starts pushing |
 | `drag` | how hard the tongue holds the ring back, 0 off, 1 the wheel fights every peg |
 | pegs `size` / `inset` | bigger or deeper pegs push earlier and harder |
+
+Every drawn shape is the same body: a boss around the pin, tapering to the tip, with the far edge of the tip exactly `length` from the pin. `pinRadius` sizes the pin the boss is hung on, and the boss grows to clear it.
+
+A peg can only push the tongue where the tongue actually is, so the peg ring has to run between the pin and the tip. `pegs.inset` deeper than `tipInset` puts the pegs under the tip, where nothing touches them; the pointer says so once and stays still. `pointer.reaches(pegs)`, `pointer.tipRadius` and `pointer.pinRadius` are the numbers behind that.
 
 `flap: false` keeps a pointer rigid. Read `pointer.deflection` and `pointer.engagedPeg` for your own reactions; the HUD prints both.
 
@@ -1202,6 +1206,8 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **Drag**: `flap.drag`, 0..1: how hard the tongue holds the ring back while a peg climbs it, released at `dragRelease` once the peg is over the crown. Drawn only - it moves `ring.visualRotationDeg`, never `rotationDeg`, and always relaxes to zero, so the landing is untouched. [The tongue](/recipes/tongue/)
 
+**Boss**: the round heel a pointer is drawn with, centred on the pin and sized to clear it. Every `GraphicsPointerSkin` shape is the hull of the boss and the tip circle, so the silhouette is one a hinge could actually hold.
+
 **Pin**: the point a pointer pivots around. A skin's local origin. For a texture, `pin: { x, y }` as fractions of the image.
 
 **Pointer**: the fixed mark a ring is read against. Also tongue, flapper, stopper, needle. A ring can have several; each is named. [Pointers](/guides/pointers/)
@@ -1211,6 +1217,8 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 **Tick**: a divider passing under a pointer. `pointer:tick` carries the pointer, the sections either side, the speed and the direction. Pointer skins with a `tick` animation play it here; the tongue itself is moved by the pegs, not by the event.
 
 **Tip inset**: how far the pointer's tip reaches past the rim into the disc, px.
+
+**Reach**: whether the peg ring runs between a pointer's pin and its tip, which is the only place a peg can touch it. `pointer.reaches(pegs)`; a pointer out of reach warns once and stays still. [The tongue](/recipes/tongue/)
 
 **Visual rotation**: `ring.visualRotationDeg`: where the disc is actually drawn, the logical rotation plus whatever arc the tongues are holding back. Equal to `rotationDeg` at rest and with `drag` off.
 

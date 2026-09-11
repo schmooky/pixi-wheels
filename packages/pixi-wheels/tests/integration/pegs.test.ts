@@ -43,6 +43,42 @@ describe('pegs', () => {
     }
   });
 
+  it('a peg ring the tongue cannot reach never moves it', () => {
+    // Default tipInset 18 and a 60 px skin put the tongue between r=182 and r=242.
+    const deep = createTestWheel({ sections: 6, startAngle: 0, pegs: { size: 6, inset: 40 } });
+    try {
+      const tongue = deep.wheel.main.pointers[0];
+      expect(deep.wheel.main.pegs!.radius).toBe(160);
+      expect(tongue.tipRadius).toBe(182);
+      expect(tongue.pinRadius).toBe(242);
+      expect(tongue.reaches(deep.wheel.main.pegs!)).toBe(false);
+      void deep.wheel.spin();
+      deep.wheel.setResult({ index: 1 });
+      while (deep.wheel.isSpinning) {
+        deep.ticker.tick(16);
+        expect(tongue.deflection).toBe(0);
+      }
+    } finally {
+      deep.destroy();
+    }
+
+    const ok = createTestWheel({ sections: 6, startAngle: 0, pegs: { size: 6, inset: 12 } });
+    try {
+      const tongue = ok.wheel.main.pointers[0];
+      expect(tongue.reaches(ok.wheel.main.pegs!)).toBe(true);
+      let peak = 0;
+      void ok.wheel.spin();
+      ok.wheel.setResult({ index: 1 });
+      while (ok.wheel.isSpinning) {
+        ok.ticker.tick(16);
+        peak = Math.max(peak, Math.abs(tongue.deflection));
+      }
+      expect(peak).toBeGreaterThan(1);
+    } finally {
+      ok.destroy();
+    }
+  });
+
   it('pegs(false) leaves the tongue still, and pegs round-trip through the config', () => {
     const ticker = new FakeTicker() as unknown as Ticker;
     // Config-shaped skins, so the wheel round-trips through toConfig() / fromConfig().

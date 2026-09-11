@@ -12,7 +12,7 @@ description: The tongue - placement, facing, several per ring, the pegs it rides
   facing: 'inward',       // sits on the rim, tip toward the hub; 'outward' sits at the hub
   tipInset: 18,           // how far the tip reaches into the sections
   flap: { elasticity: 1, friction: 0.35, stiffness: 420, damping: 14, maxAngle: 28, tipWidth: 14, drag: 0 },
-  skin: new GraphicsPointerSkin({ shape: 'tongue' | 'triangle' | 'needle', length: 72, width: 36, color: 0xffffff }),
+  skin: new GraphicsPointerSkin({ shape: 'tongue' | 'triangle' | 'needle', length: 72, width: 36, pinRadius: 8, color: 0xffffff }),
 })
 ```
 
@@ -34,6 +34,10 @@ The tongue tip is a point `tipWidth` wide at the peg ring. As a peg comes toward
 | `tipWidth` | how early a peg starts pushing |
 | `drag` | how hard the tongue holds the ring back, 0 off, 1 the wheel fights every peg |
 | pegs `size` / `inset` | bigger or deeper pegs push earlier and harder |
+
+Every drawn shape is the same body: a boss around the pin, tapering to the tip, with the far edge of the tip exactly `length` from the pin. `pinRadius` sizes the pin the boss is hung on, and the boss grows to clear it.
+
+A peg can only push the tongue where the tongue actually is, so the peg ring has to run between the pin and the tip. `pegs.inset` deeper than `tipInset` puts the pegs under the tip, where nothing touches them; the pointer says so once and stays still. `pointer.reaches(pegs)`, `pointer.tipRadius` and `pointer.pinRadius` are the numbers behind that.
 
 `flap: false` keeps a pointer rigid. Read `pointer.deflection` and `pointer.engagedPeg` for your own reactions; the HUD prints both.
 
