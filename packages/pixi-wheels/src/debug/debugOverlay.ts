@@ -164,7 +164,7 @@ export function debugOverlay(wheel: Wheel, options: DebugOverlayOptions = {}): D
     const r = ring.innerRadius;
     const ws = worldScaleOf(ring.overlay);
     const px = (n: number): number => n / ws; // screen px expressed in wheel px
-    const rotation = ring.rotationDeg;
+    const rotation = ring.visualRotationDeg;
     disc.clear();
     fixed.clear();
     e.used = 0;
@@ -232,12 +232,13 @@ export function debugOverlay(wheel: Wheel, options: DebugOverlayOptions = {}): D
       const tongue = ring.pointers[0];
       const lines = [
         `ring ${ring.id}  ${c.state}${c.isIdling ? ' (idle)' : ''}`,
-        `rot ${normalizeDeg(rotation).toFixed(1)}  speed ${ring.speed.toFixed(0)} deg/s`,
+        `rot ${normalizeDeg(ring.rotationDeg).toFixed(1)}  speed ${ring.speed.toFixed(0)} deg/s`,
         `under pointer  ${under}`,
         c.target ? `target  ${c.target.section.id} @ ${c.target.landingAngle.toFixed(1)}` : 'target  -',
         leg ? `leg ${c.currentLegIndex + 1}/${c.legs.length}  ${leg.kind} ${leg.distance.toFixed(0)} deg ${Math.round(leg.duration)} ms` : 'leg  -',
         ring.step !== null ? `step ${ring.step}/${ring.stepCount - 1}` : '',
         tongue?.flap ? `flap ${tongue.deflection.toFixed(1)} deg${tongue.engagedPeg !== null ? `  on peg ${tongue.engagedPeg}` : ''}` : '',
+        ring.dragDeg !== 0 ? `drag ${ring.dragDeg.toFixed(2)} deg held` : '',
       ].filter((l) => l !== '');
       e.panel.visible = true;
       e.panel.set(lines);

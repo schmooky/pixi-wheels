@@ -11,7 +11,7 @@ description: The tongue - placement, facing, several per ring, the pegs it rides
   angle: -90,             // screen degrees: -90 top, 0 right, 90 bottom
   facing: 'inward',       // sits on the rim, tip toward the hub; 'outward' sits at the hub
   tipInset: 18,           // how far the tip reaches into the sections
-  flap: { elasticity: 1, friction: 0.35, stiffness: 420, damping: 14, maxAngle: 28, tipWidth: 14 },
+  flap: { elasticity: 1, friction: 0.35, stiffness: 420, damping: 14, maxAngle: 28, tipWidth: 14, drag: 0 },
   skin: new GraphicsPointerSkin({ shape: 'tongue' | 'triangle' | 'needle', length: 72, width: 36, color: 0xffffff }),
 })
 ```
@@ -32,9 +32,12 @@ The tongue tip is a point `tipWidth` wide at the peg ring. As a peg comes toward
 | `damping` | how quickly the ringing dies |
 | `maxAngle` | the hard limit |
 | `tipWidth` | how early a peg starts pushing |
+| `drag` | how hard the tongue holds the ring back, 0 off, 1 the wheel fights every peg |
 | pegs `size` / `inset` | bigger or deeper pegs push earlier and harder |
 
 `flap: false` keeps a pointer rigid. Read `pointer.deflection` and `pointer.engagedPeg` for your own reactions; the HUD prints both.
+
+`drag` is the one knob that touches the ring rather than the tongue: while a peg climbs the tip, the disc is drawn up to a contact width of arc behind itself, and springs forward at `dragRelease` when the peg wins. It is drawn only. `rotationDeg`, the ticks and the landing never see it, and it relaxes to zero at rest, so the wheel comes to rest exactly on its result. `ring.visualRotationDeg` and `ring.dragDeg` report it.
 
 ## Ticks
 
@@ -53,3 +56,5 @@ new TexturePointerSkin({ texture, artDirection: 'up', pin: { x: 0.5, y: 0.85 }, 
 ```
 
 The pin is the point the art pivots around; `artDirection` says which way the tip points in the source image. `SpinePointerSkin` (from `pixi-wheels/spine`) plays a `tick` animation on every crossing and an `idle` loop otherwise.
+
+The long version of this page, with the art requirements, the contact diagrams, the events and the sound, is the [tongue recipe](/recipes/tongue/).

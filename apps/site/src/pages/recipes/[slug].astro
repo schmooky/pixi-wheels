@@ -4,6 +4,7 @@ import Recipe from '../../layouts/Recipe.astro';
 import RecipeDemo from '../../components/RecipeDemo.astro';
 import RecipeImage from '../../components/RecipeImage.astro';
 import AssetCredit from '../../components/AssetCredit.astro';
+import AssetPack from '../../components/AssetPack.astro';
 
 export async function getStaticPaths() {
   const recipes = await getCollection('recipes');
@@ -15,5 +16,5 @@ const { Content } = await render(entry);
 const { title, description, steps, apis, tags } = entry.data;
 ---
 <Recipe title={title} description={description} steps={steps} apis={apis} tags={tags}>
-  <Content components={{ RecipeDemo, Image: RecipeImage, AssetCredit }} />
+  <Content components={{ RecipeDemo, Image: RecipeImage, AssetCredit, AssetPack }} />
 </Recipe>

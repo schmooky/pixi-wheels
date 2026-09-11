@@ -37,9 +37,11 @@ export class Pointer implements Disposable {
   private _pinRadius = 0;
   private _deflection = 0;
   private _deflectionVel = 0;
+  private _drag = 0;
   private _engaged: number | null = null;
   private _moveSign = 1;
   private _moved = false;
+  private _movingNow = false;
   private _isDestroyed = false;
 
   constructor(config: PointerConfig, skin: PointerSkin) {
@@ -74,6 +76,16 @@ export class Pointer implements Disposable {
   /** Current flap deflection, degrees. */
   get deflection(): number {
     return this._deflection;
+  }
+
+  /**
+   * The angular hold this tongue is asking of the ring right now, degrees,
+   * signed against the direction of travel. Zero unless `flap.drag` is set.
+   * The ring adds it to the disc's drawn rotation only: the logical rotation,
+   * the crossings and the landing never see it.
+   */
+  get dragDeg(): number {
+    return this._drag;
   }
 
   /** Index into the ring's peg angles of the peg carrying the tongue right now, or null. */
@@ -113,11 +125,13 @@ export class Pointer implements Disposable {
     geometry: RingGeometry,
     direction: SpinDirection,
     pegs: ResolvedPegs | null = null,
+    dragOffset = 0,
   ): PointerCrossing[] {
     const crossings: PointerCrossing[] = [];
     const delta = rotation - prevRotation;
     const speed = dt > 0 ? Math.abs(delta) / dt : 0;
-    if (Math.abs(delta) > 1e-9) {
+    this._movingNow = Math.abs(delta) > 1e-9;
+    if (this._movingNow) {
       this._moved = true;
       this._moveSign = delta > 0 ? 1 : -1;
       const a0 = this.localAngle(prevRotation);
@@ -142,8 +156,11 @@ export class Pointer implements Disposable {
     }
     if (this._flap) {
       // A wheel that has never turned rests its tongue straight, even with a peg right under it.
-      if (pegs && pegs.angles.length > 0 && this._moved) this._contact(rotation, dt, pegs, crossings.length);
-      else this._stepSpring(dt);
+      if (pegs && pegs.angles.length > 0 && this._moved) this._contact(rotation + dragOffset, dt, pegs, crossings.length);
+      else {
+        this._stepSpring(dt);
+        this._releaseDrag(dt);
+      }
       this.skin.setDeflection(this._deflection);
     }
     if (crossings.length > 0 && this.skin.tick) this.skin.tick(speed);
@@ -179,15 +196,32 @@ export class Pointer implements Disposable {
       this._deflectionVel = dt > 0 ? (target - this._deflection) / dt : 0;
       this._deflection = target;
       this._engaged = bestIndex;
+      // Climbing the peg, the tongue pushes back: the ring is held by up to
+      // `drag` of a contact width of arc. Past the crown the peg is winning,
+      // so the hold lets go and the ring catches up.
+      if (f.drag > 0 && u <= 0 && this._movingNow) {
+        this._drag = -this._moveSign * f.drag * ((u + c) / Math.max(1, pegs.radius)) * RAD_TO_DEG;
+      } else {
+        this._releaseDrag(dt);
+      }
       return;
     }
     this._engaged = null;
+    this._releaseDrag(dt);
     if (crossingCount > 0 && Math.abs(this._deflection) < Math.abs(crown) * 0.5) {
       // The peg went through within one frame: nothing was seen pushing, so flick to the crown.
       this._deflection = clamp(sign * crown, -f.maxAngle, f.maxAngle);
       this._deflectionVel = 0;
     }
     this._stepSpring(dt);
+  }
+
+  /** Let the held arc go, so the ring is drawn where it logically is again. */
+  private _releaseDrag(dt: number): void {
+    if (this._drag === 0) return;
+    const rate = this._flap?.dragRelease ?? DEFAULT_FLAP.dragRelease;
+    this._drag *= Math.max(0, 1 - rate * dt);
+    if (Math.abs(this._drag) < 1e-3) this._drag = 0;
   }
 
   private _stepSpring(dt: number): void {

@@ -26,6 +26,8 @@ export interface DebugRingSnapshot {
   rotationRaw: number;
   /** Signed angular speed of the last frame, deg/s. */
   speed: number;
+  /** Arc the tongues are holding back right now, degrees. 0 without `flap.drag`. */
+  drag: number;
   activeSpeed: string;
   step: number | null;
   pointers: Array<{ id: string; angle: number; facing: 'inward' | 'outward'; deflection: number; section: string; localAngle: number }>;
@@ -46,6 +48,7 @@ export interface DebugSnapshot {
 }
 
 const r1 = (n: number): number => Math.round(n * 10) / 10;
+const r2 = (n: number): number => Math.round(n * 100) / 100;
 
 export function debugRingSnapshot(ring: Ring): DebugRingSnapshot {
   const c = ring.controller;
@@ -57,6 +60,7 @@ export function debugRingSnapshot(ring: Ring): DebugRingSnapshot {
     rotation: r1(normalizeDeg(ring.rotationDeg)),
     rotationRaw: r1(ring.rotationDeg),
     speed: r1(ring.speed),
+    drag: r2(ring.dragDeg),
     activeSpeed: ring.activeSpeed,
     step: ring.step,
     pointers: ring.pointers.map((p) => ({

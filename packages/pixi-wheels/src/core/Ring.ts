@@ -78,6 +78,7 @@ export class Ring extends Container implements Disposable {
   private readonly _tickerRef: TickerRef;
   private _rotationDeg = 0;
   private _prevRotation = 0;
+  private _dragDeg = 0;
   private _transition: {
     from: Record<string, number>;
     to: Record<string, number>;
@@ -157,7 +158,7 @@ export class Ring extends Container implements Disposable {
       this._resolvePegs();
       this.skin.layout();
     }
-    this.skin.syncRotation?.(this._rotationDeg);
+    this.skin.syncRotation?.(this.visualRotationDeg);
 
     this._wireSkinHooks();
 
@@ -415,19 +416,31 @@ export class Ring extends Container implements Disposable {
     this._controller.update(deltaMS);
     this._updateTransition(Math.min(Math.max(deltaMS, 0), 100));
     const rotation = this._rotationDeg;
+    // Last frame's hold, so the tongue is tested against the pegs where they
+    // were drawn. It is a fraction of a degree; the crossings, the geometry
+    // and the landing all stay on the logical rotation.
+    const dragOffset = this._dragDeg;
+    let drag = 0;
     for (const p of this.pointers) {
-      const crossings = p.update(this._prevRotation, rotation, dt, this.geometry, this._direction, this._pegs);
+      const crossings = p.update(this._prevRotation, rotation, dt, this.geometry, this._direction, this._pegs, dragOffset);
+      drag += p.dragDeg;
       for (const c of crossings) {
         this.events.emit('pointer:tick', { ring: this.id, ...c });
       }
     }
+    this._dragDeg = drag;
     this._prevRotation = rotation;
-    this.skin.syncRotation?.(rotation);
+    this._applyRotation();
+    this.skin.syncRotation?.(this.visualRotationDeg);
   }
 
   private _setRotation(deg: number): void {
     this._rotationDeg = deg;
-    this.disc.rotation = deg * DEG_TO_RAD;
+    this._applyRotation();
+  }
+
+  private _applyRotation(): void {
+    this.disc.rotation = (this._rotationDeg + this._dragDeg) * DEG_TO_RAD;
   }
 
   private _wireSkinHooks(): void {
@@ -444,6 +457,21 @@ export class Ring extends Container implements Disposable {
     this.events.on('spin:start', onStart);
     this.events.on('spin:stopping', onStopping);
     this.events.on('spin:landing', onLanding);
+  }
+
+  /**
+   * Where the disc is actually drawn, degrees: {@link rotationDeg} plus the
+   * arc the tongues are holding back (`flap.drag`). Equal to `rotationDeg`
+   * for a weightless tongue and whenever the ring is at rest, so the wheel
+   * always comes to rest drawn exactly on its result.
+   */
+  get visualRotationDeg(): number {
+    return this._rotationDeg + this._dragDeg;
+  }
+
+  /** The arc the tongues are holding back right now, degrees. 0 without `flap.drag`. */
+  get dragDeg(): number {
+    return this._dragDeg;
   }
 
   /** Normalised rotation, 0..360. */

@@ -413,6 +413,16 @@ export interface FlapConfig {
   friction?: number;
   /** Width of the tongue tip where it meets the pegs, px. Default 14. */
   tipWidth?: number;
+  /**
+   * How hard the tongue holds the ring back while a peg climbs it, 0..1.
+   * Default 0 (the tongue is weightless). At 1 the ring is held for a whole
+   * contact width of arc and springs forward when the peg slips over the
+   * crown: a crawling wheel visibly catches on every peg. Purely visual -
+   * the hold always relaxes to zero, so the planned landing is unchanged.
+   */
+  drag?: number;
+  /** How fast the ring catches up after a drag hold, 1/s. Default 24. */
+  dragRelease?: number;
   /** Flip the deflection direction if your art is mirrored. Default false. */
   invert?: boolean;
 }

@@ -151,6 +151,8 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **Crown**: the moment a peg's centre is under the tongue's axis, where the push is largest.
 
+**Drag**: `flap.drag`, 0..1: how hard the tongue holds the ring back while a peg climbs it, released at `dragRelease` once the peg is over the crown. Drawn only - it moves `ring.visualRotationDeg`, never `rotationDeg`, and always relaxes to zero, so the landing is untouched. [The tongue](/recipes/tongue/)
+
 **Pin**: the point a pointer pivots around. A skin's local origin. For a texture, `pin: { x, y }` as fractions of the image.
 
 **Pointer**: the fixed mark a ring is read against. Also tongue, flapper, stopper, needle. A ring can have several; each is named. [Pointers](/guides/pointers/)
@@ -161,15 +163,23 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **Tip inset**: how far the pointer's tip reaches past the rim into the disc, px.
 
+**Visual rotation**: `ring.visualRotationDeg`: where the disc is actually drawn, the logical rotation plus whatever arc the tongues are holding back. Equal to `rotationDeg` at rest and with `drag` off.
+
 ## Skins and art
 
 **Asset resolver**: `{ texture(key) }`: what `fromConfig` uses to turn texture keys in a serialised skin config into loaded textures. [Configs](/guides/configs/)
 
 **Atlas**: a Spine texture atlas: one text file naming regions on one or more sheets. The Playson wheel ships as its atlas plus the skeletons rebuilt over it.
 
+**Bezel**: the fixed frame round the rim, bulbs and all. Lives on `ctx.overlay`, so it never turns. [The disc](/recipes/disc-art/)
+
 **Bone**: in `SpineRingSkin`, the skeleton bone the engine rotates (`bone: 'wheel'`). The rest of the skeleton stays fixed and keeps animating. [Skins](/guides/skins/)
 
 **Debug skin**: `DebugRingSkin`: numbered wedges with their angles written on them.
+
+**Decoration**: a per-section sprite in `TextureRingSkin`, placed from the section's `midAngle` at a fraction of the outer radius and kept there when weights move.
+
+**Face**: the painted disc as one texture: square, centred, transparent outside the circle, `faceRotation` degrees off from the ring's `startAngle`. [The disc](/recipes/disc-art/)
 
 **Graphics skin**: `GraphicsRingSkin`: the default painted look: wedges, dividers, rim, hub, fitted labels. [Skins](/guides/skins/)
 
@@ -177,7 +187,9 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **Highlight**: a skin's emphasis on one section, usually the winner. `highlight(id)` / `highlight(null)`.
 
-**Region**: one image inside an atlas, named by path (`wheel/mini/mini_sector`).
+**Plate**: the art of one wedge as its own sprite, authored upright with its outward edge at the top and anchored dead centre. [The disc](/recipes/disc-art/)
+
+**Region**: one image inside an atlas, named by path (`wheel/mini/mini_sector`). Regions may be trimmed (offsets to add back) or stored rotated 90 degrees counter-clockwise (PixiJS `rotate: 6`, width and height swapped).
 
 **Skin**: what a ring looks like. The ring owns motion; the skin owns pixels. Graphics, debug, texture, Spine, headless, or your own class implementing `RingSkin`. [Skins](/guides/skins/)
 

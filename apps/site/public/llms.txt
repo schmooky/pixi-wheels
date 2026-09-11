@@ -160,7 +160,7 @@ __PIXI_WHEELS_DEBUG.land('x50')  // setResult on the current spin
 
 `DebugRingSkin` is the plain look for wiring a wheel before the art exists. Every recipe on this site has a Debug button that toggles the overlay.
 
-The overlay's `pegs` layer draws the pegs the tongues touch, fills the one being ridden, and marks each tongue's contact zone on the rim; the HUD prints the first tongue's deflection. Tune `elasticity`, `friction`, `stiffness` and `damping` while watching it.
+The overlay's `pegs` layer draws the pegs the tongues touch, fills the one being ridden, and marks each tongue's contact zone on the rim; the HUD prints the first tongue's deflection, and the arc the tongues are holding back when `flap.drag` is on. Tune `elasticity`, `friction`, `stiffness`, `damping` and `drag` while watching it. The [tongue recipe](/recipes/tongue/) is the long version.
 
 ## Reading the overlay
 
@@ -423,7 +423,7 @@ URL: https://pixi-wheels.schmooky.dev/guides/pointers/
   angle: -90,             // screen degrees: -90 top, 0 right, 90 bottom
   facing: 'inward',       // sits on the rim, tip toward the hub; 'outward' sits at the hub
   tipInset: 18,           // how far the tip reaches into the sections
-  flap: { elasticity: 1, friction: 0.35, stiffness: 420, damping: 14, maxAngle: 28, tipWidth: 14 },
+  flap: { elasticity: 1, friction: 0.35, stiffness: 420, damping: 14, maxAngle: 28, tipWidth: 14, drag: 0 },
   skin: new GraphicsPointerSkin({ shape: 'tongue' | 'triangle' | 'needle', length: 72, width: 36, color: 0xffffff }),
 })
 ```
@@ -444,9 +444,12 @@ The tongue tip is a point `tipWidth` wide at the peg ring. As a peg comes toward
 | `damping` | how quickly the ringing dies |
 | `maxAngle` | the hard limit |
 | `tipWidth` | how early a peg starts pushing |
+| `drag` | how hard the tongue holds the ring back, 0 off, 1 the wheel fights every peg |
 | pegs `size` / `inset` | bigger or deeper pegs push earlier and harder |
 
 `flap: false` keeps a pointer rigid. Read `pointer.deflection` and `pointer.engagedPeg` for your own reactions; the HUD prints both.
+
+`drag` is the one knob that touches the ring rather than the tongue: while a peg climbs the tip, the disc is drawn up to a contact width of arc behind itself, and springs forward at `dragRelease` when the peg wins. It is drawn only. `rotationDeg`, the ticks and the landing never see it, and it relaxes to zero at rest, so the wheel comes to rest exactly on its result. `ring.visualRotationDeg` and `ring.dragDeg` report it.
 
 ## Ticks
 
@@ -465,6 +468,8 @@ new TexturePointerSkin({ texture, artDirection: 'up', pin: { x: 0.5, y: 0.85 }, 
 ```
 
 The pin is the point the art pivots around; `artDirection` says which way the tip points in the source image. `SpinePointerSkin` (from `pixi-wheels/spine`) plays a `tick` animation on every crossing and an `idle` loop otherwise.
+
+The long version of this page, with the art requirements, the contact diagrams, the events and the sound, is the [tongue recipe](/recipes/tongue/).
 
 ### Rings and subwheels
 URL: https://pixi-wheels.schmooky.dev/guides/rings/
@@ -665,6 +670,8 @@ registerRingSkin('mine', (config, assets) => new MySkin(config));
 ```
 
 The Playson wheel on the recipes page is exactly this: authored plates composed from an atlas, in ~150 lines.
+
+Every layer of art a disc is made of, with the size, pivot and orientation each one has to match, is in the [disc recipe](/recipes/disc-art/); the pointer has [its own](/recipes/tongue/).
 
 ### Spin lifecycle
 URL: https://pixi-wheels.schmooky.dev/guides/spin-lifecycle/
@@ -1193,6 +1200,8 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **Crown**: the moment a peg's centre is under the tongue's axis, where the push is largest.
 
+**Drag**: `flap.drag`, 0..1: how hard the tongue holds the ring back while a peg climbs it, released at `dragRelease` once the peg is over the crown. Drawn only - it moves `ring.visualRotationDeg`, never `rotationDeg`, and always relaxes to zero, so the landing is untouched. [The tongue](/recipes/tongue/)
+
 **Pin**: the point a pointer pivots around. A skin's local origin. For a texture, `pin: { x, y }` as fractions of the image.
 
 **Pointer**: the fixed mark a ring is read against. Also tongue, flapper, stopper, needle. A ring can have several; each is named. [Pointers](/guides/pointers/)
@@ -1203,15 +1212,23 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **Tip inset**: how far the pointer's tip reaches past the rim into the disc, px.
 
+**Visual rotation**: `ring.visualRotationDeg`: where the disc is actually drawn, the logical rotation plus whatever arc the tongues are holding back. Equal to `rotationDeg` at rest and with `drag` off.
+
 ## Skins and art
 
 **Asset resolver**: `{ texture(key) }`: what `fromConfig` uses to turn texture keys in a serialised skin config into loaded textures. [Configs](/guides/configs/)
 
 **Atlas**: a Spine texture atlas: one text file naming regions on one or more sheets. The Playson wheel ships as its atlas plus the skeletons rebuilt over it.
 
+**Bezel**: the fixed frame round the rim, bulbs and all. Lives on `ctx.overlay`, so it never turns. [The disc](/recipes/disc-art/)
+
 **Bone**: in `SpineRingSkin`, the skeleton bone the engine rotates (`bone: 'wheel'`). The rest of the skeleton stays fixed and keeps animating. [Skins](/guides/skins/)
 
 **Debug skin**: `DebugRingSkin`: numbered wedges with their angles written on them.
+
+**Decoration**: a per-section sprite in `TextureRingSkin`, placed from the section's `midAngle` at a fraction of the outer radius and kept there when weights move.
+
+**Face**: the painted disc as one texture: square, centred, transparent outside the circle, `faceRotation` degrees off from the ring's `startAngle`. [The disc](/recipes/disc-art/)
 
 **Graphics skin**: `GraphicsRingSkin`: the default painted look: wedges, dividers, rim, hub, fitted labels. [Skins](/guides/skins/)
 
@@ -1219,7 +1236,9 @@ Terms are grouped by what they describe. Within a group they are alphabetical. C
 
 **Highlight**: a skin's emphasis on one section, usually the winner. `highlight(id)` / `highlight(null)`.
 
-**Region**: one image inside an atlas, named by path (`wheel/mini/mini_sector`).
+**Plate**: the art of one wedge as its own sprite, authored upright with its outward edge at the top and anchored dead centre. [The disc](/recipes/disc-art/)
+
+**Region**: one image inside an atlas, named by path (`wheel/mini/mini_sector`). Regions may be trimmed (offsets to add back) or stored rotated 90 degrees counter-clockwise (PixiJS `rotate: 6`, width and height swapped).
 
 **Skin**: what a ring looks like. The ring owns motion; the skin owns pixels. Graphics, debug, texture, Spine, headless, or your own class implementing `RingSkin`. [Skins](/guides/skins/)
 
@@ -1467,6 +1486,308 @@ return {
     await spin;
   },
 };
+```
+
+### The disc, layer by layer
+URL: https://pixi-wheels.schmooky.dev/recipes/disc-art/
+
+Every layer of art a wheel face is made of - the painted face, per-section plates, the bezel, the hub, rich labels, atlases and Spine discs - with the size, pivot and orientation each one has to match.
+
+#### disc-anatomy
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app, PIXI
+
+// A disc, assembled one layer at a time, then spun. Every layer is a real
+// texture from the recipe's own art folder: the painted face, a plate per
+// section, the dividers and pegs, the labels, the fixed bezel and the hub.
+// The engine never looks at any of it - it knows twelve sections and where
+// they are, and hands the skin two containers: `disc`, which turns, and
+// `overlay`, which does not.
+const base = '/recipes/disc-art/';
+const [face, plate, hub, bezel] = await Promise.all(
+  ['face.png', 'plate.png', 'hub.png', 'bezel.png'].map((n) => PIXI.Assets.load(base + n)),
+);
+
+const VALUES = ['x2', 'x5', 'MINI', 'x3', 'x10', 'MINOR', 'x2', 'x50', 'MAJOR', 'x3', 'x5', 'GRAND'];
+const STEPS = [
+  'face            TextureRingSkin({ face })',
+  'plates          one sprite per section',
+  'dividers, pegs  the studs the tongue rides',
+  'labels          text over the art',
+  'bezel           fixed: ctx.overlay',
+  'hub             fixed: ctx.overlay',
+];
+
+class LayeredDisc {
+  constructor(art) {
+    this.art = art;
+    this.layers = [];
+    this._destroyed = false;
+  }
+
+  attach(ctx) {
+    this.ctx = ctx;
+    const R = ctx.outerRadius;
+    const layer = (parent) => {
+      const c = new PIXI.Container();
+      c.alpha = 0;
+      parent.addChild(c);
+      this.layers.push(c);
+      return c;
+    };
+    const sprite = (texture, width) => {
+      const s = new PIXI.Sprite(texture);
+      s.anchor.set(0.5);
+      s.scale.set(width / s.texture.width);
+      return s;
+    };
+    layer(ctx.disc).addChild(sprite(this.art.face, 2 * R));
+    this.plates = layer(ctx.disc);
+    this.lines = new PIXI.Graphics();
+    layer(ctx.disc).addChild(this.lines);
+    this.labels = layer(ctx.disc);
+    layer(ctx.overlay).addChild(sprite(this.art.bezel, 2 * R * 1.085));
+    layer(ctx.overlay).addChild(sprite(this.art.hub, R * 0.52));
+    this.layout();
+  }
+
+  // Called on attach and again whenever the weights move a boundary.
+  layout() {
+    const ctx = this.ctx;
+    const R = ctx.outerRadius;
+    this.plates.removeChildren();
+    this.labels.removeChildren();
+    this.lines.clear();
+    ctx.geometry.sections.forEach((s, i) => {
+      const mid = (s.midAngle * Math.PI) / 180;
+      const p = new PIXI.Sprite(this.art.plate);
+      p.anchor.set(0.5);
+      p.height = R * 0.62;
+      p.width = (p.height * this.art.plate.width) / this.art.plate.height;
+      p.position.set(Math.cos(mid) * R * 0.63, Math.sin(mid) * R * 0.63);
+      p.rotation = mid + Math.PI / 2;
+      this.plates.addChild(p);
+
+      const t = new PIXI.Text({
+        text: VALUES[i % VALUES.length],
+        style: { fill: 0xfff2cc, fontFamily: 'Arial', fontSize: 22, fontWeight: '700' },
+      });
+      t.anchor.set(0.5);
+      t.position.set(Math.cos(mid) * R * 0.66, Math.sin(mid) * R * 0.66);
+      t.rotation = mid + Math.PI / 2;
+      this.labels.addChild(t);
+
+      const a = (s.startAngle * Math.PI) / 180;
+      this.lines.moveTo(Math.cos(a) * R * 0.3, Math.sin(a) * R * 0.3).lineTo(Math.cos(a) * R, Math.sin(a) * R);
+    });
+    this.lines.stroke({ color: 0x2b1808, width: 3, alpha: 0.65 });
+    for (const a of ctx.pegs?.angles ?? []) {
+      const rad = (a * Math.PI) / 180;
+      this.lines.circle(Math.cos(rad) * ctx.pegs.radius, Math.sin(rad) * ctx.pegs.radius, ctx.pegs.size);
+    }
+    this.lines.fill({ color: 0xfff2cc }).stroke({ color: 0x6b4a06, width: 2 });
+  }
+
+  get isDestroyed() {
+    return this._destroyed;
+  }
+
+  destroy() {
+    this._destroyed = true;
+    for (const l of this.layers) l.destroy({ children: true });
+  }
+}
+
+const skin = new LayeredDisc({ face, plate, hub, bezel });
+const wheel = new WheelBuilder()
+  .radius(190)
+  .sections(VALUES.map((v, i) => ({ id: `s${i}`, label: v })))
+  .pegs({ size: 6, inset: 12 })
+  .pointer({ angle: -90, skin: { type: 'graphics', shape: 'tongue', color: 0xfff2cc, length: 66, width: 30 } })
+  .skin(skin)
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+const caption = new PIXI.Text({
+  text: '',
+  style: { fill: 0x9fb0c3, fontFamily: 'Menlo, Consolas, monospace', fontSize: 13 },
+});
+caption.anchor.set(0.5, 0);
+caption.position.set(0, 212);
+
+const stage = new PIXI.Container();
+stage.addChild(wheel, caption);
+
+// Reveal one layer every 900 ms, hold the finished disc, start over.
+let shown = 0;
+let ms = 0;
+const reveal = (t) => {
+  if (wheel.isSpinning) {
+    for (const l of skin.layers) l.alpha = 1;
+    caption.text = 'all six layers + the pointer on the overlay';
+    shown = skin.layers.length;
+    ms = 0;
+    return;
+  }
+  ms += t.deltaMS;
+  if (shown < skin.layers.length) {
+    skin.layers[shown].alpha = Math.min(1, skin.layers[shown].alpha + t.deltaMS / 260);
+    caption.text = `${shown + 1} / ${skin.layers.length}   ${STEPS[shown]}`;
+    if (ms > 900) {
+      skin.layers[shown].alpha = 1;
+      shown++;
+      ms = 0;
+    }
+  } else if (ms > 2600) {
+    for (const l of skin.layers) l.alpha = 0;
+    shown = 0;
+    ms = 0;
+  }
+};
+app.ticker.add(reveal);
+
+return {
+  wheel,
+  stage,
+  cleanup: () => app.ticker.remove(reveal),
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 200));
+    wheel.setResult({ index: Math.floor(Math.random() * VALUES.length) });
+    await spin;
+  },
+};
+```
+
+#### disc-textures
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, TextureRingSkin, app, PIXI
+
+// The same art without writing a skin. TextureRingSkin takes one painted
+// face, one fixed frame and a list of per-section decorations, and keeps the
+// decorations on their sections when the weights move. `faceRotation` lines
+// the painting up with section 0: this face is painted from three o'clock,
+// the wheel starts at twelve, so it turns by -90.
+const base = '/recipes/disc-art/';
+const [face, bezel, plate] = await Promise.all(
+  ['face.png', 'bezel.png', 'plate.png'].map((n) => PIXI.Assets.load(base + n)),
+);
+
+const VALUES = ['x2', 'x5', 'MINI', 'x3', 'x10', 'MINOR', 'x2', 'x50', 'MAJOR', 'x3', 'x5', 'GRAND'];
+const sections = VALUES.map((v, i) => ({ id: `s${i}`, label: v, style: { labelColor: 0xfff2cc } }));
+
+const wheel = new WheelBuilder()
+  .radius(190)
+  .startAngle(-90)
+  .sections(sections)
+  .skin(
+    new TextureRingSkin({
+      face,
+      faceRotation: -90,
+      frame: bezel,
+      frameScale: (190 * 2 * 1.085) / bezel.width,
+      labels: true,
+      decorations: sections.map((s) => ({ section: s.id, texture: plate, radius: 0.655, scale: 0.335 })),
+    }),
+  )
+  .pointer({ angle: -90, skin: { type: 'graphics', shape: 'tongue', color: 0xfff2cc, length: 66, width: 30 } })
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+// Weights move the boundaries; the plates and the labels follow, the painted
+// face does not. That is the trade: one texture is cheap and fixed, sprites
+// per section cost more and stay honest.
+let wide = false;
+return {
+  wheel,
+  onSpin: async () => {
+    wide = !wide;
+    await wheel.main.setWeights(wide ? { s8: 2.6, s2: 2.2 } : { s8: 1, s2: 1 });
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 200));
+    wheel.setResult({ index: Math.floor(Math.random() * VALUES.length) });
+    await spin;
+  },
+};
+```
+
+#### rich-labels
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, fitText, labelSlot, app, PIXI
+
+// Labels are not just strings. A section's `content` is any container: a
+// Text, a Sprite, a BitmapText, a Spine instance, a group of them. The label
+// layer places it at the label radius, rotates it like a text label, and fits
+// it into the room the section has, so a heavy jackpot wedge and a slim x2
+// wedge each get content sized for them. The factory receives the slot and a
+// bound `fit()`; `fitText` shrinks a font size instead of a transform when
+// crispness matters.
+const GOLD = 0xffd23f;
+
+// A pill background sized from the slot, with a text fitted inside it.
+const pill = (label, color) => (ctx) => {
+  const view = new PIXI.Container();
+  const w = ctx.slot.width * 0.92;
+  const h = ctx.slot.height * 0.7;
+  view.addChild(new PIXI.Graphics().roundRect(-w / 2, -h / 2, w, h, h / 2).fill({ color, alpha: 0.9 }));
+  const text = new PIXI.Text({ text: label, style: { fontFamily: 'Roboto Condensed, Arial Narrow, sans-serif', fontSize: 40, fontWeight: '800', fill: 0x14151a } });
+  text.anchor.set(0.5);
+  fitText(text, { width: w * 0.82, height: h * 0.8 });
+  view.addChild(text);
+  return view;
+};
+
+// An icon plus a value, stacked. `ctx.fit` does the final scale.
+const coin = (value) => (ctx) => {
+  const view = new PIXI.Container();
+  const icon = new PIXI.Graphics().circle(0, 0, 26).fill(GOLD).circle(0, 0, 18).stroke({ color: 0xb8860b, width: 4 });
+  icon.position.set(0, -34);
+  const text = new PIXI.Text({ text: `x${value}`, style: { fontFamily: 'Roboto Condensed, Arial Narrow, sans-serif', fontSize: 44, fontWeight: '900', fill: GOLD, stroke: { color: 0x3a2200, width: 5 } } });
+  text.anchor.set(0.5);
+  text.position.set(0, 26);
+  view.addChild(icon, text);
+  ctx.fit(view, { padding: 0.08 });
+  return view;
+};
+
+// A container that keeps animating after it is placed: the layer never touches its children.
+const star = () => (ctx) => {
+  const view = new PIXI.Container();
+  const g = new PIXI.Graphics().star(0, 0, 5, 40, 18).fill(0xffffff).stroke({ color: GOLD, width: 4 });
+  view.addChild(g);
+  app.ticker.add(() => { g.rotation += 0.02; });
+  ctx.fit(view);
+  return view;
+};
+
+const wheel = new WheelBuilder()
+  .radius(240, 40)
+  .sections([
+    { id: 'jackpot', weight: 2, content: pill('JACKPOT', GOLD), style: { fill: 0x7a1f1f, labelOrientation: 'tangential', labelRadius: 0.62 } },
+    { id: 'x2', value: 2, weight: 1, content: coin(2), style: { labelOrientation: 'radial' } },
+    { id: 'bonus', weight: 1.4, content: star(), style: { fill: 0x1f3d7a, labelOrientation: 'upright' } },
+    { id: 'x5', value: 5, weight: 0.7, content: coin(5), style: { labelOrientation: 'radial' } },
+    { id: 'free', weight: 1.6, content: pill('FREE SPINS', 0x8ee3a1), style: { fill: 0x1f6b3a, labelOrientation: 'tangential-in', labelRadius: 0.72 } },
+    { id: 'x10', value: 10, weight: 0.5, content: coin(10), style: { labelOrientation: 'radial' } },
+    { id: 'plain', label: 'TEXT', weight: 1 },
+  ])
+  .landing({ mode: 'random', margin: 0.15 })
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+// The slot is also available outside the label layer, for your own placement.
+console.log('jackpot slot', labelSlot(wheel.sections[0], 240, 40, { radius: 0.62, orientation: 'tangential' }));
+
+return { wheel };
 ```
 
 ### Server, events and debugging
@@ -2056,7 +2377,7 @@ return {
 ### Skins and assets
 URL: https://pixi-wheels.schmooky.dev/recipes/skins/
 
-Painted, textured and studio-art wheels, per-section styles, and pointers that flap.
+Per-section styles and three production wheels built from their studios' own art.
 
 #### labels-and-styles
 
@@ -2082,118 +2403,6 @@ const wheel = new WheelBuilder()
   .speed('normal', SpinPresets.TURBO)
   .ticker(app.ticker)
   .build();
-
-return { wheel };
-```
-
-#### rich-labels
-
-```ts
-// @ts-nocheck
-// Injected globals: WheelBuilder, SpinPresets, fitText, labelSlot, app, PIXI
-
-// Labels are not just strings. A section's `content` is any container: a
-// Text, a Sprite, a BitmapText, a Spine instance, a group of them. The label
-// layer places it at the label radius, rotates it like a text label, and fits
-// it into the room the section has, so a heavy jackpot wedge and a slim x2
-// wedge each get content sized for them. The factory receives the slot and a
-// bound `fit()`; `fitText` shrinks a font size instead of a transform when
-// crispness matters.
-const GOLD = 0xffd23f;
-
-// A pill background sized from the slot, with a text fitted inside it.
-const pill = (label, color) => (ctx) => {
-  const view = new PIXI.Container();
-  const w = ctx.slot.width * 0.92;
-  const h = ctx.slot.height * 0.7;
-  view.addChild(new PIXI.Graphics().roundRect(-w / 2, -h / 2, w, h, h / 2).fill({ color, alpha: 0.9 }));
-  const text = new PIXI.Text({ text: label, style: { fontFamily: 'Roboto Condensed, Arial Narrow, sans-serif', fontSize: 40, fontWeight: '800', fill: 0x14151a } });
-  text.anchor.set(0.5);
-  fitText(text, { width: w * 0.82, height: h * 0.8 });
-  view.addChild(text);
-  return view;
-};
-
-// An icon plus a value, stacked. `ctx.fit` does the final scale.
-const coin = (value) => (ctx) => {
-  const view = new PIXI.Container();
-  const icon = new PIXI.Graphics().circle(0, 0, 26).fill(GOLD).circle(0, 0, 18).stroke({ color: 0xb8860b, width: 4 });
-  icon.position.set(0, -34);
-  const text = new PIXI.Text({ text: `x${value}`, style: { fontFamily: 'Roboto Condensed, Arial Narrow, sans-serif', fontSize: 44, fontWeight: '900', fill: GOLD, stroke: { color: 0x3a2200, width: 5 } } });
-  text.anchor.set(0.5);
-  text.position.set(0, 26);
-  view.addChild(icon, text);
-  ctx.fit(view, { padding: 0.08 });
-  return view;
-};
-
-// A container that keeps animating after it is placed: the layer never touches its children.
-const star = () => (ctx) => {
-  const view = new PIXI.Container();
-  const g = new PIXI.Graphics().star(0, 0, 5, 40, 18).fill(0xffffff).stroke({ color: GOLD, width: 4 });
-  view.addChild(g);
-  app.ticker.add(() => { g.rotation += 0.02; });
-  ctx.fit(view);
-  return view;
-};
-
-const wheel = new WheelBuilder()
-  .radius(240, 40)
-  .sections([
-    { id: 'jackpot', weight: 2, content: pill('JACKPOT', GOLD), style: { fill: 0x7a1f1f, labelOrientation: 'tangential', labelRadius: 0.62 } },
-    { id: 'x2', value: 2, weight: 1, content: coin(2), style: { labelOrientation: 'radial' } },
-    { id: 'bonus', weight: 1.4, content: star(), style: { fill: 0x1f3d7a, labelOrientation: 'upright' } },
-    { id: 'x5', value: 5, weight: 0.7, content: coin(5), style: { labelOrientation: 'radial' } },
-    { id: 'free', weight: 1.6, content: pill('FREE SPINS', 0x8ee3a1), style: { fill: 0x1f6b3a, labelOrientation: 'tangential-in', labelRadius: 0.72 } },
-    { id: 'x10', value: 10, weight: 0.5, content: coin(10), style: { labelOrientation: 'radial' } },
-    { id: 'plain', label: 'TEXT', weight: 1 },
-  ])
-  .landing({ mode: 'random', margin: 0.15 })
-  .speed('normal', SpinPresets.NORMAL)
-  .ticker(app.ticker)
-  .build();
-
-// The slot is also available outside the label layer, for your own placement.
-console.log('jackpot slot', labelSlot(wheel.sections[0], 240, 40, { radius: 0.62, orientation: 'tangential' }));
-
-return { wheel };
-```
-
-#### pointer-flap
-
-```ts
-// @ts-nocheck
-// Injected globals: WheelBuilder, SpinPresets, app
-
-// The tongue is physical. It touches pegs on the rim, one per divider: a peg
-// coming through pushes it aside, carries it on its crown for a moment, and
-// lets go into a spring. Three tongues against the same pegs, three feels:
-// a stiff short one at the top, a floppy one with lots of drag at four
-// o'clock, a rigid triangle at eight. The skin draws the pegs; the Debug
-// button shows each tongue's contact zone and the peg it is riding. Every
-// peg under any of them fires pointer:tick with the speed, the hook for the
-// ratchet click; the console shows the first tongue's ticks.
-const wheel = new WheelBuilder()
-  .radius(230, 30)
-  .sections(Array.from({ length: 16 }, (_, i) => ({ id: `s${i}`, label: '' })))
-  .pegs({ size: 7, inset: 10 })
-  .pointer({ id: 'stiff', angle: -90, flap: { elasticity: 0.8, friction: 0.2, stiffness: 700, damping: 18 } })
-  .pointer({
-    id: 'floppy',
-    angle: 30,
-    skin: { type: 'graphics', shape: 'needle', color: 0xffd166, length: 90, width: 26 },
-    flap: { elasticity: 1.5, friction: 0.9, stiffness: 140, damping: 5, maxAngle: 40, tipWidth: 20 },
-  })
-  .pointer({ id: 'rigid', angle: 150, skin: { type: 'graphics', shape: 'triangle', color: 0x64d2ff, length: 60, width: 34 }, flap: false })
-  .skin({ type: 'graphics', dividers: { width: 3 }, pegs: true })
-  .speed('normal', SpinPresets.NORMAL)
-  .ticker(app.ticker)
-  .build();
-
-let ticks = 0;
-wheel.events.on('pointer:tick', ({ pointer, speed }) => {
-  if (pointer === 'stiff' && ++ticks % 8 === 0) console.log(`[tick] ${ticks} pegs, ${Math.round(speed)} deg/s`);
-});
 
 return { wheel };
 ```
@@ -2702,6 +2911,328 @@ return {
     wheel.setResult({ section: name });
     const r = await spin;
     console.log(`[speed] ${name}: ${r.duration} ms, ${r.turns} turns`);
+  },
+};
+```
+
+### How to make a tongue
+URL: https://pixi-wheels.schmooky.dev/recipes/tongue/
+
+The pointer end to end - where it sits, the pegs it rides, elasticity, friction, springiness and drag, its texture and Spine art, the pointer:tick event, and how to make a ratchet that sounds right.
+
+#### tongue-anatomy
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app, PIXI
+
+// The contact, slowed down. Eight sections, eight fat pegs and one long
+// tongue on a wheel that idles at 24 deg/s, so every stage is visible: the
+// peg touches the tip, pushes it aside as it climbs, carries it flat over
+// the crown, lets go, and the spring rings it back. The readout is the
+// pointer's own state - `deflection` and `engagedPeg` are public.
+const wheel = new WheelBuilder()
+  .radius(200, 40)
+  .sections(Array.from({ length: 8 }, (_, i) => ({ id: `s${i}`, label: `${i + 1}` })))
+  .pegs({ size: 11, inset: 16 })
+  .pointer({
+    angle: -90,
+    tipInset: 22,
+    skin: { type: 'graphics', shape: 'tongue', color: 0xfff2cc, length: 84, width: 34 },
+    flap: { elasticity: 1.1, friction: 0.45, stiffness: 260, damping: 9, maxAngle: 34, tipWidth: 18 },
+  })
+  .skin({ type: 'graphics', dividers: { width: 3 }, pegs: { color: 0xfff2cc, rimColor: 0x6b4a06 } })
+  .idle({ speed: 24, autoStart: true })
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+const tongue = wheel.main.pointers[0];
+const readout = new PIXI.Text({
+  text: '',
+  style: { fill: 0x9fb0c3, fontFamily: 'Menlo, Consolas, monospace', fontSize: 13, align: 'center' },
+});
+readout.anchor.set(0.5, 0);
+readout.position.set(0, 214);
+
+const stage = new PIXI.Container();
+stage.addChild(wheel, readout);
+
+const show = () => {
+  const on = tongue.engagedPeg;
+  readout.text = `deflection ${tongue.deflection.toFixed(1).padStart(5)} deg    ${on === null ? 'between pegs' : `riding peg ${on}`}`;
+};
+app.ticker.add(show);
+
+// One tick per divider, whatever the speed. This is the ratchet hook.
+let pegs = 0;
+wheel.events.on('pointer:tick', ({ speed }) => {
+  if (++pegs % 4 === 0) console.log(`[tongue] ${pegs} pegs, ${Math.round(speed)} deg/s`);
+});
+
+return {
+  wheel,
+  stage,
+  cleanup: () => app.ticker.remove(show),
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 200));
+    wheel.setResult({ index: Math.floor(Math.random() * 8) });
+    await spin;
+  },
+};
+```
+
+#### pointer-flap
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app
+
+// The tongue is physical. It touches pegs on the rim, one per divider: a peg
+// coming through pushes it aside, carries it on its crown for a moment, and
+// lets go into a spring. Three tongues against the same pegs, three feels:
+// a stiff short one at the top, a floppy one with lots of drag at four
+// o'clock, a rigid triangle at eight. The skin draws the pegs; the Debug
+// button shows each tongue's contact zone and the peg it is riding. Every
+// peg under any of them fires pointer:tick with the speed, the hook for the
+// ratchet click; the console shows the first tongue's ticks.
+const wheel = new WheelBuilder()
+  .radius(230, 30)
+  .sections(Array.from({ length: 16 }, (_, i) => ({ id: `s${i}`, label: '' })))
+  .pegs({ size: 7, inset: 10 })
+  .pointer({ id: 'stiff', angle: -90, flap: { elasticity: 0.8, friction: 0.2, stiffness: 700, damping: 18 } })
+  .pointer({
+    id: 'floppy',
+    angle: 30,
+    skin: { type: 'graphics', shape: 'needle', color: 0xffd166, length: 90, width: 26 },
+    flap: { elasticity: 1.5, friction: 0.9, stiffness: 140, damping: 5, maxAngle: 40, tipWidth: 20 },
+  })
+  .pointer({ id: 'rigid', angle: 150, skin: { type: 'graphics', shape: 'triangle', color: 0x64d2ff, length: 60, width: 34 }, flap: false })
+  .skin({ type: 'graphics', dividers: { width: 3 }, pegs: true })
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+let ticks = 0;
+wheel.events.on('pointer:tick', ({ pointer, speed }) => {
+  if (pointer === 'stiff' && ++ticks % 8 === 0) console.log(`[tick] ${ticks} pegs, ${Math.round(speed)} deg/s`);
+});
+
+return { wheel };
+```
+
+#### tongue-drag
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, app, PIXI
+
+// The same spin, the same result, twice - the left tongue is weightless, the
+// right one has `drag: 1`. While a peg climbs the tip, a dragging tongue
+// holds the ring back by up to one contact width of arc; over the crown the
+// peg wins and the ring snaps forward at `dragRelease`. Fast, that is a
+// shimmer. Slow, the wheel visibly fights its way to a stop.
+//
+// The hold is drawn, never planned: `rotationDeg`, the ticks and the landing
+// never see it, and it relaxes to zero at rest, so both wheels stop on the
+// same section on the same frame.
+const make = (drag, label) => {
+  const wheel = new WheelBuilder()
+    .radius(150, 26)
+    .sections(Array.from({ length: 10 }, (_, i) => ({ id: `s${i}`, label: `${i + 1}` })))
+    .pegs({ size: 8, inset: 12 })
+    .pointer({
+      angle: -90,
+      skin: { type: 'graphics', shape: 'tongue', color: 0xfff2cc, length: 64, width: 30 },
+      flap: { elasticity: 1.2, friction: 0.5, stiffness: 300, damping: 9, drag, dragRelease: 18 },
+    })
+    .skin({ type: 'graphics', dividers: { width: 2 }, pegs: true })
+    .speed('slow', { ...SpinPresets.CINEMATIC, stopDuration: 5200, minTurns: 1, maxTurns: 3 })
+    .ticker(app.ticker)
+    .build();
+  const caption = new PIXI.Text({
+    text: label,
+    style: { fill: 0x9fb0c3, fontFamily: 'Menlo, Consolas, monospace', fontSize: 13 },
+  });
+  caption.anchor.set(0.5, 0);
+  caption.position.set(0, 176);
+  const group = new PIXI.Container();
+  group.addChild(wheel, caption);
+  return { wheel, group, caption, label };
+};
+
+const loose = make(0, 'drag: 0');
+const heavy = make(1, 'drag: 1');
+loose.group.x = -175;
+heavy.group.x = 175;
+
+const stage = new PIXI.Container();
+stage.addChild(loose.group, heavy.group);
+
+const held = () => {
+  heavy.caption.text = `drag: 1   holding ${heavy.wheel.main.dragDeg.toFixed(2)} deg`;
+};
+app.ticker.add(held);
+
+return {
+  wheel: heavy.wheel,
+  stage,
+  cleanup: () => {
+    app.ticker.remove(held);
+    loose.wheel.destroy();
+  },
+  onSpin: async () => {
+    const index = Math.floor(Math.random() * 10);
+    const spins = [loose.wheel.spin(), heavy.wheel.spin()];
+    await new Promise((r) => setTimeout(r, 200));
+    loose.wheel.setResult({ index });
+    heavy.wheel.setResult({ index });
+    const [a, b] = await Promise.all(spins);
+    console.log(`[drag] both landed on ${a.section.id} / ${b.section.id}`);
+  },
+  onSkip: () => {
+    for (const w of [loose.wheel, heavy.wheel]) {
+      try {
+        w.skip();
+      } catch {
+        w.requestSkip();
+      }
+    }
+  },
+};
+```
+
+#### tongue-art
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, TexturePointerSkin, app, PIXI
+
+// Three tongues, three art pipelines, one set of pegs. Top: drawn with
+// Graphics, no asset at all. Right: a PNG through TexturePointerSkin, tip on
+// the top edge of the image and the pin at 85% down it. Bottom left: the
+// gem-tipped stopper from Pragmatic Play's Wheel of Happiness, the same art
+// the game uses, declared the same way. A Spine stopper is the fourth option
+// and the Playson recipe runs one.
+const [tongueArt, gameArt] = await Promise.all([
+  PIXI.Assets.load('/recipes/tongue/tongue.png'),
+  PIXI.Assets.load('/pragmatic-wheel/pointer.webp'),
+]);
+
+const wheel = new WheelBuilder()
+  .radius(190, 26)
+  .sections(Array.from({ length: 12 }, (_, i) => ({ id: `s${i}`, label: `${i + 1}` })))
+  .pegs({ size: 7, inset: 11 })
+  .pointer({
+    id: 'drawn',
+    angle: -90,
+    skin: { type: 'graphics', shape: 'tongue', color: 0xfff2cc, length: 70, width: 32 },
+  })
+  .pointer({
+    id: 'png',
+    angle: 30,
+    skin: new TexturePointerSkin({ texture: tongueArt, artDirection: 'up', pin: { x: 0.5, y: 0.85 }, scale: 0.34 }),
+    flap: { elasticity: 1.2, stiffness: 300, damping: 8 },
+  })
+  .pointer({
+    id: 'studio',
+    angle: 150,
+    skin: new TexturePointerSkin({ texture: gameArt, artDirection: 'up', pin: { x: 0.5, y: 0.86 }, scale: 0.45 }),
+    flap: { elasticity: 0.8, stiffness: 520, damping: 16 },
+  })
+  .skin({ type: 'graphics', dividers: { width: 2 }, pegs: true })
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+// Each pointer ticks on its own dividers, so a sound hook needs the id.
+wheel.events.on('pointer:tick', ({ pointer, speed }) => {
+  if (pointer === 'drawn' && speed > 300) return;
+  if (pointer === 'drawn') console.log(`[tick] ${pointer} at ${Math.round(speed)} deg/s`);
+});
+
+return {
+  wheel,
+  onSpin: async () => {
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 200));
+    wheel.setResult({ index: Math.floor(Math.random() * 12) });
+    await spin;
+  },
+};
+```
+
+#### tongue-sound
+
+```ts
+// @ts-nocheck
+// Injected globals: WheelBuilder, SpinPresets, createEngine, app
+
+// The ratchet. `pointer:tick` fires once per peg, in order, however fast the
+// ring turns - at 900 deg/s on a 24-peg wheel that is 60 clicks a second, far
+// more than any mix wants. So: rate-gate the voices, ride pitch and volume on
+// the speed, and swap the sample for the last few clicks before the stop, the
+// trick that makes a wheel sound like it is running out of energy.
+// Sounds are the Super Wheel's own (Playson, used with permission).
+const wheel = new WheelBuilder()
+  .radius(210, 30)
+  .sections(Array.from({ length: 24 }, (_, i) => ({ id: `s${i}`, label: `${i + 1}` })))
+  .pegs({ size: 6, inset: 10 })
+  .pointer({
+    angle: -90,
+    skin: { type: 'graphics', shape: 'tongue', color: 0xfff2cc, length: 66, width: 28 },
+    flap: { elasticity: 1.1, friction: 0.4, stiffness: 340, damping: 11, drag: 0.7 },
+  })
+  .skin({ type: 'graphics', dividers: { width: 2 }, pegs: true })
+  .speed('normal', SpinPresets.NORMAL)
+  .ticker(app.ticker)
+  .build();
+
+const engine = createEngine({ buses: { sfx: { level: 1 } }, master: { headroom: -3 } });
+const base = '/playson-wheel/audio/';
+await Promise.all([
+  engine.loadSound('click', base + 'click.mp3'),
+  engine.loadSound('clack', base + 'tick.mp3'),
+  engine.loadSound('landing', base + 'landing.mp3'),
+]);
+
+// A click every 45 ms at most: past that the ear hears a buzz, not a ratchet.
+const MIN_GAP_MS = 45;
+let lastAt = -1e9;
+let ticks = 0;
+
+wheel.events.on('spin:start', () => {
+  ticks = 0;
+});
+
+wheel.events.on('pointer:tick', ({ speed }) => {
+  ticks++;
+  const now = performance.now();
+  if (now - lastAt < MIN_GAP_MS) return;
+  lastAt = now;
+  // Under 120 deg/s the wheel is dying: heavier sample, lower, louder.
+  const slow = speed < 120;
+  engine.sound(slow ? 'clack' : 'click').play({
+    volume: slow ? 0.9 : Math.min(0.85, 0.2 + speed / 1100),
+    pitch: { base: slow ? 0.82 : 0.92 + Math.min(0.5, speed / 1500), jitter: 0.05 },
+  });
+});
+
+wheel.events.on('spin:landing', () => {
+  engine.sound('landing').play({ volume: 0.8 });
+  console.log(`[ratchet] ${ticks} pegs went under the tongue`);
+});
+wheel.events.on('destroyed', () => engine.close());
+
+return {
+  wheel,
+  onSpin: async () => {
+    await engine.unlock(); // the browser wants a gesture before any sound
+    const spin = wheel.spin();
+    await new Promise((r) => setTimeout(r, 250));
+    wheel.setResult({ index: Math.floor(Math.random() * 24) });
+    await spin;
   },
 };
 ```

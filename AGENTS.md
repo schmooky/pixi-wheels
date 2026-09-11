@@ -80,6 +80,7 @@ pixi-wheels/
 - **The stop is planned, not tweened.** `StopPlanner` is pure and produces legs; `SpinController` plays them off `deltaMS`. Nothing in the engine depends on wall-clock time or `requestAnimationFrame`, which is what lets `FakeTicker` reproduce a spin frame for frame.
 - **The landing angle is fixed at `setResult()`.** A tease chooses it next to the divider the result shares with the bait (`rest`), still inside the result; after that, dynamic-section changes, skips and anticipation never move it.
 - **A stop plan has no reverse leg and no stop before the rest.** The wheel comes to rest exactly once, on the result. A tease that halts on the bait and moves on, or overshoots and rolls back, reads as a glitch; the planner must not produce one.
+- **Peg drag is drawn, never planned.** `flap.drag` moves `Ring.disc.rotation` and `visualRotationDeg` only. `rotationDeg`, the crossings and the landing never see it, and it relaxes to zero whenever the ring is not moving, so the wheel always rests drawn exactly on its result.
 - **Angles are degrees, clockwise positive, wheel-local on the disc.** A clockwise spin sweeps *decreasing* local angles under a pointer. `RingGeometry.entryAngle()` encodes this; do not re-derive it.
 - **Anticipation never fakes geometry.** A bait that is not a neighbour of the landing is dropped with a warning; the wheel still lands.
 - **ASCII punctuation.** No smart quotes. `scripts/check-no-fancy-unicode.mjs` runs in CI and pre-commit.

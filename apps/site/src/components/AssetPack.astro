@@ -1,0 +1,84 @@
+---
+/**
+ * A grid of real, downloadable sample textures for a recipe body.
+ *
+ * ```mdx
+ * <AssetPack
+ *   items={[{ src: '/recipes/tongue/tongue.png', note: 'the default gold tongue' }]}
+ *   download="/recipes/pixi-wheels-textures.zip"
+ * />
+ * ```
+ *
+ * Each card shows the art on a checkerboard (so transparency is obvious),
+ * its filename, its real pixel size read from the PNG header, and a link
+ * that saves the file. Missing files are skipped rather than rendered as
+ * broken images, so a half-built pack still produces a sane page.
+ */
+import { pngSize, fileSizeKb, publicAssetExists } from '../lib/recipeMedia.ts';
+
+interface Item {
+  src: string;
+  note?: string;
+}
+interface Props {
+  items: Item[];
+  /** Optional zip of the whole set. */
+  download?: string;
+  /** Line above the grid. */
+  title?: string;
+}
+
+const { items, download, title } = Astro.props as Props;
+const cards = items
+  .filter((i) => publicAssetExists(i.src))
+  .map((i) => ({ ...i, name: i.src.split('/').pop()!, size: pngSize(i.src) }));
+const zipKb = download ? fileSizeKb(download) : null;
+---
+<div class="not-prose my-6">
+  {(title || download) && (
+    <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+      {title && <p class="text-sm font-medium text-foreground">{title}</p>}
+      {download && zipKb !== null && (
+        <a
+          href={download}
+          download
+          class="rounded-md border border-border px-3 py-1 font-mono text-xs text-muted-foreground transition hover:border-foreground/40 hover:text-foreground"
+        >
+          download all ({zipKb} KB zip)
+        </a>
+      )}
+    </div>
+  )}
+  <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+    {cards.map((c) => (
+      <li class="overflow-hidden rounded-xl border border-border bg-card">
+        <a href={c.src} download class="block">
+          <div class="asset-pack__plate flex aspect-square items-center justify-center p-3">
+            <img src={c.src} alt={c.note ?? c.name} loading="lazy" decoding="async" class="max-h-full max-w-full object-contain" />
+          </div>
+        </a>
+        <div class="border-t border-border px-3 py-2">
+          <a href={c.src} download class="font-mono text-[11px] text-foreground hover:underline">{c.name}</a>
+          <p class="mt-0.5 font-mono text-[10px] text-muted-foreground">
+            {c.size ? `${c.size.width} x ${c.size.height}` : 'png'}
+          </p>
+          {c.note && <p class="mt-1 text-[11px] leading-snug text-muted-foreground">{c.note}</p>}
+        </div>
+      </li>
+    ))}
+  </ul>
+</div>
+
+<style>
+  /* Checkerboard, so transparent edges read as transparent and not as white. */
+  .asset-pack__plate {
+    background-color: #1a1e27;
+    background-image:
+      linear-gradient(45deg, #2b3240 25%, transparent 25%),
+      linear-gradient(-45deg, #2b3240 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #2b3240 75%),
+      linear-gradient(-45deg, transparent 75%, #2b3240 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  }
+</style>

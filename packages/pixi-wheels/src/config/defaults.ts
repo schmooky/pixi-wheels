@@ -40,6 +40,8 @@ export const DEFAULT_FLAP: Required<FlapConfig> = {
   elasticity: 1,
   friction: 0.35,
   tipWidth: 14,
+  drag: 0,
+  dragRelease: 24,
   invert: false,
 };
 

@@ -1,0 +1,224 @@
+---
+title: "How to make a tongue"
+group: presentation
+description: "The pointer end to end - where it sits, the pegs it rides, elasticity, friction, springiness and drag, its texture and Spine art, the pointer:tick event, and how to make a ratchet that sounds right."
+oneLiner: The pointer end to end - where it sits, the pegs it rides, elasticity, friction, drag, its art, its events and its sounds.
+order: 46
+tags:
+  - pointer
+  - pegs
+  - physics
+  - audio
+  - spine
+  - assets
+---
+
+The tongue, the flapper, the stopper, the clapper, the ticker: the fixed thing the wheel is read against, and the only part of a bonus wheel that is allowed to be floppy. Get it right and a spin sounds and feels mechanical. Get it wrong and the wheel looks like a spinning picture.
+
+This recipe is all of it. The disc it rides on has [its own recipe](/recipes/disc-art/).
+
+## Anatomy
+
+<Image src="/recipes/tongue/anatomy.svg" alt="A tongue above a wheel rim with the pin, tip, tipInset, peg ring and contact width marked" caption="Every length is measured from the hub. The tongue pivots at the pin and never moves off it." />
+
+```ts
+.pegs({ size: 6, inset: 9 })            // the studs on the disc, one per divider
+.pointer({
+  id: 'top',                            // 'pointer' for the first one
+  angle: -90,                           // -90 twelve o'clock, 0 three, 90 six
+  facing: 'inward',                     // on the rim, tip toward the hub
+  tipInset: 18,                         // how far the tip reaches past the rim
+  skin: { type: 'graphics', shape: 'tongue', length: 72, width: 36 },
+  flap: { elasticity: 1, friction: 0.35, stiffness: 420, damping: 14, maxAngle: 28, tipWidth: 14 },
+})
+```
+
+Results are read against the first pointer. Add more for decoration or a second read position; each one ticks on its own.
+
+Eight sections, eight fat pegs, one long tongue, idling at 24 deg/s so every stage of the contact is visible:
+
+<RecipeDemo code="tongue-anatomy" height={420} />
+
+## The pegs
+
+Pegs are the wheel's half of the contact: small circles on the disc that the tip has to climb over. Every ring has them by default, one per divider, so a tick always lands on a line.
+
+```ts
+.pegs({ size: 6, inset: 9 })                 // the default
+.pegs({ size: 9, inset: 14, angles: [0, 45, 90, 135, 180, 225, 270, 315] })  // your own
+.pegs(false)                                 // none: a flapping pointer stays at rest
+```
+
+- Leave `angles` out and the pegs follow the dividers, so [dynamic sections](/recipes/sections-rings-idle/) carry their pegs with them as the boundaries move.
+- Give `angles` and they are wheel-local degrees, fixed. Twice as many pegs as sections is a common trick: twice the ratchet, same landings.
+- `size` and `inset` are the feel: a bigger, deeper peg starts pushing earlier and pushes further.
+- `GraphicsRingSkin` draws them with `pegs: true`; a skin of your own reads `ctx.pegs`. The debug overlay's `pegs` layer always draws them, plus the contact zone and the peg being ridden.
+
+## One peg, start to finish
+
+<Image src="/recipes/tongue/contact.svg" alt="The deflection curve as a peg crosses the tongue: nothing, a ramp up, a flat carry, then a spring release" caption="u is the peg's position along its own rim, in px, measured against the tongue's rest axis." />
+
+The tip is a point `tipWidth` wide sitting at the peg ring. A peg arrives, pushes the tip aside along its own rim exactly as far as the geometry demands times `elasticity`, and is carried flat once it is over the crown. `friction` decides how much further the peg drags the tongue after it is technically through. Then it lets go, and a spring takes over.
+
+| Knob | Feel | Try |
+|---|---|---|
+| `elasticity` | how far the tongue yields | `0.6` a stiff stub, `1` the geometry, `1.5` a floppy strip |
+| `friction` | extra carry once the peg is through | `0` snaps free, `1` drags a whole contact width more |
+| `stiffness` | how hard it snaps back | `140` rubber, `420` default, `700` steel |
+| `damping` | how quickly the ringing dies | `5` rings audibly, `14` default, `18` dead |
+| `maxAngle` | the hard limit | `28`; a tongue pinned there every peg reads as rigid |
+| `tipWidth` | how early a peg starts pushing | `14`; wider tips give longer, softer contacts |
+| `drag` | how hard it holds the ring back | `0` weightless, `1` the wheel fights every peg |
+
+`flap: false` keeps a pointer rigid: no contact, no spring, just a tick.
+
+## The release is a spring
+
+<Image src="/recipes/tongue/spring.svg" alt="Three deflection curves after release: a stiff one, the default, and a floppy one that rings" caption="Same push, three materials. Damping is what stops a floppy tongue looking like jelly." />
+
+At speed a peg crosses the whole contact zone inside a single frame. Nothing would be seen pushing, so the tongue is flicked straight to the crown deflection instead - which is why a fast wheel keeps it pinned and jittering while a crawling one bends it slowly over every peg and lets it fall all the way back.
+
+Three tongues against one set of pegs: a stiff short one at the top, a floppy one with heavy drag at four o'clock, a rigid triangle at eight.
+
+<RecipeDemo code="pointer-flap" height={420} />
+
+## Drag: the tongue slowing the ring
+
+A real flapper is in the way. The peg has to shove it aside, and while it is shoving, the wheel is not turning as freely as it wants to.
+
+<Image src="/recipes/tongue/drag.svg" alt="The arc held back over one peg: a ramp up to the crown, then a fast release" caption="Up the ramp the ring is drawn behind itself. Over the crown the hold goes at dragRelease and it catches up." />
+
+```ts
+.pointer({ flap: { drag: 1, dragRelease: 18 } })
+```
+
+`drag` is 0 by default. At 1 the tongue can hold the ring back by a whole contact width of arc - a couple of degrees on a normal wheel - and releases it when the peg wins. The two wheels below run the same spin to the same section at the same time; only the right one drags.
+
+<RecipeDemo code="tongue-drag" height={400} />
+
+Worth being exact about what this is, because it would be easy to oversell: **the hold is drawn, not planned.** `rotationDeg` never sees it, the ticks never see it, and the landing never sees it. It always relaxes to zero, so the wheel comes to rest drawn exactly on its result - the one thing a bonus wheel may never get wrong. Read `ring.visualRotationDeg` for where the disc actually is and `ring.dragDeg` for how much is being held; the debug HUD prints the second one while it is non-zero.
+
+If you want the wheel to genuinely take longer to stop, that is a [spin profile](/docs/api-profiles/) and a [stop plan](/recipes/stopping/), not the tongue.
+
+## The art
+
+<Image src="/recipes/tongue/art.svg" alt="A pointer sprite with the tip on the top edge, the pin marked at 85 percent down, and the length measured from pin to tip" caption="Two declarations do all the work: where the tip is in the image, and where the pin is." />
+
+<Image src="/recipes/tongue/tongue.png" alt="A gold tongue-shaped pointer with a dark pin cap at its base, tip pointing up" caption="public/recipes/tongue/tongue.png, 160 x 260, tip on the top edge. Loaded by the demo below." ratio="8/13" max={190} />
+
+<AssetPack
+  title="Four tongues, one set of rules - all 160 x 260, tip up, pin at 0.5 / 0.85"
+  download="/recipes/pixi-wheels-textures.zip"
+  items={[
+    { src: '/recipes/tongue/tongue.png', note: 'gold, the default' },
+    { src: '/recipes/tongue/tongue-rubber.png', note: 'soft: low stiffness, low damping' },
+    { src: '/recipes/tongue/tongue-needle.png', note: 'steel: stiff, damped, small maxAngle' },
+    { src: '/recipes/tongue/tongue-arrow.png', note: 'cartoon, heavy outline' },
+  ]}
+/>
+
+Because all four share the pin and the tip edge, swapping one for another is a one-line change and nothing else moves. MIT, no attribution; the zip has the disc art too.
+
+```ts
+new TexturePointerSkin({
+  texture,
+  artDirection: 'up',          // where the tip is in the source image
+  pin: { x: 0.5, y: 0.85 },    // fractions of the image: the pivot
+  scale: 0.42,
+  length: 96,                  // pin to tip after scaling; defaults to the edge distance
+})
+```
+
+| Requirement | Why |
+|---|---|
+| Tip on one edge, stated as `artDirection` | The engine rotates the art so the tip faces the hub |
+| Pin as fractions, not pixels | The art can be re-exported at any size and still pivot correctly |
+| A few transparent px at the tip | A trimming packer will otherwise clip the point off |
+| Authored 2x | It is the one sprite the player stares at while the wheel slows down |
+| Nothing important near the pin | It is hidden under the bezel on most layouts |
+
+The gem-tipped stopper from Wheel of Happiness is declared exactly the same way:
+
+<Image src="/pragmatic-wheel/pointer.webp" alt="A gold and green gem-tipped pointer from Wheel of Happiness" caption="pointer.webp, 228 x 88. The game reads from six o'clock, so it is mounted at angle 90." ratio="21/8" max={320} />
+
+<AssetCredit studio="Pragmatic Play" />
+
+Three tongues, three pipelines, one set of pegs - drawn with Graphics, a PNG, and the studio's own art:
+
+<RecipeDemo code="tongue-art" height={420} />
+
+## A Spine tongue
+
+```ts
+import { SpinePointerSkin } from 'pixi-wheels/spine';
+
+.pointer({
+  angle: 90,
+  skin: new SpinePointerSkin({
+    skeleton: 'stopperData', atlas: 'wheelAtlas',
+    length: 80,               // required: a skeleton has no obvious tip
+    artDirection: 'up',
+    idleAnimation: 'idle',
+    tickAnimation: 'tick',    // one shot per divider
+    flapRotates: true,        // false when the tick animation does the swinging
+  }),
+})
+```
+
+`length` is not optional here: the engine has no way to guess how far the tip is from the pin in a skeleton. `flapRotates: false` is the setting to reach for when the studio's `tick` animation already swings the whole stopper - otherwise the spring and the animation fight and the result reads as a stutter. The [Super Wheel recipe](/recipes/skins/#playson-the-super-wheel-as-a-spine-skeleton) runs one against an authored skeleton.
+
+## Events
+
+```ts
+wheel.events.on('pointer:tick', ({ ring, pointer, from, to, speed, direction }) => {
+  // one event per divider, in order, however fast the ring turns
+});
+```
+
+| Field | What it carries |
+|---|---|
+| `ring` | Ring id, so a two-ring wheel can tell its tongues apart |
+| `pointer` | Pointer id: every pointer ticks on its own |
+| `from`, `to` | The resolved sections either side of the divider that just passed |
+| `speed` | Ring speed at the crossing, deg/s, unsigned - the input to pitch and volume |
+| `direction` | Which way it was actually turning at that moment |
+
+A single frame that sweeps four dividers reports four crossings, in order, so a counter is always right even at 900 deg/s. Between events, `pointer.deflection` and `pointer.engagedPeg` are live.
+
+## The sound
+
+The ratchet is the whole soundtrack of a wheel slowing down, and it is the easiest thing to get wrong: a peg event per divider at speed is sixty voices a second.
+
+<RecipeDemo code="tongue-sound" height={420} />
+
+- **Rate-gate.** One click per 45 ms at most. Past that the ear hears a buzz, and every extra voice is a real cost.
+- **Ride the speed.** Pitch and volume from `speed`, plus a few percent of jitter, so no two clicks are the same sample twice.
+- **Swap low.** Under about 120 deg/s, a heavier, lower sample. That single swap is most of what makes a wheel sound like it is running out of energy.
+- **Let the wheel emit.** The audio layer listens; nothing in a sound hook should call a wheel method. A skip and a slam both arrive at `spin:landing` on their own.
+
+The [events and audio guide](/guides/events-and-audio/) has the full cue sheet, and the [sound hooks recipe](/recipes/integration/#sound-hooks) wires a whole game's set through `@schmooky/zvuk`.
+
+## Debugging it
+
+Press Debug on any demo here. The `pegs` layer draws every peg, the contact zone either side of the tip, and fills the peg currently being ridden; the HUD prints `flap <deg> on peg <n>` and, when `drag` is on, how much arc is being held. In the console:
+
+```ts
+wheel.main.pointers[0].deflection     // degrees, live
+wheel.main.pointers[0].engagedPeg     // index into ring.pegs.angles, or null
+wheel.main.pegs                       // { size, radius, angles }
+wheel.main.dragDeg                    // arc held back right now
+debugSnapshot(wheel)                  // all of it as plain JSON
+```
+
+## The checklist
+
+| Decision | Default | Reach for |
+|---|---|---|
+| Where it reads | `angle: -90` | `90` for a slot that reads from six o'clock |
+| How deep | `tipInset: 18` | Deeper on a wheel with a thick bezel |
+| Pegs | one per divider | Custom `angles` for a ratchet finer than the sections |
+| Feel | `elasticity 1, friction 0.35` | Softer and floppier for a big cartoon flapper |
+| Spring | `stiffness 420, damping 14` | `140 / 5` for rubber, `700 / 18` for steel |
+| Weight | `drag: 0` | `0.6 - 1` when the stop should look like work |
+| Art | Graphics | A PNG with `pin` and `artDirection`, or a skeleton with `tick` |
+| Sound | - | One gated click per peg, pitched by `speed` |

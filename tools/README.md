@@ -35,3 +35,16 @@ python3 tools/pragmatic-wheel/build_fx_atlas.py <out>/<skeleton>/spineJSON.json 
 ```
 
 The plates, hub, pointer and the gold bitmap font next to it are the game's sprites, cut the same way.
+
+## Recipe figures and the sample texture pack
+
+`doc-figures/build_figures.py` draws everything the [disc](https://pixi-wheels.schmooky.dev/recipes/disc-art/) and [tongue](https://pixi-wheels.schmooky.dev/recipes/tongue/) recipes show inline, straight into `apps/site/public/recipes/`:
+
+- **SVG blueprints** of the geometry a texture has to match: the layer stack, the face template, the plate template, atlas trim and rotation, the label slot, the tongue's anatomy, one peg's contact, the release spring and the drag hold. They carry their own dark panel, so they read the same in both site themes.
+- **PNG sample textures** drawn to those exact requirements - three faces, two bezels, six plate colours and states, two hubs, a peg, two bulbs, a glow and four tongues - plus `pixi-wheels-textures.zip` with a README naming every file. The recipes load these very bytes, so the picture in the prose is the art in the demo. Generated, MIT, no attribution.
+
+```bash
+python3 tools/doc-figures/build_figures.py    # needs Pillow
+```
+
+Edit the palette constants at the top to restyle the whole set at once.

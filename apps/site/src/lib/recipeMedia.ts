@@ -60,6 +60,35 @@ export function publicAssetExists(urlPath: string | undefined): boolean {
   }
 }
 
+/**
+ * Pixel size of a public PNG, read straight from its IHDR chunk. Build-time
+ * only, and deliberately PNG-only: it exists so an asset grid can print the
+ * real dimensions of the sample textures without pulling in an image library.
+ */
+export function pngSize(urlPath: string): { width: number; height: number } | null {
+  if (!publicAssetExists(urlPath) || !urlPath.toLowerCase().endsWith('.png')) return null;
+  try {
+    const fd = fs.openSync(path.join(publicDir(), urlPath.slice(1)), 'r');
+    const head = Buffer.alloc(24);
+    fs.readSync(fd, head, 0, 24, 0);
+    fs.closeSync(fd);
+    if (head.toString('ascii', 12, 16) !== 'IHDR') return null;
+    return { width: head.readUInt32BE(16), height: head.readUInt32BE(20) };
+  } catch {
+    return null;
+  }
+}
+
+/** Size of a public file in KB, rounded up. */
+export function fileSizeKb(urlPath: string): number | null {
+  if (!publicAssetExists(urlPath)) return null;
+  try {
+    return Math.max(1, Math.round(fs.statSync(path.join(publicDir(), urlPath.slice(1))).size / 1024));
+  } catch {
+    return null;
+  }
+}
+
 /** Resolve a public URL to a media asset, or null if the file is missing. */
 export function resolvePublicMedia(urlPath: string | undefined): RecipeMediaAsset | null {
   return publicAssetExists(urlPath) ? toAsset(urlPath as string) : null;
