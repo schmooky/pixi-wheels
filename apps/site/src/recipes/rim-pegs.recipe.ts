@@ -2,23 +2,23 @@
 // Injected globals: WheelBuilder, SpinPresets, app, PIXI
 
 // Pegs on the rim, the carnival arrangement: studs right at the edge and a
-// long flapper lying across them, tip well inside the ring. Nothing about
-// the contact changes - the blade still may not touch a peg - but the way
-// out is different. A peg deep under the tip cannot slip past sideways, so
-// the blade has to ride up and lift its tip clear over the peg entirely.
-// That is a big swing, and `maxAngle` has to allow it: this geometry asks
-// for about 48 degrees, past the default 45. Set the cap too low and
-// the engine says so, with the number it needs.
+// short flapper flicking over them. Nothing about the contact changes - the
+// blade still may not touch a peg - but the way out does. A peg under the
+// tip cannot slip past it sideways, so the blade rides up until its tip
+// lifts clear over the peg, and the shorter the arm the further it has to
+// swing to do it. Hence the look: a small flapper that flies. This one asks
+// for about 48 degrees, past the default cap of 45, and the engine says so
+// with the number it needs when the cap is too low.
 const wheel = new WheelBuilder()
   .radius(215, 34)
   .sections(Array.from({ length: 24 }, (_, i) => ({ id: `s${i}`, label: `${i + 1}` })))
-  // Centres 4 px inside a 215 px rim, so the studs sit on the edge.
-  .pegs({ size: 11, inset: 4 })
+  // Centres 5 px inside a 215 px rim, so the studs sit on the edge.
+  .pegs({ size: 9, inset: 5 })
   .pointer({
     angle: -90,
-    tipInset: 50, // the tip hangs well below the pegs, between them
-    skin: { type: 'graphics', shape: 'tongue', color: 0xfff2cc, length: 84, width: 30, pinRadius: 8 },
-    flap: { maxAngle: 70, stiffness: 240, damping: 9, friction: 0.3, tipWidth: 12 },
+    tipInset: 17, // the tip dips a few px past the studs, between them
+    skin: { type: 'graphics', shape: 'tongue', color: 0xfff2cc, length: 50, width: 22, pinRadius: 7 },
+    flap: { maxAngle: 62, stiffness: 240, damping: 9, friction: 0.25, tipWidth: 9 },
   })
   .skin({ type: 'graphics', dividers: { width: 2 }, pegs: { color: 0xfff2cc, rimColor: 0x6b4a06 }, bulbs: false })
   .speed('normal', { ...SpinPresets.NORMAL, stopDuration: 6000, maxTurns: 6 })

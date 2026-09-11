@@ -89,23 +89,25 @@ The lever the peg turns is `pinRadius - pegs.radius`, so a long tongue swings th
 
 ## Pegs on the rim
 
-The other arrangement: studs right at the edge of the wheel and a long flapper lying across them, the way a carnival wheel is built. The contact does not change - the blade still may not touch a peg - but the way out does. A peg sitting deep under the tip cannot slip past it sideways, so the blade has to ride up until its tip lifts clear over the peg entirely.
+The other arrangement: studs right at the edge of the wheel and a short flapper flicking over them, the way a carnival wheel is built. The contact does not change - the blade still may not touch a peg - but the way out does. A peg under the tip cannot slip past it sideways, so the blade rides up until its tip lifts clear over the peg.
+
+Keep the flapper small. The shorter the arm, the further it has to swing to lift the same few pixels, so a rim wheel wants a stubby flapper that flies rather than a long one that heaves: about a quarter of the radius reads right, and it is the arrangement's whole character.
 
 That is a big swing, and it is the right one: watch any real wheel and the flapper lifts a long way over every peg. The arrangement below asks for about 48 degrees, past the default cap of 45.
 
 ```ts
 .radius(215)
-.pegs({ size: 11, inset: 4 })       // centres 4 px inside the rim: on the edge
+.pegs({ size: 9, inset: 5 })        // centres 5 px inside the rim: on the edge
 .pointer({
-  tipInset: 50,                     // the tip hangs below the pegs, between them
-  skin: { type: 'graphics', shape: 'tongue', length: 84, width: 30 },
-  flap: { maxAngle: 70, stiffness: 240, damping: 9, friction: 0.3 },
+  tipInset: 17,                     // the tip dips a few px past the studs
+  skin: { type: 'graphics', shape: 'tongue', length: 50, width: 22 },
+  flap: { maxAngle: 62, stiffness: 240, damping: 9, friction: 0.25 },
 })
 ```
 
 <RecipeDemo code="rim-pegs" height={440} />
 
-`maxAngle` is the thing to get right. Leave it at the default 45 here and the blade cannot clear a peg at all, so it rides through them - the engine says so once and tells you the angle this geometry actually needs. The readout above shows the largest lift of the last spin; set the cap a little above it.
+`maxAngle` is the thing to get right. This geometry needs 48 degrees; leave the cap at the default 45 and the blade spends part of every peg pinned against its limit, riding through the last few pixels of it. The engine says so once and names the angle it needs. The readout above shows the largest lift of the last spin, so set the cap a little above that.
 
 Between the two arrangements:
 
@@ -113,6 +115,7 @@ Between the two arrangements:
 |---|---|---|
 | `pegs.inset` | small: 0 to a peg's width | the default, `tipInset + size - 2` |
 | Escape | the tip lifts clear over the peg | the peg's shoulder slips past a shallow bite |
+| Arm | short, about a quarter of the radius | whatever suits the art |
 | Swing | 40 to 60 degrees | 10 to 20 |
 | `maxAngle` | set it deliberately, well above the lift | the default has room |
 | Reads as | a carnival wheel, a big slow clack | a tight ratchet |
