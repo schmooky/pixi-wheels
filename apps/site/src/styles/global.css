@@ -163,6 +163,22 @@
   .prose-docs th { @apply text-foreground font-semibold; }
 
   ::selection { background: hsl(var(--foreground) / 0.15); color: hsl(var(--foreground)); }
+
+  /* Inlined recipe diagrams (Figure.astro). One accent, everything else the
+     page's own ink, so a figure reads as part of the prose and follows the
+     theme without a second palette to keep in sync. */
+  :root {
+    --fig-ink: hsl(var(--foreground) / 0.88);
+    --fig-muted: hsl(var(--muted-foreground));
+    --fig-line: hsl(var(--foreground) / 0.22);
+    --fig-wash: hsl(var(--foreground) / 0.05);
+    --fig-key: #a9740c;
+  }
+  .dark {
+    --fig-line: hsl(var(--foreground) / 0.26);
+    --fig-wash: hsl(var(--foreground) / 0.07);
+    --fig-key: #e3b552;
+  }
 }
 
 @layer components {

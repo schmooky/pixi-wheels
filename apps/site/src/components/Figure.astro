@@ -1,0 +1,53 @@
+---
+/**
+ * A diagram, inlined into the page rather than loaded as an image.
+ *
+ * ```mdx
+ * <Figure src="/recipes/tongue/contact.svg" caption="One peg, start to finish." />
+ * ```
+ *
+ * Inlining is the point: the SVG then paints itself from the page's own
+ * theme tokens (`--fig-ink`, `--fig-key`, ...), inherits the page's type,
+ * and renders at its authored size instead of being squeezed into a card.
+ * The figures are authored 800 units wide, which is the docs column, so
+ * they land at 1:1 on a desktop and scale down with everything else.
+ *
+ * Built by `tools/doc-figures/build_figures.py`. A missing file renders
+ * nothing rather than a broken image.
+ */
+import { readPublicText } from '../lib/recipeMedia.ts';
+
+interface Props {
+  src: string;
+  caption?: string;
+  /** Cap the drawing's width, px. Default: the full column. */
+  max?: number;
+}
+const { src, caption, max } = Astro.props as Props;
+
+const svg = readPublicText(src) ?? '';
+---
+{svg && (
+  <figure class="figure not-prose" style={max ? `max-width:${max}px;margin-inline:auto;` : undefined}>
+    <div class="figure__art" set:html={svg} />
+    {caption && <figcaption class="figure__caption">{caption}</figcaption>}
+  </figure>
+)}
+
+<style>
+  /* No frame, no plate: the drawing sits in the column like a paragraph. */
+  .figure {
+    margin: 2.25rem 0;
+  }
+  .figure__art :global(svg) {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .figure__caption {
+    margin-top: 0.9rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: hsl(var(--muted-foreground));
+  }
+</style>

@@ -40,7 +40,7 @@ The tongues that go with them are on [the tongue recipe](/recipes/tongue/), and 
 
 ## What a disc is made of
 
-<Image src="/recipes/disc-art/layers.svg" alt="Seven stacked layers: face, plates, dividers and pegs, labels, bezel, hub, pointer" caption="Draw order from the bottom. The first four turn with the disc; the rest sit on the fixed overlay." />
+<Figure src="/recipes/disc-art/layers.svg" caption="Draw order from the bottom. The first four turn with the disc; the rest sit on the fixed overlay." />
 
 A skin is handed two containers and the geometry:
 
@@ -81,7 +81,7 @@ Everything below replaces some part of that with art.
 
 The cheapest real art: the whole disc as a single texture that rotates with the ring.
 
-<Image src="/recipes/disc-art/face-template.svg" alt="A square canvas with the disc inscribed, the centre marked, zero degrees at three o'clock and the section 0 edge in gold" caption="The six things a face texture has to get right." />
+<Figure src="/recipes/disc-art/face-template.svg" caption="Angles start at three o'clock and grow clockwise, so section 0 begins on the marked edge." />
 
 <Image src="/recipes/disc-art/face.png" alt="A twelve-section painted wheel face, crimson and navy wedges with gold dividers, on a transparent square" caption="public/recipes/disc-art/face.png, 1024 x 1024. The demo below loads this exact file." ratio="1/1" max={380} />
 
@@ -120,7 +120,9 @@ The trade is honest: one texture is one draw call and never lies about where a w
 
 When wedges move, or every wedge needs its own frame and glow, ship one plate and let the geometry place twelve.
 
-<Image src="/recipes/disc-art/plate-template.svg" alt="A plate sprite in its own box with the anchor at the centre and the outward direction marked, and the same plate fanned around a wheel" caption="Author the plate upright with its outward edge at the top; the engine rotates it into place." />
+<Figure src="/recipes/disc-art/plate-sprite.svg" caption="Author the plate upright, outward edge at the top, anchored dead centre." max={620} />
+
+<Figure src="/recipes/disc-art/plate-placed.svg" caption="The engine fans it out: one sprite per section, turned to face the rim." />
 
 <Image src="/recipes/disc-art/plate.png" alt="A single crimson trapezoid plate with a gold frame, narrower at the bottom" caption="public/recipes/disc-art/plate.png, 256 x 320. One file, twelve sprites." ratio="4/5" max={240} />
 
@@ -189,7 +191,7 @@ The bulbs are worth a word: alternating them at rest and chasing them during the
 
 A section's `content` is any container, so a label can be a texture, a bitmap-font number, an icon over a value, or a group that keeps animating after the wheel stops.
 
-<Image src="/recipes/disc-art/label-slot.svg" alt="A wedge with the chord at the label radius marked and the slot box a label is fitted into" caption="labelSlot gives you the box; fitContainer scales anything into it." />
+<Figure src="/recipes/disc-art/label-slot.svg" caption="labelSlot gives you the box; fitContainer scales anything into it." />
 
 ```ts
 sections: [{
@@ -205,6 +207,20 @@ sections: [{
 }]
 ```
 
+| `labelFit` | What it does |
+|---|---|
+| `fit` | Scale down only, keep the aspect. The safe default |
+| `fill` | Scale up too, so a short label grows into its room |
+| `width` | Only the chord matters; let it be as tall as it likes |
+| `none` | Place it, do not touch the scale |
+
+| `labelOrientation` | Reads |
+|---|---|
+| `radial` | Out from the hub. The classic wheel label |
+| `tangential` | Along the arc, top facing out |
+| `tangential-in` | Along the arc, top toward the hub: how a wheel read from six o'clock wants it |
+| `upright` | Never rotates. For icons, faces, anything with a right way up |
+
 `scaleToFit`, `fitContainer`, `fitText`, `labelSlot` and `chordAt` are exported for your own layout code; the label layer uses the same five. Bitmap fonts are the usual answer for values that change every spin - Wheel of Happiness draws its `+` and its digits from one 512 x 512 page:
 
 <Image src="/pragmatic-wheel/fonts/impact.png" alt="A bitmap font page: gold Impact glyphs on transparency" caption="impact.png with impact.fnt beside it. One texture, any number, no layout cost." ratio="1/1" max={360} />
@@ -215,7 +231,7 @@ sections: [{
 
 Wheel art is a handful of big sprites, so it almost always arrives packed.
 
-<Image src="/recipes/disc-art/atlas.svg" alt="Three atlas cases side by side: packed as drawn, trimmed, and rotated ninety degrees" caption="All three are normal. All three break the pivot if you read the rectangle and stop there." />
+<Figure src="/recipes/disc-art/atlas.svg" caption="All three are normal. All three break the pivot if you read the rectangle and stop there." />
 
 - **Trimmed.** The packer cut the transparent border off. The frame rectangle and the trim offsets have to go back on, or every plate drifts toward the hub by however much was cut.
 - **Rotated.** Regions are stored 90 degrees counter-clockwise; PixiJS calls that `rotate: 6`, and width and height swap. A wheel built from rotated regions with the rotation ignored looks like a fan of tipped-over plates.

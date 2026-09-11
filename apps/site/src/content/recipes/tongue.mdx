@@ -19,7 +19,7 @@ This recipe is all of it. The disc it rides on has [its own recipe](/recipes/dis
 
 ## Anatomy
 
-<Image src="/recipes/tongue/anatomy.svg" alt="A tongue above a wheel rim with the pin, tip, tipInset, peg ring and contact width marked" caption="Every length is measured from the hub. The tongue pivots at the pin and never moves off it." />
+<Figure src="/recipes/tongue/anatomy.svg" caption="Every length is measured from the hub. The tongue pivots at its pin and never moves off it." />
 
 ```ts
 .pegs({ size: 6, inset: 9 })            // the studs on the disc, one per divider
@@ -56,9 +56,9 @@ Pegs are the wheel's half of the contact: small circles on the disc that the tip
 
 ## One peg, start to finish
 
-<Image src="/recipes/tongue/contact.svg" alt="The deflection curve as a peg crosses the tongue: nothing, a ramp up, a flat carry, then a spring release" caption="u is the peg's position along its own rim, in px, measured against the tongue's rest axis." />
+<Figure src="/recipes/tongue/contact.svg" caption="u is the peg's position along its own rim, in px, measured against the tongue's rest axis." />
 
-The tip is a point `tipWidth` wide sitting at the peg ring. A peg arrives, pushes the tip aside along its own rim exactly as far as the geometry demands times `elasticity`, and is carried flat once it is over the crown. `friction` decides how much further the peg drags the tongue after it is technically through. Then it lets go, and a spring takes over.
+The tip is a point `tipWidth` wide sitting at the peg ring. A peg arrives, pushes the tip aside along its own rim exactly as far as the geometry demands times `elasticity`, and is carried flat once it is over the crown. Two numbers set the scale of all of it: the contact half-width `c` is `pegs.size + tipWidth / 2`, and `D` is the gap between the pin and the peg ring, so a long tongue bends through a smaller angle for the same shove. `friction` decides how much further the peg drags the tongue after it is technically through. Then it lets go, and a spring takes over.
 
 | Knob | Feel | Try |
 |---|---|---|
@@ -74,7 +74,9 @@ The tip is a point `tipWidth` wide sitting at the peg ring. A peg arrives, pushe
 
 ## The release is a spring
 
-<Image src="/recipes/tongue/spring.svg" alt="Three deflection curves after release: a stiff one, the default, and a floppy one that rings" caption="Same push, three materials. Damping is what stops a floppy tongue looking like jelly." />
+<Figure src="/recipes/tongue/spring.svg" caption="Same push, three materials. Damping is what stops a floppy tongue looking like jelly." />
+
+`maxAngle` clamps whatever comes out of that. A tongue that hits its limit on every peg reads as rigid rather than as fast, so raise it before you raise `elasticity`.
 
 At speed a peg crosses the whole contact zone inside a single frame. Nothing would be seen pushing, so the tongue is flicked straight to the crown deflection instead - which is why a fast wheel keeps it pinned and jittering while a crawling one bends it slowly over every peg and lets it fall all the way back.
 
@@ -86,7 +88,7 @@ Three tongues against one set of pegs: a stiff short one at the top, a floppy on
 
 A real flapper is in the way. The peg has to shove it aside, and while it is shoving, the wheel is not turning as freely as it wants to.
 
-<Image src="/recipes/tongue/drag.svg" alt="The arc held back over one peg: a ramp up to the crown, then a fast release" caption="Up the ramp the ring is drawn behind itself. Over the crown the hold goes at dragRelease and it catches up." />
+<Figure src="/recipes/tongue/drag.svg" caption="Up the ramp the ring is drawn behind itself. Over the crown the hold lets go and it catches up." />
 
 ```ts
 .pointer({ flap: { drag: 1, dragRelease: 18 } })
@@ -102,7 +104,7 @@ If you want the wheel to genuinely take longer to stop, that is a [spin profile]
 
 ## The art
 
-<Image src="/recipes/tongue/art.svg" alt="A pointer sprite with the tip on the top edge, the pin marked at 85 percent down, and the length measured from pin to tip" caption="Two declarations do all the work: where the tip is in the image, and where the pin is." />
+<Figure src="/recipes/tongue/art.svg" caption="Two declarations do all the work: where the tip is in the image, and where the pin is." max={640} />
 
 <Image src="/recipes/tongue/tongue.png" alt="A gold tongue-shaped pointer with a dark pin cap at its base, tip pointing up" caption="public/recipes/tongue/tongue.png, 160 x 260, tip on the top edge. Loaded by the demo below." ratio="8/13" max={190} />
 

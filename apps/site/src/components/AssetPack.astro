@@ -70,15 +70,21 @@ const zipKb = download ? fileSizeKb(download) : null;
 </div>
 
 <style>
-  /* Checkerboard, so transparent edges read as transparent and not as white. */
+  /* Checkerboard, so transparent edges read as transparent and not as white.
+     Mid-tone in both themes: the art is gold and crimson, and either extreme
+     would swallow half of it. */
   .asset-pack__plate {
-    background-color: #1a1e27;
+    background-color: var(--asset-plate, #e6e8ec);
     background-image:
-      linear-gradient(45deg, #2b3240 25%, transparent 25%),
-      linear-gradient(-45deg, #2b3240 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, #2b3240 75%),
-      linear-gradient(-45deg, transparent 75%, #2b3240 75%);
+      linear-gradient(45deg, var(--asset-check, #d2d6dd) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--asset-check, #d2d6dd) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--asset-check, #d2d6dd) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--asset-check, #d2d6dd) 75%);
     background-size: 16px 16px;
     background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  }
+  :global(.dark) .asset-pack__plate {
+    --asset-plate: #1a1e27;
+    --asset-check: #2b3240;
   }
 </style>

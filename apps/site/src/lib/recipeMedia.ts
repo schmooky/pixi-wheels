@@ -60,6 +60,16 @@ export function publicAssetExists(urlPath: string | undefined): boolean {
   }
 }
 
+/** Read a public text file (an SVG figure, say) at build time, or null. */
+export function readPublicText(urlPath: string): string | null {
+  if (!publicAssetExists(urlPath)) return null;
+  try {
+    return fs.readFileSync(path.join(publicDir(), urlPath.slice(1)), 'utf8');
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Pixel size of a public PNG, read straight from its IHDR chunk. Build-time
  * only, and deliberately PNG-only: it exists so an asset grid can print the
