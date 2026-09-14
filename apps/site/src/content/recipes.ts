@@ -14,7 +14,7 @@ export const RECIPE_GROUPS: Array<{ id: RecipeGroup; label: string; description:
   { id: 'starters', label: 'Start here', description: 'A wheel in ten lines, the gamble wheel, and a template round-tripped through JSON.' },
   { id: 'landing', label: 'Stopping', description: 'Where the pointer ends up: exact angles, centring, bounce, skip.' },
   { id: 'tension', label: 'Anticipation', description: 'Near-misses that bait the player: creep, stutter, stall, protected skips.' },
-  { id: 'shapes', label: 'Sections, rings and states', description: 'Dynamic sectors that move, rings that spin each other, idle wheels beside the reels.' },
+  { id: 'shapes', label: 'Sections, rings and states', description: 'Dynamic sectors that move, rings that spin each other, a wheel idling under the reels.' },
   { id: 'presentation', label: 'Skins and assets', description: 'Every layer of disc art, the tongue end to end, and three production wheels with their studios\' own assets.' },
   { id: 'integration', label: 'Server, events and debugging', description: 'Adapters for real responses, sound hooks, the debug view.' },
 ];

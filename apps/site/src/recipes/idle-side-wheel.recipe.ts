@@ -1,11 +1,14 @@
 // @ts-nocheck
 // Injected globals: WheelBuilder, SpinPresets, app, PIXI
 
-// A small wheel parked beside a reel panel, idling so the player knows it is
-// there. When the feature fires (the spin button here), it scales up over
-// the panel, spins from its idle speed, lands, and shrinks back to its seat.
+// A bonus wheel parked behind the reel panel with about a third of it peeking
+// out on the right, idling so the player knows it is there. When the feature
+// fires (the spin button here) it slides out until half of it shows, spins
+// from its idle speed, lands on the tongue at three o'clock, and slides back
+// under the reels. Idle resumes on its own.
+const R = 150;
 const wheel = new WheelBuilder()
-  .radius(120, 18)
+  .radius(R, 22)
   .sections([
     { id: 'x2', label: 'x2', value: 2, weight: 3 },
     { id: 'x3', label: 'x3', value: 3, weight: 2 },
@@ -14,32 +17,39 @@ const wheel = new WheelBuilder()
     { id: 'x2b', label: 'x2', value: 2, weight: 3 },
     { id: 'x3b', label: 'x3', value: 3, weight: 2 },
   ])
-  .skin({ type: 'graphics', rim: { width: 5 }, hub: { radius: 18 } })
+  // Three o'clock: the one edge of the wheel that is never under the panel.
+  .pointer({ angle: 0, skin: { type: 'graphics', shape: 'tongue', length: 52, width: 26 } })
+  .skin({ type: 'graphics', rim: { width: 6 }, hub: { radius: 22 }, bulbs: { count: 24 } })
   .idle({ speed: 14, autoStart: true, rampMs: 800 })
   .speed('normal', SpinPresets.NORMAL)
   .ticker(app.ticker)
   .build();
 
-// A stand-in reel panel so the layout reads.
-const stage = new PIXI.Container();
-const panel = new PIXI.Graphics().roundRect(0, 0, 520, 320, 16).fill({ color: 0x14161c }).stroke({ color: 0x3a3f4b, width: 3 });
+// A stand-in reel panel. The wheel goes under it, so it is added first.
+const PANEL = { w: 520, h: 320 };
+const panel = new PIXI.Graphics().roundRect(0, 0, PANEL.w, PANEL.h, 16).fill({ color: 0x14161c }).stroke({ color: 0x3a3f4b, width: 3 });
 for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) {
   panel.roundRect(24 + r * 96, 24 + c * 92, 80, 76, 10).fill({ color: 0x232733 });
 }
-stage.addChild(panel, wheel);
-const SEAT = { x: 520 + 150, y: 160, scale: 1 };
-const STAGE_POS = { x: 260, y: 160, scale: 1.25 };
-wheel.position.set(SEAT.x, SEAT.y);
+// An invisible rectangle the size of both positions plus a margin on the
+// right, so the runner fits the stage once, the wheel never slides past the
+// canvas edge, and the tongue stays clear of the frame's spin button.
+const room = new PIXI.Graphics().rect(0, 0, PANEL.w + R + 110, PANEL.h).fill({ color: 0x000000, alpha: 0 });
+const stage = new PIXI.Container();
+stage.addChild(room, wheel, panel);
 
-function tween(target, to, ms) {
+const SEAT = PANEL.w - R + 0.6 * R; // 30% of the wheel shows past the panel's edge
+const OUT = PANEL.w;                // the centre on the edge: half the wheel shows
+wheel.position.set(SEAT, PANEL.h / 2);
+
+function slide(target, x, ms) {
   return new Promise((resolve) => {
-    const from = { x: target.x, y: target.y, s: target.scale.x };
+    const from = target.x;
     let t = 0;
     const step = (ticker) => {
       t = Math.min(1, t + ticker.deltaMS / ms);
       const k = 1 - Math.pow(1 - t, 3);
-      target.position.set(from.x + (to.x - from.x) * k, from.y + (to.y - from.y) * k);
-      target.scale.set(from.s + (to.scale - from.s) * k);
+      target.x = from + (x - from) * k;
       if (t >= 1) { app.ticker.remove(step); resolve(); }
     };
     app.ticker.add(step);
@@ -50,7 +60,7 @@ return {
   wheel,
   stage,
   onSpin: async () => {
-    await tween(wheel, STAGE_POS, 600);
+    await slide(wheel, OUT, 500);
     const spin = wheel.spin();                 // ramps from the idle speed
     await new Promise((r) => setTimeout(r, 400));
     // Bait with the section next to the target: a tease needs a neighbour, and never the target itself.
@@ -59,6 +69,6 @@ return {
     wheel.setResult({ section: ids[i] }, { anticipation: { bait: ids[(i + 1) % ids.length] } });
     await spin;
     await new Promise((r) => setTimeout(r, 900)); // present the win
-    await tween(wheel, SEAT, 600);             // idle resumes on its own
+    await slide(wheel, SEAT, 500);             // idle resumes on its own
   },
 };
