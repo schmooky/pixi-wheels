@@ -84,7 +84,7 @@ function deriveDescription(content) {
  *
  * `apps/site/src/pages/api/modules/spine.md`         → `/api/modules/spine/`
  * `apps/site/src/pages/api/modules/index.md`         → `/api/modules/`
- * `apps/site/src/pages/api/classes/index.ReelSet.md` → `/api/classes/index.ReelSet/`
+ * `apps/site/src/pages/api/classes/index.Ring.md`    → `/api/classes/index.Ring/`
  * `apps/site/src/pages/api/index.md`                 → `/api/`
  */
 function fileToAstroUrl(file) {
@@ -137,7 +137,7 @@ function processFile(file) {
 
   const basename = path.basename(file, '.md');
   // Strip the `index.` prefix from TypeDoc's per-module symbol filenames so
-  // titles read as `ReelSet`, not `index.ReelSet`.
+  // titles read as `Ring`, not `index.Ring`.
   const cleanBase = basename.replace(/^(index|spine|testing)\./, '');
 
   // Rewrite intra-doc `.md` links to absolute Astro URLs BEFORE deriving

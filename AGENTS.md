@@ -50,7 +50,6 @@ pixi-wheels/
 │   │   ├── config/      types, SpinPresets, defaults
 │   │   ├── events/      EventEmitter, WheelEvents
 │   │   ├── utils/       Disposable, TickerRef, notify, angles, easing, fit (scaleToFit / fitContainer / fitText / labelSlot)
-│   │   │          Disposable, TickerRef, angles, easing, notify
 │   │   ├── debug/       debugSnapshot, debugArc, enableDebug, debugOverlay
 │   │   ├── testing/     FakeTicker, createTestWheel        -> subpath
 │   │   ├── spine/       SpineRingSkin, SpinePointerSkin    -> subpath

@@ -1,12 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const CORE = '/Users/user/GitHub/pixi-reels/node_modules/.pnpm/@esotericsoftware+spine-core@4.2.110/node_modules/@esotericsoftware/spine-core/dist/index.js';
+// spine-core is a dependency of the library package; resolve it from there so
+// the script runs from any checkout without a hard-coded path.
+const require = createRequire(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../packages/pixi-wheels/package.json'));
+const CORE = require.resolve('@esotericsoftware/spine-core');
 const { SkeletonJson, AtlasAttachmentLoader, TextureAtlas } = await import(pathToFileURL(CORE));
 
-const SRC = '/tmp/res-unpack/res';
-const DST = '/tmp/spine42';
+// Usage: node validate.mjs <3.7 dump dir> <converted 4.2 dir>
+const [SRC = '/tmp/res-unpack/res', DST = '/tmp/spine42'] = process.argv.slice(2);
 
 // Fail loud if either side is missing. Otherwise the loops below no-op and the
 // script prints "OK: 0  FAIL: 0" with exit 0, giving false confidence that

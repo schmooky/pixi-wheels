@@ -2,22 +2,20 @@
  * Guard: no public member may be typed with a `src/` type the package does not
  * export.
  *
- * The failure this exists for is silent. `RandomSymbolProvider`, `StopSequencer`
- * and `ReelMotion` were deliberately hidden from the package entry in 1.0.0
- * (PR #140), and then re-exposed anyway by public members typed with them --
- * `Reel.motion`, `Reel.stopSequencer`, `FrameBuilder.randomProvider`. The type
- * lands in `dist/core/Reel.d.ts`, semver-locking a class the changelog says is
- * internal. Nothing failed; the surface just quietly grew.
+ * The failure this exists for is silent. A type kept out of `src/index.ts` on
+ * purpose (say a resolved config shape) gets re-exposed by a public getter or
+ * parameter typed with it, lands in the published `.d.ts`, and is semver-locked
+ * from then on. Nothing fails; the surface just quietly grows.
  *
  * Members tagged `@internal` are skipped: `stripInternal` is on in the root
  * tsconfig, so those never reach the published `.d.ts`.
  *
  * CONSTRUCTORS ARE REPORTED BUT NOT FIXABLE WITH `@internal`. Tagging a
  * constructor strips the whole signature from the emitted class, which leaves
- * consumers an implicit zero-arg `new Reel()` that typechecks and then explodes
- * -- strictly worse than the leak. Builder-constructed classes (`Reel`,
- * `ReelSet`, `FrameBuilder`) are listed in ALLOWED_CONSTRUCTOR_LEAKS with that
- * reasoning; a NEW constructor leak still fails the build so it gets a decision.
+ * consumers an implicit zero-arg `new Ring()` that typechecks and then explodes
+ * -- strictly worse than the leak. A builder-constructed class whose params
+ * type must stay hidden goes in ALLOWED_CONSTRUCTOR_LEAKS with that reasoning;
+ * a NEW constructor leak still fails the build so it gets a decision.
  */
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -91,7 +89,7 @@ for (const { entry, sym: rawSym } of roots) {
 
   const type = checker.getDeclaredTypeOfSymbol(sym);
 
-  // Constructor + static side. A public `new Reel(...)` whose parameters name
+  // Constructor + static side. A public `new Ring(...)` whose parameters name
   // hidden classes is the same leak as a getter, and walking instance
   // properties alone never sees it.
   if (isClass) {
@@ -127,15 +125,10 @@ for (const { entry, sym: rawSym } of roots) {
   }
 }
 
-// Builder-constructed classes: see the note at the top of this file for why
-// `@internal` is not the fix here.
-const ALLOWED_CONSTRUCTOR_LEAKS = new Set([
-  'Reel.constructor(symbolFactory)->SymbolFactory',
-  'Reel.constructor(randomProvider)->RandomSymbolProvider',
-  'ReelSet.constructor(params)->ReelSetParams',
-  'FrameBuilder.constructor(_randomProvider)->RandomSymbolProvider',
-  'HoldAndWinBoard.constructor(cfg)->HoldAndWinBoardConfig',
-]);
+// Builder-constructed classes whose params type must stay hidden: see the
+// note at the top of this file for why `@internal` is not the fix here.
+// Empty today: `RingParams` and `WheelParams` are exported.
+const ALLOWED_CONSTRUCTOR_LEAKS = new Set([]);
 
 const uniq = new Map();
 for (const f of findings) uniq.set(`${f.owner}.${f.member}->${f.leak}`, f);
