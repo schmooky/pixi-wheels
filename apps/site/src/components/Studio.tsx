@@ -106,6 +106,12 @@ export default function Studio() {
       setAssets(stored);
       setState(initial);
       if (hashCode) setTab('code');
+      // The Spine runtime registers its render pipe on import, and a renderer
+      // built before that never gets it. The studio's Application lives for
+      // the whole session and a Spine bundle can arrive at any time, so load
+      // the runtime up front.
+      await import('pixi-wheels/spine');
+      if (cancelled) return;
       const app = new Application();
       await app.init({ backgroundAlpha: 0, antialias: true, resizeTo: host, resolution: Math.min(window.devicePixelRatio, 2), autoDensity: true });
       if (cancelled) {
@@ -208,9 +214,6 @@ export default function Studio() {
     try {
       const studioAssets = await buildStudioAssets(assets);
       studioAssetsRef.current = studioAssets;
-      if (config.rings.some((r) => r.skin?.type === 'spine' || (r.pointers ?? []).some((p) => p.skin?.type === 'spine'))) {
-        await import('pixi-wheels/spine');
-      }
       const wheel = WheelBuilder.fromConfig(config, { assets: studioAssets.resolver }).ticker(app.ticker).build();
       mount(wheel);
       setStatus({ kind: 'ok', msg: `Built: ${wheel.rings.length} ring${wheel.rings.length === 1 ? '' : 's'}, ${wheel.sections.length} sections on the main ring.` });

@@ -14,7 +14,7 @@ let server: ChildProcess | null = null;
 const PORT = 5182;
 const BASE = `http://127.0.0.1:${PORT}`;
 
-const PAGES = ['starters', 'stopping', 'anticipation', 'sections-rings-idle', 'skins', 'integration'].map((s) => `/recipes/${s}/`);
+const PAGES = ['starters', 'stopping', 'anticipation', 'sections-rings-idle', 'skins', 'disc-art', 'tongue', 'integration'].map((s) => `/recipes/${s}/`);
 
 test.beforeAll(async () => {
   let occupied = false;

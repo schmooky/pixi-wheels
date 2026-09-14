@@ -125,12 +125,23 @@ export function buildRecipeGlobals(env: RecipeGlobalsEnv, lazy: Record<string, u
 }
 
 /**
+ * Load the lazy groups a recipe body mentions. Call it BEFORE creating the
+ * `Application` that will render the recipe: the Spine runtime registers its
+ * render pipe with pixi's extension registry as a side effect of being
+ * imported, and a renderer built before that never gets the pipe, so its
+ * first frame with a Spine object throws and the app's ticker dies.
+ */
+export async function preloadRecipeGlobals(compiledJs: string): Promise<Record<string, unknown>> {
+  const loaded = await Promise.all(LAZY_GROUPS.filter((g) => g.test.test(compiledJs)).map((g) => g.load()));
+  return Object.assign({}, ...loaded);
+}
+
+/**
  * Evaluate a recipe body with the shared globals in scope. `AsyncFunction`
  * so a recipe can `await` asset loading before returning.
  */
 export async function runRecipeSource<T>(compiledJs: string, env: RecipeGlobalsEnv, trailer = ''): Promise<T> {
-  const loaded = await Promise.all(LAZY_GROUPS.filter((g) => g.test.test(compiledJs)).map((g) => g.load()));
-  const globals = buildRecipeGlobals(env, Object.assign({}, ...loaded));
+  const globals = buildRecipeGlobals(env, await preloadRecipeGlobals(compiledJs));
   const names = Object.keys(globals);
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as FunctionConstructor;
   const factory = new AsyncFunction(...names, `"use strict"; ${compiledJs}${trailer}`);

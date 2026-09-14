@@ -4,7 +4,7 @@ import { RefreshCw, ExternalLink, SkipForward, Bug } from 'lucide-react';
 import { Application, Container } from 'pixi.js';
 import { Wheel, debugOverlay, enableDebug, type DebugOverlayHandle } from 'pixi-wheels';
 import { transform as sucraseTransform } from 'sucrase';
-import { runRecipeSource } from '@/lib/recipeGlobals';
+import { preloadRecipeGlobals, runRecipeSource } from '@/lib/recipeGlobals';
 import { cn } from '@/lib/utils';
 import { CanvasSkeleton } from './CanvasSkeleton';
 import { useMinDisplay } from './useMinDisplay';
@@ -75,6 +75,18 @@ export function RecipeRunner({ code, slug, height = 340 }: RecipeRunnerProps) {
     (async () => {
       const host = hostRef.current;
       if (!host) return;
+      let js: string;
+      try {
+        js = sucraseTransform(code, { transforms: ['typescript'] }).code;
+      } catch (e) {
+        setError(`Compile error: ${(e as Error).message}`);
+        return;
+      }
+      // The Spine runtime registers its render pipe on import; a renderer
+      // created before that has no `spine` pipe. Load what the recipe
+      // mentions first, then build the Application.
+      await preloadRecipeGlobals(js);
+      if (cancelled) return;
       const app = new Application();
       await app.init({
         backgroundAlpha: 0,
@@ -91,13 +103,6 @@ export function RecipeRunner({ code, slug, height = 340 }: RecipeRunnerProps) {
       host.appendChild(app.canvas);
       appRef.current = app;
 
-      let js: string;
-      try {
-        js = sucraseTransform(code, { transforms: ['typescript'] }).code;
-      } catch (e) {
-        setError(`Compile error: ${(e as Error).message}`);
-        return;
-      }
       let result: RunResult;
       try {
         result = await runRecipeSource<RunResult>(js, { app });
