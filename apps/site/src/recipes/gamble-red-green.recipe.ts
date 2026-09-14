@@ -18,8 +18,8 @@ const wheel = new WheelBuilder()
 
 let balance = 100;
 wheel.events.on('spin:landing', ({ section }) => {
-  balance = section.id === 'green' ? balance * 2 : 0;
-  console.log(`[gamble] ${section.id} -> balance ${balance}`);
+  balance = section.id === 'green' ? balance * 2 : 100;
+  console.log(`[gamble] ${section.id} -> ${section.id === 'green' ? `balance ${balance}` : 'bust, back to 100'}`);
 });
 
 return {

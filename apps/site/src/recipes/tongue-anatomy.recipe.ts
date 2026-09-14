@@ -27,7 +27,7 @@ const wheel = new WheelBuilder()
 const tongue = wheel.main.pointers[0];
 const readout = new PIXI.Text({
   text: '',
-  style: { fill: 0x9fb0c3, fontFamily: 'Menlo, Consolas, monospace', fontSize: 13, align: 'center' },
+  style: { fill: 0x7b8794, fontFamily: 'Menlo, Consolas, monospace', fontSize: 13, align: 'center' },
 });
 readout.anchor.set(0.5, 0);
 readout.position.set(0, 214);

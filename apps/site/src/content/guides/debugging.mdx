@@ -56,4 +56,4 @@ spin();                          // the same action as the Spin button
 debugArc(wheel);                 // via __PIXI_WHEELS_DEBUG, enabled on every demo
 ```
 
-Each demo's frame carries `data-recipe="<name>"`, which is what the end-to-end sweep uses to spin, skip and re-spin every recipe and compare where the wheel says it landed with what sits under the pointer.
+Each demo's frame carries `data-recipe="<name>"`, which is what the end-to-end sweep (`tests/e2e/recipes-land.spec.ts`) uses to spin every demo, skip the next spin, and compare where each wheel says it landed with what sits under its pointer.

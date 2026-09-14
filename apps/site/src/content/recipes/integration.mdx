@@ -1,14 +1,13 @@
 ---
 title: "Server, events and debugging"
 group: integration
-oneLiner: Adapters for real server responses, every sound hook, the debug view, and configs that round-trip.
+oneLiner: Adapters for real server responses, every sound hook, and the debug view.
 order: 60
 tags:
   - adapter
   - events
   - audio
   - debug
-  - config
 ---
 
 ## Server adapters
@@ -27,12 +26,6 @@ Every audio cue as an event listener, on a real audio engine: [`@schmooky/zvuk`]
 
 ## Debug view
 
-The plain skin plus the live overlay: dividers with angles, the pointer line, the planned landing in yellow, a HUD with state, speed and the current leg. `debugArc()` prints the same as text in the console.
+The plain skin plus the live overlay: dividers with angles, the pointer from pin to tip, the pegs, the planned landing in yellow, a HUD with state, speed and the current leg. `debugArc()` prints the same as text in the console. Configs that round-trip through JSON are on the [starters page](/recipes/starters/#from-a-template-and-back-to-json).
 
 <RecipeDemo code="debug-view" />
-
-## Config round trip
-
-Build with the fluent API, export the config, rebuild from it. The console shows the JSON.
-
-<RecipeDemo code="config-round-trip" />

@@ -30,7 +30,7 @@ return {
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 300));
     const i = Math.floor(Math.random() * PLAYSON_SECTIONS.length);
-    // Bait with the plate just before the target, so the tease creeps past it or stalls just short of it.
+    // Bait with the neighbouring plate; 'auto' creeps past it or stalls short of it depending on the side.
     wheel.setResult({ section: PLAYSON_SECTIONS[i].id }, { anticipation: { bait: PLAYSON_SECTIONS[(i + 11) % 12].id } });
     await spin;
   },

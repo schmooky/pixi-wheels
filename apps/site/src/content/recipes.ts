@@ -11,7 +11,7 @@ export interface RecipeMeta {
 
 /** Display order + label for each group on the /recipes/ index page. */
 export const RECIPE_GROUPS: Array<{ id: RecipeGroup; label: string; description: string }> = [
-  { id: 'starters', label: 'Start here', description: 'A wheel in ten lines, the gamble wheel, and the templates.' },
+  { id: 'starters', label: 'Start here', description: 'A wheel in ten lines, the gamble wheel, and a template round-tripped through JSON.' },
   { id: 'landing', label: 'Stopping', description: 'Where the pointer ends up: exact angles, centring, bounce, skip.' },
   { id: 'tension', label: 'Anticipation', description: 'Near-misses that bait the player: creep, stutter, stall, protected skips.' },
   { id: 'shapes', label: 'Sections, rings and states', description: 'Dynamic sectors that move, rings that spin each other, idle wheels beside the reels.' },

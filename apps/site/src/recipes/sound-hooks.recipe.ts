@@ -52,8 +52,13 @@ e.on('spin:start', () => {
   engine.sound('activate').play();
   spinVoice = engine.sound('spin').play();
 });
-// The ratchet: louder and higher with speed, never twice the same.
+// The ratchet: louder and higher with speed, never twice the same, and never
+// more than one click per 45 ms; past that the ear hears a buzz, not pegs.
+let lastTickAt = -1e9;
 e.on('pointer:tick', ({ speed }) => {
+  const now = performance.now();
+  if (now - lastTickAt < 45) return;
+  lastTickAt = now;
   engine.sound('tick').play({
     volume: Math.min(1, 0.25 + speed / 900),
     pitch: { base: 0.9 + Math.min(0.6, speed / 1400), jitter: 0.04 },
@@ -78,6 +83,7 @@ return {
     await new Promise((r) => setTimeout(r, 300));
     const ids = wheel.sections.map((s) => s.id);
     const i = Math.floor(Math.random() * ids.length);
+    // Bait with a neighbour; 'auto' creeps past it or stalls short of it depending on the side.
     wheel.setResult({ section: ids[i] }, { anticipation: { bait: ids[(i + ids.length - 1) % ids.length] } });
     await spin;
   },

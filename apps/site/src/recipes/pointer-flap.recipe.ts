@@ -4,8 +4,8 @@
 // The tongue is physical. It touches pegs on the rim, one per divider: a peg
 // coming through pushes it aside, carries it on its crown for a moment, and
 // lets go into a spring. Three tongues against the same pegs, three feels:
-// a stiff short one at the top, a floppy one with lots of drag at four
-// o'clock, a rigid triangle at eight. The skin draws the pegs; the Debug
+// a stiff one at the top, a floppy one with heavy friction at four o'clock,
+// a rigid triangle at eight. The skin draws the pegs; the Debug
 // button shows each tongue's contact zone and the peg it is riding. Every
 // peg under any of them fires pointer:tick with the speed, the hook for the
 // ratchet click; the console shows the first tongue's ticks.
@@ -13,7 +13,7 @@ const wheel = new WheelBuilder()
   .radius(230, 30)
   .sections(Array.from({ length: 16 }, (_, i) => ({ id: `s${i}`, label: '' })))
   .pegs({ size: 7 })
-  .pointer({ id: 'stiff', angle: -90, flap: { elasticity: 0.8, friction: 0.2, stiffness: 700, damping: 18 } })
+  .pointer({ id: 'stiff', angle: -90, flap: { friction: 0.2, stiffness: 700, damping: 18 } })
   .pointer({
     id: 'floppy',
     angle: 30,

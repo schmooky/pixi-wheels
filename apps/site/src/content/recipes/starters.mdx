@@ -1,7 +1,7 @@
 ---
 title: "Starters"
 group: starters
-oneLiner: A wheel in ten lines, the two-colour gamble, and building from a template.
+oneLiner: A wheel in ten lines, the two-colour gamble, and a template round-tripped through JSON.
 order: 10
 tags:
   - starter
@@ -23,14 +23,8 @@ Two sections, random landing so the pointer never rests on the divider, and the 
 
 <RecipeDemo code="gamble-red-green" />
 
-## Gamble with a moving split
+## From a template, and back to JSON
 
-The same coin flip whose arc share follows a step list. The odds are the server's; the arc is a cosmetic state that advances after every spin.
-
-<RecipeDemo code="gamble-dynamic" />
-
-## From a template
-
-`WheelTemplates` are plain configs. `WheelBuilder.fromConfig()` reads them, and everything the studio exports has the same shape.
+`WheelTemplates` are plain configs with their server adapter attached. `WheelBuilder.fromConfig()` builds one, `toConfig()` gives it back; the console shows the JSON, which is the shape the studio exports.
 
 <RecipeDemo code="from-template" />

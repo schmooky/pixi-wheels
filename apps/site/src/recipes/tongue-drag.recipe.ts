@@ -26,7 +26,7 @@ const make = (drag, label) => {
     .build();
   const caption = new PIXI.Text({
     text: label,
-    style: { fill: 0x9fb0c3, fontFamily: 'Menlo, Consolas, monospace', fontSize: 13 },
+    style: { fill: 0x7b8794, fontFamily: 'Menlo, Consolas, monospace', fontSize: 13 },
   });
   caption.anchor.set(0.5, 0);
   caption.position.set(0, 176);
