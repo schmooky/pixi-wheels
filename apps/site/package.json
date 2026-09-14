@@ -48,6 +48,6 @@
     "pagefind": "^1.5.2",
     "typedoc": "^0.28.20",
     "typedoc-plugin-markdown": "^4.13.0",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   }
 }
