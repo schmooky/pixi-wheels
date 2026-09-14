@@ -13,9 +13,7 @@ tags:
   - assets
 ---
 
-The tongue, the flapper, the stopper, the clapper, the ticker: the fixed thing the wheel is read against, and the only part of a bonus wheel that is allowed to be floppy. Get it right and a spin sounds and feels mechanical. Get it wrong and the wheel looks like a spinning picture.
-
-This recipe is all of it. The disc it rides on has [its own recipe](/recipes/disc-art/).
+The tongue (flapper, stopper, clapper) is the fixed thing the wheel is read against, and the one part of a bonus wheel that is allowed to be floppy. This recipe covers all of it; the disc it rides on has [its own](/recipes/disc-art/).
 
 ## Anatomy
 
@@ -30,13 +28,11 @@ This recipe is all of it. The disc it rides on has [its own recipe](/recipes/dis
   facing: 'inward',                     // on the rim, tip toward the hub
   tipInset: 18,                         // how far the tip reaches past the rim
   skin: { type: 'graphics', shape: 'tongue', length: 72, width: 36, pinRadius: 8 },
-  flap: { elasticity: 1, friction: 0.35, stiffness: 420, damping: 14, maxAngle: 28, tipWidth: 14 },
+  flap: { elasticity: 1, friction: 0.35, stiffness: 420, damping: 14, maxAngle: 45, tipWidth: 14 },
 })
 ```
 
-Results are read against the first pointer. Add more for decoration or a second read position; each one ticks on its own.
-
-Eight sections, eight fat pegs, one long tongue, idling at 24 deg/s so every stage of the contact is visible:
+Results are read against the first pointer. Add more for decoration or a second read position; each one ticks on its own. Eight sections, eight fat pegs, one long tongue, idling at 24 deg/s so every stage of the contact is visible:
 
 <RecipeDemo code="tongue-anatomy" height={420} />
 
@@ -45,7 +41,7 @@ Eight sections, eight fat pegs, one long tongue, idling at 24 deg/s so every sta
 Pegs are the wheel's half of the contact: small circles on the disc that the tip has to climb over. Every ring has them by default, one per divider, so a tick always lands on a line.
 
 ```ts
-.pegs({ size: 6, inset: 9 })                 // the default
+.pegs()                                      // the default: size 6, just inside the first tongue's tip
 .pegs({ size: 9, inset: 14, angles: [0, 45, 90, 135, 180, 225, 270, 315] })  // your own
 .pegs(false)                                 // none: a flapping pointer stays at rest
 ```
@@ -60,20 +56,16 @@ Pegs are the wheel's half of the contact: small circles on the disc that the tip
 
 <Figure src="/recipes/tongue/contact.svg" caption="Rides up the peg's face, holds while it passes underneath, drops once it is out." />
 
-The blade and the peg are two solids that may not overlap, and that is the whole model. The blade is a triangle hinged at the pin, `tipWidth` across at its base, tapering to a point at the tip; the peg is a circle. Every frame the engine asks one question - what is the smallest swing that keeps the circle outside the triangle - and gives the tongue exactly that.
+The blade and the peg are two solids that may not overlap, and that is the whole model. The blade is a triangle hinged at the pin, `tipWidth` across at its base, tapering to a point at the tip; the peg is a circle. Every frame the engine finds the smallest swing that keeps the circle outside the triangle and gives the tongue exactly that. Four things follow:
 
-Three things follow, and they are the three things a flapper does:
+- **It yields as far as the peg needs and no further.** The angle is the geometry, not a curve fitted to look about right.
+- **It never cuts through a peg**, at any setting, speed or frame rate.
+- **It does not fall until the peg has gone.** The spring may only descend into clear air, so a blade resting on a peg comes down as the peg leaves and not one degree before.
+- **It rides, it is not thrown.** While a peg carries it the blade has no velocity of its own, so the release is one clean swing home, not a flung overshoot and a chatter against the peg it just cleared.
 
-- **It yields as far as the peg needs and no further.** Not a curve fitted to look about right: the angle is the geometry.
-- **It never cuts through a peg.** There is no setting, no speed and no frame rate at which it can.
-- **It does not fall until the peg has gone.** On the way down the spring does the work, but it may only descend into clear air, so a blade resting on a peg comes down as the peg leaves and not one degree before.
-- **It rides, it is not thrown.** While a peg carries it the blade has no velocity of its own, so when the peg finally lets go the spring starts from rest: one clean swing home instead of a flung overshoot and a chatter against the peg it just cleared.
+The two softening knobs are padding on the peg. `elasticity` makes the blade treat every peg as fatter, so it swings wider; `friction` adds padding that has to clear as well, so the peg drags the blade further past itself before letting go. A wheel standing still with a peg under the tongue leans the tongue off it, to whichever side it was already on.
 
-Both knobs that soften the contact are padding on the peg rather than fudge on the angle. `elasticity` makes the blade treat every peg as fatter, so it swings wider; `friction` adds padding that has to clear as well, so the peg drags the blade further past itself before letting go. Either way the blade is measured against something at least as big as the peg, which is why it can never touch one.
-
-A wheel standing still with a peg under the tongue leans the tongue off it, to whichever side it was already on. A blade resting inside a peg is the one arrangement that never happens.
-
-How far it swings comes from how deep the tip dips. A peg whose shoulder bites 2 px into the blade - what `.pegs()` gives you by default - asks about 13 degrees of a 60 px tongue. Push the pegs out past the tip and the blade has to lift clear over them entirely, which is a much bigger flap; `maxAngle` caps it, and the engine says so once when the cap makes clearing impossible.
+How far it swings comes from how deep the tip dips. A peg whose shoulder bites 2 px into the blade, the default, asks about 13 degrees of a 60 px tongue. Pegs out past the tip make the blade lift clear over them entirely, a much bigger flap; `maxAngle` caps it, and the engine says so once when the cap makes clearing impossible.
 
 | Knob | Feel | Try |
 |---|---|---|
@@ -89,11 +81,9 @@ The lever the peg turns is `pinRadius - pegs.radius`, so a long tongue swings th
 
 ## Pegs on the rim
 
-The other arrangement: studs right at the edge of the wheel and a short flapper flicking over them, the way a carnival wheel is built. The contact does not change - the blade still may not touch a peg - but the way out does. A peg under the tip cannot slip past it sideways, so the blade rides up until its tip lifts clear over the peg.
+The other arrangement: studs right at the edge of the wheel and a short flapper flicking over them, the way a carnival wheel is built. The contact does not change, but the way out does: a peg under the tip cannot slip past it sideways, so the blade rides up until its tip lifts clear over the peg.
 
-Keep the flapper small. The shorter the arm, the further it has to swing to lift the same few pixels, so a rim wheel wants a stubby flapper that flies rather than a long one that heaves: about a quarter of the radius reads right, and it is the arrangement's whole character.
-
-That is a big swing, and it is the right one: watch any real wheel and the flapper lifts a long way over every peg. The arrangement below asks for about 48 degrees, past the default cap of 45.
+Keep the flapper small. The shorter the arm, the further it has to swing to lift the same few pixels, so a rim wheel wants a stubby flapper that flies rather than a long one that heaves; about a quarter of the radius reads right. The arrangement below asks for about 48 degrees, past the default cap of 45.
 
 ```ts
 .radius(215)
@@ -107,9 +97,7 @@ That is a big swing, and it is the right one: watch any real wheel and the flapp
 
 <RecipeDemo code="rim-pegs" height={440} />
 
-`maxAngle` is the thing to get right. This geometry needs 48 degrees; leave the cap at the default 45 and the blade spends part of every peg pinned against its limit, riding through the last few pixels of it. The engine says so once and names the angle it needs. The readout above shows the largest lift of the last spin, so set the cap a little above that.
-
-Between the two arrangements:
+`maxAngle` is the thing to get right. This geometry needs 48 degrees; at the default 45 the blade spends part of every peg pinned against its limit, riding through the last few pixels of it, and the engine says so once, naming the angle it needs. The readout above shows the largest lift of the last spin; set the cap a little above it.
 
 | | Pegs on the rim | Pegs inside the tip |
 |---|---|---|
@@ -124,15 +112,13 @@ Between the two arrangements:
 
 <Figure src="/recipes/tongue/spring.svg" caption="Same push, three materials. Damping is what stops a floppy tongue looking like jelly." />
 
-At speed a peg crosses the whole contact inside a single frame. Nothing would ever be seen pushing, so the tongue is flicked straight to the angle that peg would have held it at - which is why a fast wheel keeps it pinned and jittering while a crawling one bends slowly over every peg and falls all the way back.
-
-Three tongues against one set of pegs: a stiff short one at the top, a floppy one with heavy drag at four o'clock, a rigid triangle at eight.
+At speed a peg crosses the whole contact inside a single frame, so the tongue is flicked straight to the angle that peg would have held it at: a fast wheel keeps it pinned and jittering, a crawling one bends slowly over every peg and falls all the way back. Three tongues against one set of pegs: a stiff short one at the top, a floppy one with heavy drag at four o'clock, a rigid triangle at eight.
 
 <RecipeDemo code="pointer-flap" height={420} />
 
 ## Drag: the tongue slowing the ring
 
-A real flapper is in the way. The peg has to shove it aside, and while it is shoving, the wheel is not turning as freely as it wants to.
+A real flapper is in the way: while a peg shoves it aside, the wheel is not turning as freely as it wants to.
 
 <Figure src="/recipes/tongue/drag.svg" caption="Up the ramp the ring is drawn behind itself. Over the crown the hold lets go and it catches up." />
 
@@ -140,13 +126,11 @@ A real flapper is in the way. The peg has to shove it aside, and while it is sho
 .pointer({ flap: { drag: 1, dragRelease: 18 } })
 ```
 
-`drag` is 0 by default. At 1 the tongue can hold the ring back by a whole contact width of arc - a couple of degrees on a normal wheel - and releases it when the peg wins. The two wheels below run the same spin to the same section at the same time; only the right one drags.
+`drag` is 0 by default. At 1 the tongue can hold the ring back by a whole contact width of arc, a couple of degrees on a normal wheel, and releases it when the peg wins. The two wheels below run the same spin to the same section at the same time; only the right one drags.
 
 <RecipeDemo code="tongue-drag" height={400} />
 
-Worth being exact about what this is, because it would be easy to oversell: **the hold is drawn, not planned.** `rotationDeg` never sees it, the ticks never see it, and the landing never sees it. It always relaxes to zero, so the wheel comes to rest drawn exactly on its result - the one thing a bonus wheel may never get wrong. Read `ring.visualRotationDeg` for where the disc actually is and `ring.dragDeg` for how much is being held; the debug HUD prints the second one while it is non-zero.
-
-If you want the wheel to genuinely take longer to stop, that is a [spin profile](/docs/api-profiles/) and a [stop plan](/recipes/stopping/), not the tongue.
+**The hold is drawn, not planned.** `rotationDeg`, the ticks and the landing never see it, and it always relaxes to zero, so the wheel comes to rest drawn exactly on its result. `ring.visualRotationDeg` is where the disc actually is, `ring.dragDeg` how much is being held; the debug HUD prints the second while it is non-zero. A wheel that should genuinely take longer to stop is a [spin profile](/docs/api-profiles/), not the tongue.
 
 ## The art
 
@@ -165,7 +149,7 @@ If you want the wheel to genuinely take longer to stop, that is a [spin profile]
   ]}
 />
 
-Because all four share the pin and the tip edge, swapping one for another is a one-line change and nothing else moves. MIT, no attribution; the zip has the disc art too.
+All four share the pin and the tip edge, so swapping one for another moves nothing else. MIT, no attribution; the zip has the disc art too.
 
 ```ts
 new TexturePointerSkin({
@@ -213,7 +197,7 @@ import { SpinePointerSkin } from 'pixi-wheels/spine';
 })
 ```
 
-`length` is not optional here: the engine has no way to guess how far the tip is from the pin in a skeleton. `flapRotates: false` is the setting to reach for when the studio's `tick` animation already swings the whole stopper - otherwise the spring and the animation fight and the result reads as a stutter. The [Super Wheel recipe](/recipes/skins/#playson-the-super-wheel-as-a-spine-skeleton) runs one against an authored skeleton.
+`length` is required: the engine cannot guess how far the tip is from the pin in a skeleton. Set `flapRotates: false` when the studio's `tick` animation already swings the whole stopper, or the spring and the animation fight. The [Super Wheel recipe](/recipes/skins/#playson-the-super-wheel-as-a-spine-skeleton) runs one against an authored skeleton.
 
 ## Events
 
@@ -235,7 +219,7 @@ A single frame that sweeps four dividers reports four crossings, in order, so a 
 
 ## The sound
 
-The ratchet is the whole soundtrack of a wheel slowing down, and it is the easiest thing to get wrong: a peg event per divider at speed is sixty voices a second.
+The ratchet is the soundtrack of a wheel slowing down, and the easiest thing to get wrong: a click per divider at speed is sixty voices a second.
 
 <RecipeDemo code="tongue-sound" height={420} />
 

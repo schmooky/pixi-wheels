@@ -54,7 +54,7 @@ Angles are wheel-local: they turn with the disc. A point at local angle `a` is o
 
 ## Rich labels
 
-A label is not only a string. Give a section `content`: any container, or a factory that builds one. The label layer of every label-drawing skin (`GraphicsRingSkin`, `TextureRingSkin` with `labels: true`, `SpineRingSkin` with `labels: true`, the studio skins on this site) places it at the label radius, rotates it by `labelOrientation` and fits it into the section's room.
+Give a section `content`, any container or a factory that builds one, and every label-drawing skin (`GraphicsRingSkin`, `TextureRingSkin` and `SpineRingSkin` with `labels: true`) places it at the label radius, rotates it by `labelOrientation` and fits it into the section's room.
 
 ```ts
 import { Sprite, Text, Container } from 'pixi.js';
@@ -78,13 +78,13 @@ import { Sprite, Text, Container } from 'pixi.js';
 ])
 ```
 
-The factory receives a `LabelContext`: the resolved `section`, `outerRadius`, `innerRadius`, the `slot` (see below) and a bound `fit()`. Content is built once per section and rebuilt only when the section is given a different `content`. `toConfig()` keeps the text `label` and drops `content`; rich labels are code.
+The factory receives a `LabelContext`: the resolved `section`, `outerRadius`, `innerRadius`, the `slot` (below) and a bound `fit()`. Content is built once per section and rebuilt only when the section is given a different `content`. `toConfig()` keeps the text `label` and drops `content`.
 
-Orientation applies to content as to text. `'tangential'` puts the top of the content toward the rim (upright at twelve o'clock); `'tangential-in'` toward the hub (upright at six o'clock, for a wheel read from below, like the Pragmatic recipe); `'upright'` counter-rotates every frame.
+Orientation applies to content as to text: `'tangential'` puts the top toward the rim (upright at twelve o'clock), `'tangential-in'` toward the hub (upright at six o'clock, for a wheel read from below), `'upright'` counter-rotates every frame.
 
 ## Fitting content
 
-The room a section offers is a **slot**: the chord across the wedge at the label radius, and the radial room around that point inside the ring band. `labelSlot()` computes it; the label layer fits every label into it with `labelFit` (`'contain'` by default, also `'cover'`, `'width'`, `'height'`, `'none'`).
+A section's room is a **slot**: the chord across the wedge at the label radius and the radial room around that point. `labelSlot()` computes it; the label layer fits every label into it with `labelFit` (`'contain'` by default, also `'cover'`, `'width'`, `'height'`, `'none'`).
 
 ```ts
 import { labelSlot, scaleToFit, fitContainer, fitText } from 'pixi-wheels';
@@ -98,4 +98,4 @@ fitText(text, { width: slot.width * 0.8, height: slot.height * 0.8 }); // lowers
 scaleToFit({ width: 400, height: 80 }, slot);   // the pure number, no PixiJS
 ```
 
-Content is re-fitted whenever the geometry changes, so dynamic sections shrink and grow their labels with their arcs. Scaling never enlarges by default (`max: 1`): author content at the size it should have on a full-size wedge and let the fit only take it down.
+Content is re-fitted whenever the geometry changes, so dynamic sections shrink and grow their labels with their arcs. Fitting never enlarges by default (`max: 1`): author content at the size it should have on a full-size wedge.

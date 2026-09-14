@@ -2,23 +2,25 @@
 title: Spin profiles
 order: 4
 eyebrow: API
-description: The SpinProfile fields, the presets, and how the planner turns them into a stop.
+description: The SpinProfile fields, their defaults, the presets, and how the planner turns them into a stop.
 ---
 
 ```ts
 interface SpinProfile {
-  spinSpeed: number;          // deg/s at cruise
-  accelerationMs: number;     // rest to cruise
-  accelerationEase?: Ease;    // default 'power2.in'
-  minimumSpinTime: number;    // the stop may not begin before this many ms since spin()
-  minCruiseMs: number;        // nor before this long at cruise
-  stopDuration: number;       // what the deceleration should take (target)
-  stopEase?: Ease;            // an ease-out; default 'power3.out'
-  minTurns: number;           // fewest full turns while stopping
-  maxTurns: number;           // most
-  skipDuration: number;       // the fast-forward on skip
+  spinSpeed: number;          // deg/s at cruise. The only required field
+  accelerationMs?: number;    // rest to cruise. 900
+  accelerationEase?: Ease;    // 'power2.in'
+  minimumSpinTime?: number;   // the stop may not begin before this many ms since spin(). 0
+  minCruiseMs?: number;       // nor before this long at cruise. 0
+  stopDuration?: number;      // what the deceleration should take. 4200
+  stopEase?: Ease;            // an ease-out. 'power3.out'
+  minTurns?: number;          // fewest full turns while stopping. 1
+  maxTurns?: number;          // most. 8
+  skipDuration?: number;      // the fast-forward on skip. 450
 }
 ```
+
+`builder.speed(name, profile)` and `ring.addSpeed()` fill the gaps from `DEFAULT_PROFILE` and throw on a bad field. `ring.profile` and the `speed:changed` event carry the filled-in `ResolvedSpinProfile`.
 
 | Preset | spinSpeed | accel | min spin | stop | turns |
 |---|---|---|---|---|---|
@@ -29,12 +31,10 @@ interface SpinProfile {
 
 ## How the stop duration is chosen
 
-The planner matches the ease's start slope to the cruise speed so the hand-off is smooth. That fixes the duration for any given distance: `T = distance * slope / speed`. It then tries every turn count from `minTurns` to `maxTurns` and keeps the one whose `T` is closest to `stopDuration`. The actual duration is therefore near the target, not equal to it; `spin:stopping` reports it.
+The planner matches the ease's start slope to the cruise speed so the hand-off has no velocity step. That fixes the duration for any distance: a stop of `turns` full turns lasts `turns * 360 * slope / spinSpeed` seconds, where `slope` is the ease's start slope (2 for `power1.out`, 3 for `power2.out`, 4 for `power3.out`, 5 for `power4.out`, about 7 for `expo.out`). The planner tries every count from `minTurns` to `maxTurns` and keeps the one closest to `stopDuration`; `spin:stopping` reports the actual duration. Keep `stopDuration` inside the range the turn counts span, or the nearest count wins silently. The presets are tested for it.
 
-`power3.out` has slope 4, `power2.out` 3, `power1.out` 2, `expo.out` about 7. An `inOut` ease starts at slope 0 and is clamped with a one-time warning; use an `out` curve.
+An `inOut` ease starts at slope 0 and is clamped with a one-time warning; use an `out` curve.
 
 ## Eases
 
-Names follow the GSAP vocabulary without depending on it: `none`, `linear`, `power1..4.in|out|inOut` (`quad`, `cubic`, `quart`, `quint` are aliases), `sine.*`, `expo.*`, `circ.*`, `back.in|out(1.7)`. Or pass a `(t) => number`. `EASE_NAMES` lists them; `resolveEase(name)` throws on a typo with the list.
-
-A stop leg whose ease starts at the cruise speed lasts `turns * 360 * slope / spinSpeed` seconds (`slope` is the ease's start slope: 3 for `power2.out`, 4 for `power3.out`, 5 for `power4.out`), so the planner can only choose among whole-turn durations. Keep `stopDuration` inside the range `minTurns..maxTurns` spans, or the nearest turn count wins silently; the presets are tested for it.
+GSAP names without the dependency: `none`, `linear`, `power1..4.in|out|inOut` (`quad`, `cubic`, `quart`, `quint` are aliases), `sine.*`, `expo.*`, `circ.*`, `back.in|out(1.7)`. Or a `(t) => number`. `EASE_NAMES` lists them; `resolveEase(name)` throws on a typo with the list.

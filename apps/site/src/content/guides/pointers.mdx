@@ -20,24 +20,24 @@ Results are read against the first pointer. Add more for decoration or a second 
 
 ## Pegs and the tongue
 
-Every ring has pegs: small circles on the disc, one per divider. `.pegs({ size, inset, angles })` changes them, `.pegs(false)` removes them (a flapping pointer then stays at rest). `inset` defaults to `tipInset + size - 2`, which puts the peg ring just inside the first tongue's tip, so a peg's shoulder bites 2 px into the blade. The debug overlay draws them (`pegs` layer) and `GraphicsRingSkin` will too with `pegs: true`. Dynamic sections move their pegs with their lines.
+Every ring has pegs: small circles on the disc, one per divider, that follow dynamic sections. `.pegs({ size, inset, angles })` changes them, `.pegs(false)` removes them (a flapping pointer then stays at rest). `inset` defaults to `tipInset + size - 2`, so a peg's shoulder bites 2 px into the first tongue's blade. The debug overlay draws them (`pegs` layer); `GraphicsRingSkin` does too with `pegs: true`.
 
-The contact is two solids that may not overlap. The blade is a triangle hinged at the pin, `tipWidth` across at its base and tapering to a point at the tip; the peg is a circle. Each frame the engine finds the smallest swing, measured from where the blade already stands, that keeps the circle outside the triangle. So the tongue yields as far as the peg needs and no further, never cuts through one, and cannot fall until the peg has gone: the spring brings it down, but only into clear air. While a peg carries it the blade has no velocity of its own, so the release is one clean swing rather than a flung overshoot. A wheel standing still with a peg under the tongue leans it off to one side rather than leaving it sitting inside. Then it rings back under `stiffness` and `damping`. At speed a peg crosses the whole contact inside one frame and the tongue is flicked straight to the angle that peg would have held it at.
+The contact is two solids that may not overlap: the blade is a triangle hinged at the pin, `tipWidth` across at its base and a point at the tip; the peg is a circle. Each frame the tongue takes the smallest swing, from where it already stands, that keeps the circle outside the triangle. It yields as far as the peg needs, never cuts through one, and falls back under `stiffness` and `damping` only into clear air. At speed a peg crosses the whole contact inside one frame and the tongue is flicked to the angle that peg would have held it at.
 
 | Knob | Feel |
 |---|---|
 | `elasticity` | how far it yields: padding on the peg. 1 exactly enough, 1.4 wide and floppy. Under 1 is clamped |
-| `friction` | more padding, on top: the peg drags the blade further past itself before letting go |
+| `friction` | more padding: the peg drags the blade further past itself before letting go |
 | `stiffness` | how hard it snaps back |
 | `damping` | how quickly the ringing dies |
-| `maxAngle` | the hard limit. Below what the geometry needs, the blade rides through the pegs and says so once |
+| `maxAngle` | the hard limit. Below what the geometry needs, the blade rides through the pegs and warns once |
 | `tipWidth` | how wide the blade is |
 | `drag` | how hard the tongue holds the ring back, 0 off, 1 the wheel fights every peg |
 | pegs `size` / `inset` | a bigger peg pushes earlier; pegs out past the tip need a much bigger flap |
 
-`flap: false` keeps a pointer rigid. Read `pointer.deflection` and `pointer.engagedPeg` for your own reactions; the HUD prints both.
+`flap: false` keeps a pointer rigid. `pointer.deflection` and `pointer.engagedPeg` are live; the HUD prints both.
 
-`drag` is the one knob that touches the ring rather than the tongue: while a peg climbs the tip, the disc is drawn up to a contact width of arc behind itself, and springs forward at `dragRelease` when the peg wins. It is drawn only. `rotationDeg`, the ticks and the landing never see it, and it relaxes to zero at rest, so the wheel comes to rest exactly on its result. `ring.visualRotationDeg` and `ring.dragDeg` report it.
+`drag` is the one knob that touches the ring: while a peg climbs the tip, the disc is drawn up to a contact width of arc behind itself and springs forward at `dragRelease` when the peg wins. Drawn only: `rotationDeg`, the ticks and the landing never see it, and it relaxes to zero at rest. `ring.visualRotationDeg` and `ring.dragDeg` report it.
 
 ## Ticks
 
@@ -47,7 +47,7 @@ wheel.events.on('pointer:tick', ({ pointer, from, to, speed, direction }) => {
 });
 ```
 
-One event per divider, in order, however fast the ring turns; a single frame that sweeps several dividers reports each of them.
+One event per divider, in order, however fast the ring turns; a frame that sweeps several dividers reports each of them.
 
 ## Texture and Spine pointers
 
@@ -57,4 +57,4 @@ new TexturePointerSkin({ texture, artDirection: 'up', pin: { x: 0.5, y: 0.85 }, 
 
 The pin is the point the art pivots around; `artDirection` says which way the tip points in the source image. `SpinePointerSkin` (from `pixi-wheels/spine`) plays a `tick` animation on every crossing and an `idle` loop otherwise.
 
-The long version of this page, with the art requirements, the contact diagrams, the events and the sound, is the [tongue recipe](/recipes/tongue/).
+Art requirements, contact diagrams, events and sound are in the [tongue recipe](/recipes/tongue/).

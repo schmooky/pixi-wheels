@@ -40,7 +40,7 @@ import { SpineRingSkin, SpinePointerSkin } from 'pixi-wheels/spine';
 
 `labels: true` on `SpineRingSkin` draws the sections' text or rich `content` on the disc above the skeleton, for values the art cannot know (server-driven multipliers). `winBySection` maps section ids to landing animations, so a skeleton can carry one celebration per plate.
 
-Spine 3.8 exports need converting to 4.2 first: `tools/spine-3.8-to-4.2/` in the repo does binary `.skel` and JSON; `tools/spine-3.7-to-4.2/` does 3.7 JSON. When a game packs a skeleton's images into its UI atlases instead of a Spine atlas, `tools/pragmatic-wheel/build_fx_atlas.py` rebuilds a Spine atlas from the sprite rectangles. When the skeleton itself is lost but the atlas survives, `tools/playson-wheel/build_spine.py` shows how to author one over the atlas, sector effects included. The [Playson Spine recipe](/recipes/skins/#playson-the-super-wheel-as-a-spine-skeleton) and the [Pragmatic recipe](/recipes/skins/#pragmatic-play-wheel-of-happiness) run on those outputs.
+Spine 3.7 and 3.8 exports need converting to 4.2 first: `tools/spine-3.8-to-4.2/` (binary and JSON) and `tools/spine-3.7-to-4.2/` (JSON) in the repo do it. The [Playson Spine recipe](/recipes/skins/#playson-the-super-wheel-as-a-spine-skeleton) and the [Pragmatic recipe](/recipes/skins/#pragmatic-play-wheel-of-happiness) run on converted skeletons; `tools/README.md` covers the atlas rebuilds behind them.
 
 ## Your own
 
@@ -56,6 +56,4 @@ class MySkin implements RingSkin {
 registerRingSkin('mine', (config, assets) => new MySkin(config));
 ```
 
-The Playson wheel on the recipes page is exactly this: authored plates composed from an atlas, in ~150 lines.
-
-Every layer of art a disc is made of, with the size, pivot and orientation each one has to match, is in the [disc recipe](/recipes/disc-art/); the pointer has [its own](/recipes/tongue/).
+The Playson wheel on the recipes page is exactly this: authored plates composed from an atlas, in about 150 lines. The [disc recipe](/recipes/disc-art/) lists every layer of art with the size, pivot and orientation it has to match; the pointer has [its own](/recipes/tongue/).

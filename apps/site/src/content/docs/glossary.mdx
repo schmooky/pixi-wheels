@@ -2,249 +2,139 @@
 title: Glossary
 order: 5
 eyebrow: Reference
-description: Every term the library, the guides and the recipes use, in one place.
+description: The terms the library, the guides and the recipes use.
 ---
 
-Terms are grouped by what they describe. Within a group they are alphabetical. Code names are in `monospace`; the guide that covers a term is linked at the end of its entry.
+Code names in `monospace`. The guide that covers a term is linked at the end of its entry.
 
-## The wheel and its parts
+## The wheel
 
-**Arc**: a section's angular size in degrees, its weight's share of 360. Arcs need not be uniform. [Sections](/guides/sections/)
+**Wheel**: the `Container` the builder returns: its rings, one event emitter, shortcuts to the main ring.
 
-**Bezel**: the decorated frame around the rim. Authored art (the Playson wheel has twelve bezel pieces); the graphics skin draws a plain rim instead.
+**Ring**: one spinning disc with its sections, pointers and skin. A wheel has one or more around the same centre. [Rings](/guides/rings/)
 
-**Bulbs**: the lights on a bezel. Skins animate them (alternate at rest, chase while spinning, strobe on a win); the engine knows nothing about them.
+**Main ring**: the ring the wheel's shortcut methods address. `'main'` unless a config names it otherwise.
 
-**Disc**: the container of a ring that rotates. Sections, labels and a face texture live here. The **overlay** is the ring's fixed container: rim decoration, hub caps and pointers.
+**Section**: one wedge: `id`, `label`, `value`, `weight`, `style`, `tags`, optional rich `content`. Also sector, segment. [Sections](/guides/sections/)
 
-**Divider**: the boundary between two sections. Every divider a pointer crosses fires `pointer:tick`. [Pointers](/guides/pointers/)
+**Weight / arc**: a section's relative share of the ring; its arc is that share of 360 degrees. Default weight 1.
 
-**Face**: a single painted texture of the whole disc, for `TextureRingSkin`. [Skins](/guides/skins/)
+**Divider**: the line between two sections. A pointer crossing one fires `pointer:tick`.
 
-**Hub**: the centre of the wheel. `innerRadius` is its radius; sections start there.
+**Start angle**: where section 0 begins, wheel-local degrees. Default -90 (twelve o'clock); sections lay out clockwise from there.
 
-**Inner radius / outer radius**: the ring band, from the hub edge to the rim. `radius(outer, inner)` on the builder. Labels and pointers are placed relative to both.
+**Hub / rim**: the centre of the wheel and its outer edge. `radius(outer, inner)` sets both; `inner` is the hub radius.
 
-**Main ring**: the ring the wheel's shortcut methods (`spin`, `setResult`, `sections`) address. `'main'` by default. [Rings](/guides/rings/)
+**Disc / overlay**: a ring's two containers. The disc rotates (sections, labels, face); the overlay does not (bezel, hub cap, pointers).
 
-**Plate**: an authored wedge image for one section, seated with its apex on the hub. Studio art usually ships one plate per prize type.
+**Dynamic sections**: weights that change at run time, animated, with labels re-centring. Cosmetic: the landing is decided by `setResult()`, never by the geometry. **Step**: one authored set of weights in a `dynamic` config. [Dynamic sections](/guides/dynamic-sections/)
 
-**Rim**: the outer edge of the disc.
-
-**Ring**: one spinning disc with its sections, pointers and skin. A wheel has one or more; rings share one event stream. Also **subwheel** when it sits inside another ring. [Rings](/guides/rings/)
-
-**Section**: one wedge of a ring: `id`, `label`, `value`, `weight`, `style`, `tags`, optional rich `content`. Also called a sector or a segment. [Sections](/guides/sections/)
-
-**Start angle**: where section 0 begins, wheel-local degrees. Default -90, twelve o'clock. Sections lay out clockwise from there.
-
-**Wheel**: the `Container` the builder returns: its rings, its event emitter, the shortcuts to the main ring.
-
-## Labels and content
-
-**Content**: a section's rich label: any `Container` (a `Text`, a `Sprite`, a `BitmapText`, a Spine instance, a group), or a factory that builds one from a `LabelContext`. Placed, rotated and fitted like a text label. [Sections](/guides/sections/#rich-labels)
-
-**Fit / fit mode**: how a label meets the room it has. `'contain'` (default), `'cover'`, `'width'`, `'height'`, `'none'`. Helpers: `scaleToFit`, `fitContainer`, `fitText`. [Sections](/guides/sections/#fitting-content)
+## Labels
 
 **Label**: the text a label-drawing skin writes for a section. Defaults to the id; `''` draws nothing.
 
-**Label context**: what a `content` factory receives: the resolved section, the radii, the slot, and a bound `fit()`.
+**Content**: a rich label: any `Container`, or a factory that builds one from a `LabelContext` (section, radii, slot, a bound `fit()`). [Sections](/guides/sections/#rich-labels)
 
-**Label orientation**: `'radial'` reads from the hub to the rim; `'tangential'` follows the arc with the top toward the rim (upright at twelve o'clock); `'tangential-in'` follows the arc with the top toward the hub (upright at six o'clock, for wheels read from below); `'upright'` stays upright on screen as the disc turns.
+**Slot**: the box a section offers a label at its label radius: the chord across the wedge and the radial room around it. `labelSlot()` computes it.
 
-**Label radius**: where along the radius a label sits, as a fraction of the outer radius. Default 0.68.
+**Fit mode**: how content meets its slot: `'contain'` (default), `'cover'`, `'width'`, `'height'`, `'none'`. Helpers `scaleToFit`, `fitContainer`, `fitText`.
 
-**Slot**: the box a section offers a label at its label radius: the chord across the wedge there and the radial room around it. `labelSlot()` computes it.
-
-**Chord**: the straight-line width across an arc at a radius. The tangential room a label has.
-
-## Sizes, weights and states
-
-**Dynamic sections**: weights that change at run time, animated, with labels and plates re-centring. Purely cosmetic: the server's outcome is applied by `setResult`, never by the geometry. [Dynamic sections](/guides/dynamic-sections/)
-
-**Step**: one authored set of weights in a `dynamic` config; `setStep(i)` / `nextStep()` move between them.
-
-**Weight**: a section's relative arc share. Default 1. `{ weight: 0.5 }` is half a default section.
-
-**Weight transition**: the animation from one weight set to another: `durationMs`, `ease`, and `sections:transition:start` / `:end` around it.
+**Label orientation**: `'radial'` (hub to rim), `'tangential'` (along the arc, top toward the rim), `'tangential-in'` (top toward the hub, for wheels read from six o'clock), `'upright'` (stays upright as the disc turns).
 
 ## Spinning
 
-**Cruise**: the constant-speed phase between the wind-up and the stop, while the result is awaited. `spin:cruise` marks its start.
+**Profile**: a `SpinProfile`: cruise speed, wind-up, stop duration, ease, turn range. Only `spinSpeed` is required. Registered by name, switched with `setSpeed()`. Presets: `NORMAL`, `TURBO`, `CINEMATIC`, `QUICK`. [Profiles](/docs/api-profiles/)
 
-**Direction**: `'cw'` (clockwise, the default) or `'ccw'`. Per wheel or per ring.
+**Wind-up / cruise**: the acceleration to `spinSpeed`, then the constant-speed phase while the result is awaited. `spin:cruise` marks the hand-over.
 
-**Ease**: the curve a leg follows. GSAP-style names (`power3.out`, `back.out`, `sine.inOut`) or a function. The stop's ease is matched to the cruise speed so the wheel never jerks. [Spin lifecycle](/guides/spin-lifecycle/)
+**Planned stop**: the list of legs computed when the stop may begin. One deceleration whose ease starts at the cruise speed, plus any tease and settle legs; playback is deterministic. [Spin lifecycle](/guides/spin-lifecycle/)
 
-**Idle**: a slow continuous spin while nothing happens, for a wheel parked beside the reels. `startIdle()` / `stopIdle()`; a real `spin()` takes over from it. [Idle](/guides/idle/)
+**Leg**: one piece of a plan: a distance, a duration, an ease. Kinds: `decel`, `creep`, `hesitate`, `push`, `dwell`, `skip`, `settle`, `bounce`, `bounce-return`. No plan has a reverse leg before the rest.
 
-**Leg**: one piece of a planned stop: a distance, a duration, an ease, forwards or reverse. Kinds: decel, creep, hesitate, push, dwell, skip, settle, bounce, bounce-return.
+**Turns**: full rotations in the stop. The planner picks the count in `minTurns..maxTurns` whose duration is closest to `stopDuration`.
 
-**Plan / planned stop**: the list of legs the engine computes the moment the result is known. Everything after that is playback, so the landing is exact and deterministic. [Spin lifecycle](/guides/spin-lifecycle/)
+**Ease**: the curve a leg follows: a GSAP-style name (`power3.out`, `sine.inOut`) or a function. The stop ease must be an ease-out.
 
-**Profile**: a `SpinProfile`: cruise speed, wind-up, stop duration, ease, turn range. Registered under a name (`speed('turbo', ...)`) and switched with `setSpeed`. Presets: `NORMAL`, `TURBO`, `CINEMATIC`, `QUICK`. [Profiles](/docs/api-profiles/)
+**Idle**: a slow rotation while nothing happens. `wheel.idle.start()` / `stop()`, `ring.idle.isActive`; `spin()` takes over and idle resumes after. [Idle](/guides/idle/)
 
-**Result timeout**: how long a spin cruises without a result before rejecting (`resultTimeoutMs`), so a lost server response does not spin forever.
-
-**Speed**: cruise speed in degrees per second. `pointer:tick` reports the instantaneous speed for sound.
-
-**Spin**: `spin()` starts one; it resolves with a `WheelSpinResult` once the wheel has landed and settled.
-
-**Turns**: full rotations in the stop leg. `minTurns` / `maxTurns` bound them; the planner picks the count that best matches `stopDuration`.
-
-**Wind-up**: the acceleration from rest to cruise speed at the start of a spin.
+**Result timeout**: `resultTimeoutMs` on `spin()`: reject the promise and land on the current section when no result arrives in time.
 
 ## Landing
 
-**Entry edge / exit edge**: the boundary of a section a pointer meets first and last for a given spin direction. Clockwise, the entry edge is the section's `endAngle`.
+**Target**: a `WheelTarget`: `{ section }`, `{ index }`, `{ value }`, `{ angle }` or `{ position }`, the first three with an optional `offset`. [Adapters](/guides/adapters/)
 
-**Landing angle**: the wheel-local angle that ends under the pointer. Fixed when the result arrives and never changed by skips or slams. [Landing](/guides/landing/)
+**Landing angle**: the wheel-local angle that ends under the pointer. Fixed at `setResult()`; skips, slams and weight changes never move it. [Landing](/guides/landing/)
 
-**Landing mode**: where inside the section the pointer stops: `'center'`, `'random'` (with `margin` from the dividers), or `'exact'` at an `offset` (0..1 across the section). [Landing](/guides/landing/)
+**Landing mode**: where inside the section: `'center'`, `'random'` (kept `margin` off the dividers), or `'exact'` (the offset or angle you passed).
 
-**Margin**: the fraction of a section kept clear at both dividers in `'random'` mode, so a landing never looks like a divider.
+**Settle**: the move after landing: `'none'`, `'center'` (glide to the middle after `delayMs`) or `'bounce'` (overshoot `bounceDeg`, spring back).
 
-**Settle**: the move after landing: `'none'`, `'center'` (glide to the middle after `delayMs`), or `'bounce'` (overshoot and spring back). `spin:settle:start` / `:end` around it. [Landing](/guides/landing/)
+**Skip**: `skip()`: a fast-forward to the landing over the profile's `skipDuration`, at least a third of a turn. Throws before the result is in; `requestSkip()` holds the press until it is allowed. **Slam**: `slamStop()` snaps to the final position synchronously.
 
-**Target**: a `WheelTarget`: where a spin lands, as the server decides it. `{ section }`, `{ index }`, `{ value }`, `{ angle }`, each with an optional `offset` or `position`. [Adapters](/guides/adapters/)
+**Anticipation / near-miss**: a planned tease: the pointer heads for the bait, lands on the target, rests by the line the two share. The wheel comes to rest once, on the result. [Anticipation](/guides/anticipation/)
 
-**Resolved target**: a target turned into a section and a landing angle.
+**Bait**: the section the player is meant to hope for. Must neighbour the landing in the spin direction, else the tease is dropped with a warning.
 
-## Anticipation
+**Creep / stutter / stall**: the three styles. Creep crawls through the bait and barely crosses the line; stutter all but stalls short of the line, then slips over; stall enters the target and dies just short of the bait's line. `'auto'` picks by geometry.
 
-**Anticipation**: a planned near-miss. The pointer heads for the bait, lands on the target, and rests by the line the two share. The wheel comes to rest once, on the result. `anticipation:start`, `anticipation:bait`, `anticipation:end`. [Anticipation](/guides/anticipation/)
+**Rest**: where the pointer ends after a tease, as a fraction of the target's arc from the shared divider (0.22 creep and stutter, 0.15 stall). `'keep'` leaves the landing mode in charge.
 
-**Bait**: the section the player is meant to hope for during a tease. Must be reachable within the anticipation's arc; the builder throws when it is not.
+**Protected skip**: `protectSkip`: the first press fast-forwards to the start of the crawl and lets the tease play; the second lands. `skip:requested` reports `protectedByAnticipation`.
 
-**Creep**: the pointer crawls through the bait and barely crosses the line into the target. **Crawl**: the slow constant-deceleration stretch every tease ends with.
+## The pointer
 
-**Stall**: the pointer enters the target, crawls toward the bait's line as if it will cross, and dies just short of it. For a bait that follows the target.
+**Pointer**: the fixed mark a ring is read against. Also tongue, flapper, stopper, needle. Results are read against the first one. [Pointers](/guides/pointers/)
 
-**Rest**: where the pointer ends after a tease: a fraction of the target's arc from the divider it shares with the bait (0.22 after crossing it, 0.15 when it died short). `rest: 'keep'` leaves the landing mode in charge.
+**Pin / tip**: the point the pointer pivots around, and its far end. A skin draws with the pin at its origin and the tip at `+length` on x. `tipInset` is how far the tip reaches past the rim.
 
-**Stutter**: the crawl all but stalls a hair short of the line, still moving, then slips over it onto the target. **Hesitation**: that near-stall, at `hesitateSpeed` for `dwellMs`.
+**Facing**: `'inward'` sits on the rim with the tip toward the hub; `'outward'` sits at the hub pointing out.
 
-**Auto**: picks creep or stall from where the bait sits relative to the target.
+**Peg**: a small circle on the disc the tongue touches, one per divider by default. `pegs.inset` defaults to `tipInset + size - 2`, a 2 px bite into the blade. [The tongue](/recipes/tongue/)
 
-**Near-miss**: what the player sees. Anticipation is how the engine plans it.
+**Blade / flap**: the tongue as the contact model sees it, a triangle hinged at the pin; the flap is its deflection: the smallest swing from where it stands that keeps the peg outside the blade, sprung back by `stiffness` and `damping`, never past `maxAngle`. `elasticity` and `friction` pad the peg.
 
-## Skipping and stopping early
+**Reach**: whether the peg ring runs between a pointer's pin and tip. A pointer out of reach warns once and stays still.
 
-**Protected skip**: a skip that arrives during an anticipation and is delayed until the bait moment has played (`protectSkip: true`). `skip:completed` reports `protectedByAnticipation`.
+**Drag**: `flap.drag`: how hard the tongue holds the ring back while a peg climbs it. Drawn only: `ring.visualRotationDeg` moves, `rotationDeg` never does, and it relaxes to zero at rest.
 
-**Skip**: `skip()`: a short fast-forward to the landing, over `skip.durationMs`, at least `skip.minArc` degrees so it still reads as motion. Needs the result to be known. [Landing](/guides/landing/)
-
-**Slam**: `slamStop()`: snap to the final position now. For turbo modes and tests.
-
-**Skip config**: `skip({ durationMs, minArc, protectSkip, ease })` on the builder.
-
-## Pointers
-
-**Art direction**: which way a pointer texture or skeleton points in its own pixels (`'up'`, `'right'`, `'down'`, `'left'`), so the ring can turn it toward the hub or the rim.
-
-**Facing**: `'inward'` seats a pointer on the rim with the tip toward the hub; `'outward'` seats it at the hub pointing out (the inner ring's arrow in a two-ring wheel). [Pointers](/guides/pointers/)
-
-**Blade**: the tongue as the contact model sees it - a triangle hinged at the pin, `tipWidth` across at its base, tapering to a point at the tip. A peg is a circle, and the two may never overlap. [The tongue](/recipes/tongue/)
-
-**Flap**: the tongue's deflection against the pegs: the smallest swing from where it stands that keeps the peg outside the blade, held while the peg passes, sprung back (`stiffness`, `damping`), never past `maxAngle`. `elasticity` and `friction` are padding on the peg - a fatter peg swings the blade wider and holds it longer. [Pointers](/guides/pointers/)
-
-**Peg**: a small circle on the disc the tongue touches, one per divider by default (`.pegs({ size, inset, angles })`). The debug overlay draws them; `GraphicsRingSkin` can too. [Pointers](/guides/pointers/)
-
-**Contact width**: the stretch of rim over which a peg is in touch with the tongue: the peg radius plus half the `tipWidth`, either side of the tongue's axis.
-
-**Crown**: the moment a peg's centre is under the tongue's axis, where the push is largest.
-
-**Bite**: how far a peg's shoulder reaches past the tongue's tip. `pegs.inset` defaults to `tipInset + size - 2`, a 2 px bite; pegs set out past the tip make the blade lift clear over them instead, which is a much bigger flap.
-
-**Drag**: `flap.drag`, 0..1: how hard the tongue holds the ring back while a peg climbs it, released at `dragRelease` once the peg is over the crown. Drawn only - it moves `ring.visualRotationDeg`, never `rotationDeg`, and always relaxes to zero, so the landing is untouched. [The tongue](/recipes/tongue/)
-
-**Boss**: the round heel a pointer is drawn with, centred on the pin and sized to clear it. Every `GraphicsPointerSkin` shape is the hull of the boss and the tip circle, so the silhouette is one a hinge could actually hold.
-
-**Pin**: the point a pointer pivots around. A skin's local origin. For a texture, `pin: { x, y }` as fractions of the image.
-
-**Pointer**: the fixed mark a ring is read against. Also tongue, flapper, stopper, needle. A ring can have several; each is named. [Pointers](/guides/pointers/)
-
-**Pointer angle**: the screen angle a pointer sits at. Default -90, twelve o'clock. The Pragmatic wheel reads at 90, six o'clock.
-
-**Tick**: a divider passing under a pointer. `pointer:tick` carries the pointer, the sections either side, the speed and the direction. Pointer skins with a `tick` animation play it here; the tongue itself is moved by the pegs, not by the event.
-
-**Tip inset**: how far the pointer's tip reaches past the rim into the disc, px.
-
-**Reach**: whether the peg ring runs between a pointer's pin and its tip, which is the only place a peg can touch it. `pointer.reaches(pegs)`; a pointer out of reach warns once and stays still. [The tongue](/recipes/tongue/)
-
-**Visual rotation**: `ring.visualRotationDeg`: where the disc is actually drawn, the logical rotation plus whatever arc the tongues are holding back. Equal to `rotationDeg` at rest and with `drag` off.
+**Tick**: a divider passing under a pointer. `pointer:tick` carries the pointer, the sections either side, the speed and the direction.
 
 ## Skins and art
 
-**Asset resolver**: `{ texture(key) }`: what `fromConfig` uses to turn texture keys in a serialised skin config into loaded textures. [Configs](/guides/configs/)
+**Skin**: what a ring looks like. The ring owns motion; the skin owns pixels. `graphics` (default), `debug`, `texture`, `spine`, `headless`, or your own `RingSkin`. [Skins](/guides/skins/)
 
-**Atlas**: a Spine texture atlas: one text file naming regions on one or more sheets. The Playson wheel ships as its atlas plus the skeletons rebuilt over it.
+**Skin config**: the serialisable form, `{ type: 'graphics', ... }`. Instances are recorded as `{ type: 'custom' }` by `toConfig()`.
 
-**Bezel**: the fixed frame round the rim, bulbs and all. Lives on `ctx.overlay`, so it never turns. [The disc](/recipes/disc-art/)
+**Asset resolver**: `{ texture(key) }`, what `fromConfig()` uses to turn texture keys into loaded textures.
 
-**Bone**: in `SpineRingSkin`, the skeleton bone the engine rotates (`bone: 'wheel'`). The rest of the skeleton stays fixed and keeps animating. [Skins](/guides/skins/)
+**Face**: the painted disc as one texture. **Plate**: one wedge as its own sprite, authored upright with its outward edge at the top. **Bezel**: the fixed frame round the rim, on the overlay. [The disc](/recipes/disc-art/)
 
-**Debug skin**: `DebugRingSkin`: numbered wedges with their angles written on them.
+**Decoration**: a per-section sprite in `TextureRingSkin`, placed from the section's `midAngle` and kept there when weights move.
 
-**Decoration**: a per-section sprite in `TextureRingSkin`, placed from the section's `midAngle` at a fraction of the outer radius and kept there when weights move.
+**Bone**: in `SpineRingSkin`, the skeleton bone the engine rotates. The rest of the skeleton stays fixed and keeps animating.
 
-**Face**: the painted disc as one texture: square, centred, transparent outside the circle, `faceRotation` degrees off from the ring's `startAngle`. [The disc](/recipes/disc-art/)
+**Highlight**: a skin's emphasis on one section. `wheel.highlight(id)` / `highlight(null)`.
 
-**Graphics skin**: `GraphicsRingSkin`: the default painted look: wedges, dividers, rim, hub, fitted labels. [Skins](/guides/skins/)
+## Angles
 
-**Headless skin**: `HeadlessRingSkin`: draws nothing. For tests and servers.
+**Clockwise positive**: degrees increase clockwise on screen, as in PixiJS.
 
-**Highlight**: a skin's emphasis on one section, usually the winner. `highlight(id)` / `highlight(null)`.
+**Local angle**: an angle on the disc, rotating with it. Screen angle = local angle + rotation, so the pointer at screen angle `p` reads local `p - rotation`. A clockwise spin sweeps decreasing local angles under the pointer.
 
-**Plate**: the art of one wedge as its own sprite, authored upright with its outward edge at the top and anchored dead centre. [The disc](/recipes/disc-art/)
+**Entry / exit edge**: the divider a pointer meets first and last for a spin direction. Clockwise, the entry edge is the section's `endAngle`.
 
-**Region**: one image inside an atlas, named by path (`wheel/mini/mini_sector`). Regions may be trimmed (offsets to add back) or stored rotated 90 degrees counter-clockwise (PixiJS `rotate: 6`, width and height swapped).
+**Normalised angle**: folded into 0..360 with `normalizeDeg`. Sections keep unnormalised, increasing angles so section i's `endAngle` equals section i+1's `startAngle`.
 
-**Skin**: what a ring looks like. The ring owns motion; the skin owns pixels. Graphics, debug, texture, Spine, headless, or your own class implementing `RingSkin`. [Skins](/guides/skins/)
+## Tooling
 
-**Skin config**: the serialisable form of a skin, `{ type: 'graphics', ... }`, kept by `toConfig()`. Skin instances are recorded as `{ type: 'custom' }`.
+**Config**: `WheelConfig`, the JSON twin of a builder: `toConfig()` / `fromConfig()`, checked by `assertWheelConfig`. **Template**: a ready-made config from `WheelTemplates`. [Configs](/guides/configs/)
 
-**Spine skin**: `SpineRingSkin` and `SpinePointerSkin`, from `pixi-wheels/spine`. The skeleton's animations (`idle`, `spin`, `win`, per-section `winBySection`, `tick`) are wired to the events by name. [Skins](/guides/skins/)
+**Adapter**: `createTargetAdapter(config)`: turns a server response into a `WheelTarget`. [Adapters](/guides/adapters/)
 
-**Texture skin**: `TextureRingSkin`: a painted face texture, optional decorations, optional labels. [Skins](/guides/skins/)
+**Ticker**: the PixiJS `Ticker` the wheel advances on. Everything moves by `deltaMS`, so `FakeTicker` makes spins deterministic. [Testing](/guides/testing/)
 
-**VFX / effects**: the frame sequences and glows a skeleton plays on a win: sector sweep, sector glow, gold sparkle, shockwave, the Pragmatic selection frames. Authored in the skeleton, triggered by the skin's hooks.
+**Harness**: `createTestWheel` and friends: a headless wheel, seeded randomness, `expectPointerOn`, `captureEvents`.
 
-## Angles and coordinates
+**Notice**: a console warning with a stable code (`bait-too-far`, `ease-slope`, `landing-moved`) for a legal but suspicious call. `setLogLevel()` silences them.
 
-**Clockwise positive**: the library's angle convention, matching PixiJS: degrees increase clockwise on screen. Spine's counter-clockwise rotation is converted at the bone.
-
-**Local angle**: an angle on the disc, rotating with it. Screen angle = local angle + rotation. The pointer at screen angle `p` reads local angle `p - rotation`.
-
-**Normalised angle**: an angle folded into 0..360 with `normalizeDeg`. Sections keep unnormalised, increasing angles so `endAngle` of section i equals `startAngle` of section i+1.
-
-**Rotation**: the disc's current turn in degrees, clockwise positive.
-
-**Screen angle**: an angle in the wheel's fixed frame. Pointers have screen angles.
-
-## Integration
-
-**Adapter**: `createTargetAdapter(...)`: turns a server response into a `WheelTarget` (by id, index or value, read from a path). Recorded in `toConfig()` as documentation. [Adapters](/guides/adapters/)
-
-**Config**: `WheelConfig`, the JSON twin of a builder: `toConfig()` / `fromConfig()`. Versioned; validated by `assertWheelConfig`. [Configs](/guides/configs/)
-
-**Event**: a typed, colon-namespaced notification (`spin:landing`) on `wheel.events`. Every payload names its `ring`. [Events and audio](/guides/events-and-audio/)
-
-**Hook**: an event listener that drives something outside the wheel: a sound, a particle burst, a Spine reaction.
-
-**Template**: a ready-made builder for a common wheel: `gamble`, `gambleDynamic`, `multipliers`, `jackpots`, `dynamicJackpot`, `twoRing`, `debug`.
-
-**Ticker**: the PixiJS `Ticker` that drives the wheel. `ticker(app.ticker)` on the builder. Everything moves by `deltaMS`, so a fake ticker makes spins deterministic.
-
-## Testing and debugging
-
-**ASCII arc**: `debugArc(wheel)`: the ring as a text strip with the pointer marked. For logs and agents.
-
-**Debug overlay**: `debugOverlay(wheel)`: section boundaries, pointer angles, pegs with the one being ridden and each tongue's contact zone, the target and a HUD drawn over the wheel, live.
-
-**Fake ticker**: `FakeTicker` from `pixi-wheels/testing`: advance time by hand and land a spin in one call.
-
-**Harness**: `createTestWheel` and friends: a headless wheel, seeded randomness, `expectPointerOn`, `captureEvents`. [Testing](/guides/testing/)
-
-**Notice**: a one-time warning the library prints with a code (`bait-too-far`, `ease-slope`, `config-skin-instance`) when a config is legal but suspicious. `setLogLevel` silences them.
-
-**Snapshot**: `debugSnapshot(wheel)`: the whole state as plain JSON.
+**Debug overlay / snapshot / arc**: `debugOverlay()` draws the geometry over the wheel, `debugSnapshot()` is the state as JSON, `debugArc()` the ring as a text strip. `enableDebug()` puts all three on `window.__PIXI_WHEELS_DEBUG`. [Debugging](/guides/debugging/)

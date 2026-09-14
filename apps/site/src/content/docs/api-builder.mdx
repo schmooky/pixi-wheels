@@ -27,7 +27,7 @@ description: Every WheelBuilder and RingBuilder method, what it validates, and i
 |---|---|---|
 | `direction('cw' \| 'ccw')` | Spin direction for rings without their own. | `'cw'` |
 | `ring(id, (r) => ...)` | Add a ring around the same centre. Rings may not overlap. | |
-| `speed(name, profile)` | Register a `SpinProfile`. Validated: positive speeds, `minTurns <= maxTurns`, eases exist. | `normal: SpinPresets.NORMAL` |
+| `speed(name, profile)` | Register a `SpinProfile`. Only `spinSpeed` is required; the rest come from `DEFAULT_PROFILE`. Validated: positive speeds, `minTurns <= maxTurns`, eases exist. | `normal: SpinPresets.NORMAL` |
 | `initialSpeed(name)` | Active profile at build. | first registered |
 | `landing(options)` | Defaults for `setResult()`: `mode`, `margin`, `settle`, `anticipation`. | center, none |
 | `skip({ allowed, minimumSpinTime, protectAnticipation })` | Skip rules. | allowed |
@@ -41,4 +41,4 @@ description: Every WheelBuilder and RingBuilder method, what it validates, and i
 
 ## Validation
 
-`build()` throws on: no ticker; no radius; fewer than two sections; duplicate section or pointer ids; non-positive weights; inner radius not below outer; overlapping rings; unknown `initialSpeed`; a profile field out of range; an unknown ease anywhere; a dynamic step naming an unknown section; an idle speed of zero. Each message names the call to fix.
+`build()` throws on: no ticker; no radius; fewer than two sections; duplicate section or pointer ids; non-positive weights; inner radius not below outer; overlapping rings; unknown `initialSpeed`; a profile field out of range; an unknown ease anywhere; a dynamic step naming an unknown section or an `initialStep` out of range; an idle speed of zero. Each message names the call to fix.

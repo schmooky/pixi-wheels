@@ -35,6 +35,6 @@ settle: { mode: 'bounce', bounceDeg: 5, durationMs: 500 }
 .skip({ allowed: true, minimumSpinTime: 800, protectAnticipation: false })
 ```
 
-`wheel.skip()` returns `true` when it did something. It throws before `setResult()`; `wheel.requestSkip()` queues the press for the moment the result lands. `wheel.slamStop()` snaps to the final position synchronously.
+`wheel.skip()` returns `true` when it did something. It throws before `setResult()` and returns `false` before `minimumSpinTime`; `wheel.requestSkip()` holds the press until both are satisfied. `wheel.slamStop()` snaps to the final position synchronously.
 
 The profile's `skipDuration` is the length of the fast-forward.

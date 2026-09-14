@@ -13,7 +13,7 @@ description: The runtime surface - spin, setResult, skip, idle, weights, geometr
 wheel.spin({ ring?, direction?, resultTimeoutMs? }): Promise<WheelSpinResult>
 wheel.setResult(target: WheelTarget, { ring?, mode?, margin?, settle?, anticipation? }): void
 wheel.skip(ring?): boolean          // throws before setResult(); false when disabled / too early
-wheel.requestSkip(ring?): void      // queue a press until the result is in
+wheel.requestSkip(ring?): void      // hold a press until the result is in and the skip is allowed
 wheel.slamStop(ring?): void         // snap to the final position, complete synchronously
 wheel.isSpinning: boolean
 ```
@@ -29,8 +29,9 @@ ring.addSpeed(name, profile)
 ## Idle
 
 ```ts
-wheel.idle.start(config?, ring?)    // config from the builder when omitted
+wheel.idle.start(config?, ring?)    // config from the builder when omitted; every ring when ring is
 wheel.idle.stop(ring?)
+ring.idle.isActive
 ```
 
 ## Dynamic sections
@@ -61,6 +62,7 @@ Everything above without the `ring` argument, plus:
 ring.id; ring.outerRadius; ring.innerRadius; ring.direction
 ring.state: 'idle' | 'idling' | 'starting' | 'cruising' | 'stopping' | 'settling'
 ring.speed                          // signed deg/s, last frame
+ring.profile; ring.addSpeed(name, profile)   // the active ResolvedSpinProfile; register one at run time
 ring.disc; ring.overlay             // containers a custom skin or effect can draw into
 ring.pointers; ring.skin; ring.controller
 ring.localAngleUnderPointer(pointerId?)
@@ -69,4 +71,4 @@ ring.update(deltaMS)                // called by the ticker; call by hand with a
 
 ## Teardown
 
-`wheel.destroy()` destroys every ring (skins, pointers, ticker callbacks), emits `destroyed`, drops all listeners, and destroys the container tree.
+`wheel.destroy()` destroys every ring (skins, pointers, ticker callbacks), emits `destroyed`, drops all listeners, and destroys the container tree. A spin in flight is abandoned: its promise never settles.

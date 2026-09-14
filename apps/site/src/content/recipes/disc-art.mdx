@@ -13,13 +13,11 @@ tags:
   - assets
 ---
 
-A ring owns the motion. A skin owns the pixels. The engine will happily spin a wheel that draws nothing at all, so every texture below is a choice you make about how the thing should look, never something the maths needs.
-
-This is the long version: what the layers are, what each asset has to match, and where a real game's art ends up. The tongue has [its own recipe](/recipes/tongue/).
+A ring owns the motion; a skin owns the pixels. The engine spins a wheel that draws nothing at all, so every texture below is a choice about looks, never something the maths needs. This page is the long version: the layers, what each asset has to match, and where a real game's art ends up. The tongue has [its own recipe](/recipes/tongue/).
 
 ## Take the textures
 
-Every PNG on this page is a real file, drawn to the requirements below, and yours: MIT like the library, no attribution, change them as you like. The demos load these exact bytes, so what you see in the prose is what runs in the canvas.
+Every PNG on this page is a real file drawn to the requirements below: MIT like the library, no attribution. The demos load these exact bytes.
 
 <AssetPack
   title="The whole set - discs, plates, bezels, hubs and the small parts"
@@ -55,13 +53,13 @@ attach(ctx: RingSkinContext) {
 layout() { /* called again whenever a weight moves a boundary */ }
 ```
 
-The demo assembles exactly that, one layer per second, from the five PNGs this page shows. Press Spin at any point.
+The demo assembles exactly that, one layer per second. Press Spin at any point.
 
 <RecipeDemo code="disc-anatomy" height={420} />
 
 ## Nothing at all: the painted default
 
-`GraphicsRingSkin` draws wedges, dividers, a rim, a hub, bulbs and fitted labels from the section styles alone. No files, no loader, no atlas. It is the right answer for a prototype, an internal tool, or a wheel whose colours come from the server.
+`GraphicsRingSkin` draws wedges, dividers, a rim, a hub, bulbs and fitted labels from the section styles alone: no files, no loader. Right for a prototype, an internal tool, or a wheel whose colours come from the server.
 
 ```ts
 .skin({
@@ -103,7 +101,7 @@ The cheapest real art: the whole disc as a single texture that rotates with the 
 }))
 ```
 
-The trade is honest: one texture is one draw call and never lies about where a wedge is, but it cannot follow a weight change. Move a boundary and the painting stays put while the geometry underneath does not.
+One texture is one draw call, but it cannot follow a weight change: move a boundary and the painting stays put while the geometry underneath does not.
 
 <AssetPack
   title="Faces: same rules, three densities"
@@ -138,9 +136,7 @@ When wedges move, or every wedge needs its own frame and glow, ship one plate an
 decorations: sections.map((s) => ({ section: s.id, texture: plate, radius: 0.63, scale: 0.38 }))
 ```
 
-`radius` is a fraction of `outerRadius`, `orientation: 'none'` keeps the art upright instead of turning it, and `rotationOffset` nudges art that was exported off-axis. A skin of your own does the same thing with `ctx.geometry.byId(id).midAngle` and gets to keep per-section state - which plate is dim, which is celebrating.
-
-Ship the states you need as separate files at the same size, and landing becomes a texture swap:
+`radius` is a fraction of `outerRadius`, `orientation: 'none'` keeps the art upright instead of turning it, and `rotationOffset` nudges art exported off-axis. A skin of your own does the same with `ctx.geometry.byId(id).midAngle` and keeps per-section state: which plate is dim, which is celebrating. Ship the states as separate files at the same size and landing becomes a texture swap:
 
 <AssetPack
   title="Plates: colours and states, all 256 x 320"
@@ -185,7 +181,7 @@ Anything that must not turn goes on `ctx.overlay`: the frame round the rim, the 
 | Hub cap | `overlay` | `innerRadius` if the ring has one, else about `0.3 x outerRadius` |
 | Logo, jackpot readouts | `overlay` | Whatever the layout says: they are not wheel art |
 
-The bulbs are worth a word: alternating them at rest and chasing them during the spin is most of what makes a wheel feel alive, and it costs one alpha tween per bulb. Drive it from `spin:start` and `spin:landing`.
+Alternating the bulbs at rest and chasing them during the spin is most of what makes a wheel feel alive, at one alpha tween per bulb. Drive it from `spin:start` and `spin:landing`.
 
 ## Labels are art too
 
@@ -196,22 +192,24 @@ A section's `content` is any container, so a label can be a texture, a bitmap-fo
 ```ts
 sections: [{
   id: 'grand',
-  content: (ctx) => {                  // ctx: { section, radius, innerRadius, slot }
+  content: (ctx) => {                  // ctx: { section, outerRadius, innerRadius, slot, fit }
     const box = new Container();
     box.addChild(icon, valueText);
-    fitContainer(box, ctx.slot, { mode: 'fit' });
+    ctx.fit(box, { padding: 0.1 });    // scale into the slot, 10% free around
     return box;
   },
-  labelOrientation: 'tangential-in',   // top toward the hub: how slots read from six o'clock
-  labelFit: 'fit',
+  style: {
+    labelOrientation: 'tangential-in', // top toward the hub: how plates read from six o'clock
+    labelFit: 'contain',
+  },
 }]
 ```
 
 | `labelFit` | What it does |
 |---|---|
-| `fit` | Scale down only, keep the aspect. The safe default |
-| `fill` | Scale up too, so a short label grows into its room |
-| `width` | Only the chord matters; let it be as tall as it likes |
+| `contain` | Scale down only, keep the aspect. The default |
+| `cover` | Fill the slot, overflowing on one axis |
+| `width` / `height` | Match one axis only |
 | `none` | Place it, do not touch the scale |
 
 | `labelOrientation` | Reads |
@@ -221,7 +219,7 @@ sections: [{
 | `tangential-in` | Along the arc, top toward the hub: how a wheel read from six o'clock wants it |
 | `upright` | Never rotates. For icons, faces, anything with a right way up |
 
-`scaleToFit`, `fitContainer`, `fitText`, `labelSlot` and `chordAt` are exported for your own layout code; the label layer uses the same five. Bitmap fonts are the usual answer for values that change every spin - Wheel of Happiness draws its `+` and its digits from one 512 x 512 page:
+`scaleToFit`, `fitContainer`, `fitText`, `labelSlot` and `chordAt` are exported for your own layout code. Bitmap fonts are the usual answer for values that change every spin; Wheel of Happiness draws its `+` and its digits from one 512 x 512 page:
 
 <Image src="/pragmatic-wheel/fonts/impact.png" alt="A bitmap font page: gold Impact glyphs on transparency" caption="impact.png with impact.fnt beside it. One texture, any number, no layout cost." ratio="1/1" max={360} />
 
@@ -259,9 +257,9 @@ Playson's Super Wheel arrives as three atlas pages like this, sprite rectangles 
 }))
 ```
 
-Rules that repay reading twice:
+Rules:
 
-- The engine sets the bone's rotation every frame. An animation that also rotates that bone will fight it - animate its children instead.
+- The engine sets the bone's rotation every frame. An animation that also rotates that bone will fight it; animate its children instead.
 - `winBySection` is how one skeleton carries twelve celebrations. Without it, `win` plays for everything.
 - `labels: true` puts the label layer above the skeleton and rotates it by hand, so server-driven multipliers can sit on authored plates.
 - Spine 3.7 and 3.8 exports need converting first. `tools/spine-3.8-to-4.2/` does binary `.skel` and JSON, `tools/spine-3.7-to-4.2/` does 3.7 JSON.

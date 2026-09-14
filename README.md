@@ -105,7 +105,7 @@ __PIXI_WHEELS_DEBUG.overlay()   // dividers, angles, landing marker, HUD
 
 ## Recipes and studio
 
-Thirty-two live demos under [`/recipes`](https://pixi-wheels.schmooky.dev/recipes/), each with its source beside it: gamble wheels, stopping modes, every anticipation style, dynamic sectors, rings, idle wheels, rich labels, textured and Spine skins with studio art and the games' own effects, server adapters, sound hooks on a real audio engine, the debug view. The [studio](https://pixi-wheels.schmooky.dev/studio/) edits a wheel in forms, takes your assets, and exports a config or a project.
+Live demos under [`/recipes`](https://pixi-wheels.schmooky.dev/recipes/), each with its source beside it: gamble wheels, stopping modes, every anticipation style, dynamic sectors, rings, idle wheels, rich labels, textured and Spine skins with studio art and the games' own effects, server adapters, sound hooks on a real audio engine, the debug view. The [studio](https://pixi-wheels.schmooky.dev/studio/) edits a wheel in forms, takes your assets, and exports a config or a project.
 
 ```bash
 pnpm site:dev     # the whole thing, locally

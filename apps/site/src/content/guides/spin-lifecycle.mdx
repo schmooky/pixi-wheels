@@ -18,34 +18,32 @@ idling (optional slow rotation while nothing happens)
 |---|---|---|
 | `idle` | Nothing. | `spin()`, `idle.start()`, `setWeights()` |
 | `idling` | Turns slowly at the idle speed. | `spin()` (ramps from the idle speed), `idle.stop()` |
-| `starting` | Accelerates to `spinSpeed` over `accelerationMs`. | `setResult()`, `requestSkip()` |
+| `starting` | Accelerates to `spinSpeed` over `accelerationMs`. | `setResult()`, `skip()`, `requestSkip()` |
 | `cruising` | Constant speed, waiting for the result and the minimum times. | `setResult()`, `skip()`, `requestSkip()` |
 | `stopping` | Plays the planned legs: deceleration, anticipation, landing. | `skip()`, `slamStop()` |
 | `settling` | Plays the settle legs (centre glide or bounce). | nothing; wait |
 
-`spin()` while spinning throws. `setResult()` twice throws. `setResult()` after the stop began throws. Read `wheel.main.state` if you need to branch.
+`spin()` while spinning throws. `setResult()` twice, or after the stop began, throws. Read `wheel.main.state` to branch.
 
 ## The planned stop
 
-The moment the stop may begin, the engine plans it as a list of legs and plays them back. The first leg starts at the cruise speed: its ease's initial slope is matched to the speed, so the distance fixes the duration and the planner picks the number of full turns that gets closest to the profile's `stopDuration`. There is no velocity step when the result arrives.
+Once the result is in and the profile's `minimumSpinTime` and `minCruiseMs` have passed, the engine plans the stop as a list of legs and plays them back. The first leg starts at the cruise speed: its ease's initial slope is matched to the speed, so the distance fixes the duration and the planner picks the number of full turns closest to `stopDuration`. No velocity step when the result arrives.
 
 - Plain stop: one leg to the landing angle.
-- Creep: a leg to the bait's entry edge ending at `creepSpeed`, then a crawl over the line to a rest just inside the landing section.
-- Stutter: the same crawl, slowing to a near-stall a hair short of the line, then a slip over it to the rest.
-- Stall: a leg to the landing section's entry edge ending at `creepSpeed`, then a crawl toward the bait's line that dies just short of it.
-
-No plan ever contains a reverse leg or a stop before the rest: the segment the wheel stops on is the result.
+- Creep: a leg to the bait's entry edge ending at `creepSpeed`, then a crawl over the line to a rest just inside the target.
+- Stutter: the same crawl, slowing to a near-stall a hair short of the line, then a slip over it.
+- Stall: a leg to the target's entry edge ending at `creepSpeed`, then a crawl toward the bait's line that dies just short of it.
 - Settle: a dwell and a glide to the centre, or a bounce out and back.
 
-`spin:stopping` reports the turn count and total duration; the debug overlay draws the current leg.
+No plan contains a reverse leg or a stop before the rest: the section the wheel stops on is the result. `spin:stopping` reports the turn count and duration; the debug overlay draws the current leg.
 
 ## Landing angle
 
-`setResult()` resolves the target to a wheel-local angle at once: the section's middle, a random spot inside it, or the exact offset or angle you passed. A tease moves that angle next to the divider the target shares with the bait (`rest`), so the miss reads as "by a hair". The stop is planned against the final angle, so a dynamic-section change during the spin does not move the landing.
+`setResult()` resolves the target to a wheel-local angle at once: the section's middle, a random spot inside it, or the exact offset or angle you passed. A tease moves that angle next to the divider the target shares with the bait (`rest`). The plan is built against that angle, so nothing after `setResult()` moves the landing. Changing weights after it can put a different section under the fixed angle; the engine warns (`landing-moved`) when that happens.
 
 ## Skip and slam
 
-`skip()` replaces the remaining legs with a short fast-forward to the landing (at least a third of a turn) and keeps the settle. With `protectAnticipation`, the first press fast-forwards to the bait instead and the second lands. `slamStop()` snaps to the final position and completes synchronously; it is what the test harness uses.
+`skip()` replaces the remaining legs with a fast-forward to the landing (at least a third of a turn, over the profile's `skipDuration`) and keeps the settle. Pressed before the stop began, it also emits `spin:stopping`. With `protectAnticipation`, the first press fast-forwards to the bait and the second lands. `requestSkip()` holds a press until the result is in and `skip.minimumSpinTime` has passed. `slamStop()` snaps to the final position and completes synchronously.
 
 ## Result
 

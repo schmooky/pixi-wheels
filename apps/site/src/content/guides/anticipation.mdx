@@ -24,17 +24,15 @@ wheel.setResult({ value: 2 }, {
 });
 ```
 
-Set `.landing({ anticipation: { bait: 'x50' } })` on the builder to bait every spin. The defaults are tuned; `bait` alone gives the beat below.
+`.landing({ anticipation: { bait: 'x50' } })` on the builder baits every spin. `bait` alone is enough; the defaults are the beat.
 
-## The near-miss beat
+## The beat
 
-The feeling to hit is "it is going to be the jackpot... it is the one before it". Three things make it read:
+- **The approach is a crawl.** The wheel comes down to `creepSpeed` and dies against friction over its last stretch, so the pointer takes its time reaching the line between the result and the bait.
+- **It never stops early.** `creep` crawls through the bait and barely crosses the line. `stutter` all but stalls a hair short of the line, still moving at `hesitateSpeed`, then slips over. `stall` enters the result and crawls toward the bait's line as if it will cross, and dies just short of it.
+- **It rests by the line.** A tease puts the landing angle just inside the target, `rest` of its arc from the shared divider: 0.22 after crossing it, 0.15 when it died short. `rest: 'keep'` lets the landing mode place it; `settle: 'center'` glides to the middle afterwards. A target with its own `offset`, an `angle` / `position` target, or `mode: 'exact'` is never moved.
 
-1. **The approach is a crawl.** Whatever the style, the wheel comes down to `creepSpeed` and crawls its last stretch with a constant deceleration, the way a real wheel dies against friction. The pointer takes its time reaching the line between the result and the bait.
-2. **It never stops early.** `creep` crawls through the bait and barely crosses the line. `stutter` all but stalls a hair short of the line, still moving at `hesitateSpeed`, then slips over it. `stall` enters the result and crawls toward the bait's line as if it will cross, and dies just short of it. In every case the first moment the wheel is still is the rest, and the segment under the pointer is the result. No dwell inside the bait, no roll back.
-3. **It rests by the line.** Whatever the landing mode says, a tease puts the landing angle just inside the target, `rest` of its arc from the divider it shares with the bait: 0.22 after crossing it, 0.15 when it died short of it. The pointer ends up hugging the line it almost crossed, which is where the eye expects it. Set `rest: 'keep'` to let the landing mode place it, or add `settle: 'center'` to glide to the middle once the beat has landed. A target with its own `offset`, an `angle` / `position` target, or `mode: 'exact'` is never moved.
-
-The crawls pass the divider under the pointer, so `pointer:tick` fires for them too, at crawl speed. Wire the flapper's kick and its click to that event and the miss sounds right as well.
+The crawls pass the divider under the pointer, so `pointer:tick` fires for them too, at crawl speed.
 
 ## Geometry
 
@@ -43,7 +41,7 @@ A clockwise wheel sweeps decreasing local angles under the pointer, so it meets 
 - **bait before landing** (the pointer passes the bait, then reaches the landing): `creep` or `stutter`.
 - **bait after landing** (the pointer reaches the landing first): `stall`.
 
-`'auto'` picks by distance. If the bait is farther than `maxDistanceDeg` on both sides the tease is dropped with a warning (`bait-too-far`) and the wheel lands plainly. An explicit style with the wrong geometry warns (`bait-order`) and is dropped too. Nothing ever moves the landing off the result.
+`'auto'` picks by distance. A bait farther than `maxDistanceDeg` on both sides is dropped with a warning (`bait-too-far`); an explicit style with the wrong geometry warns (`bait-order`) and is dropped too. The wheel lands plainly either way.
 
 ## Events
 
