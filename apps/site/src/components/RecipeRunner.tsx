@@ -26,6 +26,8 @@ export interface RunResult {
   onSpin?: () => Promise<void>;
   /** Custom skip handler for a press while spinning. Default `wheel.skip()`, falling back to `requestSkip()`. */
   onSkip?: () => void;
+  /** A debug overlay the recipe drew itself. The Debug button toggles this one instead of adding a second. */
+  overlay?: DebugOverlayHandle;
   cleanup?: () => void;
 }
 
@@ -144,6 +146,10 @@ export function RecipeRunner({ code, slug, height = 340 }: RecipeRunnerProps) {
         enableDebug(result.wheel);
         setCanDebug(true);
       }
+      if (result.overlay) {
+        overlayRef.current = [result.overlay];
+        setDebugOn(true);
+      }
       setReady(true);
     })();
 
@@ -170,7 +176,10 @@ export function RecipeRunner({ code, slug, height = 340 }: RecipeRunnerProps) {
   async function handleSpin() {
     if (!ready || !!error) return;
     const wheel = wheelRef.current;
-    if (spinning) {
+    // The ref, not the `spinning` state: `window.__pixiWheels[slug].spin` is
+    // this function captured once, and a stale closure would read `false`
+    // while a spin is in flight and start a second one instead of skipping.
+    if (spinningRef.current) {
       if (onSkipRef.current) {
         onSkipRef.current();
         return;

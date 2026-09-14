@@ -22,4 +22,13 @@ export default defineConfig({
     navigationTimeout: 30_000,
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // One static server of the built site for every spec. Not `astro preview`:
+  // it daemonises itself in agent environments and refuses `--ignore-lock`
+  // there, and Playwright cannot follow either.
+  webServer: {
+    command: 'node scripts/serve-dist.mjs 5182',
+    url: 'http://127.0.0.1:5182/',
+    reuseExistingServer: !process.env.CI,
+    timeout: 30_000,
+  },
 });
