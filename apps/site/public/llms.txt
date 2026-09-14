@@ -181,7 +181,7 @@ spin();                          // the same action as the Spin button
 debugArc(wheel);                 // via __PIXI_WHEELS_DEBUG, enabled on every demo
 ```
 
-Each demo's frame carries `data-recipe="<name>"`, which is what the end-to-end sweep uses to spin, skip and re-spin every recipe and compare where the wheel says it landed with what sits under the pointer.
+Each demo's frame carries `data-recipe="<name>"`, which is what the end-to-end sweep (`tests/e2e/recipes-land.spec.ts`) uses to spin every demo, skip the next spin, and compare where each wheel says it landed with what sits under its pointer.
 
 ### Dynamic sections
 URL: https://pixi-wheels.schmooky.dev/guides/dynamic-sections/
@@ -1497,7 +1497,7 @@ const wheel = new WheelBuilder()
 
 const caption = new PIXI.Text({
   text: '',
-  style: { fill: 0x9fb0c3, fontFamily: 'Menlo, Consolas, monospace', fontSize: 13 },
+  style: { fill: 0x7b8794, fontFamily: 'Menlo, Consolas, monospace', fontSize: 13 },
 });
 caption.anchor.set(0.5, 0);
 caption.position.set(0, 212);
@@ -1677,7 +1677,7 @@ return { wheel };
 ### Server, events and debugging
 URL: https://pixi-wheels.schmooky.dev/recipes/integration/
 
-Adapters for real server responses, every sound hook, the debug view, and configs that round-trip.
+Adapters for real server responses, every sound hook, and the debug view.
 
 #### server-adapter
 
@@ -1785,8 +1785,13 @@ e.on('spin:start', () => {
   engine.sound('activate').play();
   spinVoice = engine.sound('spin').play();
 });
-// The ratchet: louder and higher with speed, never twice the same.
+// The ratchet: louder and higher with speed, never twice the same, and never
+// more than one click per 45 ms; past that the ear hears a buzz, not pegs.
+let lastTickAt = -1e9;
 e.on('pointer:tick', ({ speed }) => {
+  const now = performance.now();
+  if (now - lastTickAt < 45) return;
+  lastTickAt = now;
   engine.sound('tick').play({
     volume: Math.min(1, 0.25 + speed / 900),
     pitch: { base: 0.9 + Math.min(0.6, speed / 1400), jitter: 0.04 },
@@ -1811,6 +1816,7 @@ return {
     await new Promise((r) => setTimeout(r, 300));
     const ids = wheel.sections.map((s) => s.id);
     const i = Math.floor(Math.random() * ids.length);
+    // Bait with a neighbour; 'auto' creeps past it or stalls short of it depending on the side.
     wheel.setResult({ section: ids[i] }, { anticipation: { bait: ids[(i + ids.length - 1) % ids.length] } });
     await spin;
   },
@@ -1824,11 +1830,13 @@ return {
 // Injected globals: WheelBuilder, SpinPresets, DebugRingSkin, debugArc, debugOverlay, app
 
 // The plain skin plus the live overlay: dividers with their angles on pills
-// outside the rim, the pointer marker with the local angle under it, the
-// pegs, the planned landing angle in yellow, and a HUD panel in the corner
-// of the canvas with the state, speed and current leg. Text stays readable
-// at any wheel scale. debugArc() prints the same as text; it is what an
-// agent reads when it cannot see the canvas. Open the console.
+// inside the rim, the pointer from pin to tip with the local angle under it,
+// the pegs, the planned landing angle in yellow, and a HUD panel in the
+// corner of the canvas with the state, speed and current leg. Text stays
+// readable at any wheel scale. debugArc() prints the same as text; it is
+// what an agent reads when it cannot see the canvas. Open the console. The
+// overlay handle goes back to the runner, so the Debug button toggles this
+// one instead of stacking a second.
 const wheel = new WheelBuilder()
   .radius(230, 40)
   .sections([
@@ -1843,12 +1851,13 @@ const wheel = new WheelBuilder()
   .ticker(app.ticker)
   .build();
 
-debugOverlay(wheel, { layers: 'all', live: true, ticker: app.ticker, hud: 'bottom-left', screen: app.screen });
+const overlay = debugOverlay(wheel, { layers: 'all', live: true, ticker: app.ticker, hud: 'bottom-left', screen: app.screen });
 wheel.events.on('spin:stopping', () => console.log(debugArc(wheel)));
 wheel.events.on('spin:complete', () => console.log(debugArc(wheel)));
 
 return {
   wheel,
+  overlay,
   onSpin: async () => {
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 300));
@@ -1856,37 +1865,6 @@ return {
     await spin;
   },
 };
-```
-
-#### config-round-trip
-
-```ts
-// @ts-nocheck
-// Injected globals: WheelBuilder, SpinPresets, app
-
-// Build with the fluent API, export the config, rebuild from it. The JSON is
-// what the studio saves and what a game can ship next to its assets; the
-// console shows it.
-const built = new WheelBuilder()
-  .name('round trip')
-  .radius(230, 30)
-  .sections([
-    { id: 'x2', label: 'x2', value: 2, weight: 2 },
-    { id: 'x5', label: 'x5', value: 5 },
-    { id: 'x20', label: 'x20', value: 20, weight: 0.5, style: { fill: 0xf1c40f, labelColor: 0x2b1d00 } },
-  ])
-  .pointer({ angle: -90, skin: { type: 'graphics', shape: 'triangle', color: 0xffd166 } })
-  .skin({ type: 'graphics', bulbs: { count: 18 } })
-  .landing({ mode: 'random', settle: 'center' })
-  .speed('normal', SpinPresets.NORMAL)
-  .adapter({ by: 'value', path: 'bonus.multiplier' });
-
-const config = built.toConfig();
-console.log('[config]', JSON.stringify(config, null, 2));
-
-const wheel = WheelBuilder.fromConfig(config).ticker(app.ticker).build();
-
-return { wheel };
 ```
 
 ### Dynamic sectors, rings and idle
@@ -2225,13 +2203,13 @@ return {
 
 ```ts
 // @ts-nocheck
-// Injected globals: WheelBuilder, SpinPresets, app
+// Injected globals: WheelBuilder, SpinPresets, app, PIXI
 
-// Idle on demand. The wheel starts still; the first press starts the idle,
-// the second spins (from the idle speed) and the idle resumes after the
-// landing. idle.stop() ramps down instead of snapping.
+// Idle on demand, one press per step: start the idle, spin from it (the idle
+// resumes after the landing on its own), stop it with a ramp. The readout
+// says what the next press does; `ring.idle.isActive` says whether it is on.
 const wheel = new WheelBuilder()
-  .radius(220, 30)
+  .radius(200, 30)
   .sections(Array.from({ length: 8 }, (_, i) => ({ id: `s${i}`, label: `${i + 1}` })))
   .speed('normal', SpinPresets.NORMAL)
   .ticker(app.ticker)
@@ -2241,16 +2219,34 @@ wheel.events.on('idle:start', () => console.log('[idle] start'));
 wheel.events.on('idle:stop', () => console.log('[idle] stop'));
 wheel.events.on('spin:start', ({ fromIdle }) => console.log('[idle] spin from idle =', fromIdle));
 
-let armed = false;
+const readout = new PIXI.Text({ text: '', style: { fill: 0x7b8794, fontFamily: 'Menlo, Consolas, monospace', fontSize: 15 } });
+readout.anchor.set(0.5, 0);
+readout.position.set(0, 218);
+const stage = new PIXI.Container();
+stage.addChild(wheel, readout);
+
+const steps = ['start the idle', 'spin from the idle', 'stop the idle'];
+let step = 0;
+const show = () => {
+  readout.text = `idle ${wheel.main.idle.isActive ? 'on ' : 'off'}    next press: ${steps[step % steps.length]}`;
+};
+app.ticker.add(show);
+
 return {
   wheel,
+  stage,
+  cleanup: () => app.ticker.remove(show),
   onSpin: async () => {
-    if (!armed) {
+    const what = steps[step++ % steps.length];
+    if (what === 'start the idle') {
       wheel.idle.start({ speed: 20, direction: 'ccw', rampMs: 1200 });
-      armed = true;
       return;
     }
-    const spin = wheel.spin();
+    if (what === 'stop the idle') {
+      wheel.idle.stop(); // ramps down over rampMs, then idle:stop
+      return;
+    }
+    const spin = wheel.spin(); // ramps from the idle speed; spin:start says fromIdle
     await new Promise((r) => setTimeout(r, 250));
     wheel.setResult({ index: Math.floor(Math.random() * 8) });
     await spin;
@@ -2326,7 +2322,7 @@ return {
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 300));
     const i = Math.floor(Math.random() * PLAYSON_SECTIONS.length);
-    // Bait with the plate just before the target, so the tease creeps past it or stalls just short of it.
+    // Bait with the neighbouring plate; 'auto' creeps past it or stalls short of it depending on the side.
     wheel.setResult({ section: PLAYSON_SECTIONS[i].id }, { anticipation: { bait: PLAYSON_SECTIONS[(i + 11) % 12].id } });
     await spin;
   },
@@ -2392,7 +2388,7 @@ return {
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 300));
     const i = Math.floor(Math.random() * PLAYSON_SECTIONS.length);
-    // Bait with the plate just before the target, so the tease creeps past it or stalls just short of it.
+    // Bait with the neighbouring plate; 'auto' creeps past it or stalls short of it depending on the side.
     wheel.setResult({ section: PLAYSON_SECTIONS[i].id }, { anticipation: { bait: PLAYSON_SECTIONS[(i + 11) % 12].id } });
     await spin;
   },
@@ -2462,7 +2458,7 @@ return {
 ### Starters
 URL: https://pixi-wheels.schmooky.dev/recipes/starters/
 
-A wheel in ten lines, the two-colour gamble, and building from a template.
+A wheel in ten lines, the two-colour gamble, and a template round-tripped through JSON.
 
 #### basic-wheel
 
@@ -2524,8 +2520,8 @@ const wheel = new WheelBuilder()
 
 let balance = 100;
 wheel.events.on('spin:landing', ({ section }) => {
-  balance = section.id === 'green' ? balance * 2 : 0;
-  console.log(`[gamble] ${section.id} -> balance ${balance}`);
+  balance = section.id === 'green' ? balance * 2 : 100;
+  console.log(`[gamble] ${section.id} -> ${section.id === 'green' ? `balance ${balance}` : 'bust, back to 100'}`);
 });
 
 return {
@@ -2539,73 +2535,33 @@ return {
 };
 ```
 
-#### gamble-dynamic
-
-```ts
-// @ts-nocheck
-// Injected globals: WheelBuilder, SpinPresets, app
-
-// Red / green whose split moves after every spin. The odds live on the
-// server; the arc is cosmetic and follows a step list. The pointer still
-// lands on whichever colour the server said.
-const wheel = new WheelBuilder()
-  .radius(200, 26)
-  .sections([
-    { id: 'red', label: '', value: 'red', style: { fill: 0xd7263d } },
-    { id: 'green', label: '', value: 'green', style: { fill: 0x1e9e5a } },
-  ])
-  .dynamic({
-    steps: [
-      { red: 1, green: 1 },
-      { red: 3, green: 2 },
-      { red: 2, green: 1 },
-      { red: 3, green: 1 },
-      { red: 5, green: 1 },
-    ],
-    durationMs: 600,
-    ease: 'sine.inOut',
-  })
-  .skin({ type: 'graphics', dividers: { width: 5, color: 0xffffff }, hub: { radius: 26, color: 0x111111 } })
-  .landing({ mode: 'random', margin: 0.1 })
-  .speed('normal', SpinPresets.QUICK)
-  .ticker(app.ticker)
-  .build();
-
-return {
-  wheel,
-  onSpin: async () => {
-    const spin = wheel.spin();
-    await new Promise((r) => setTimeout(r, 200));
-    const won = Math.random() < 0.5;
-    wheel.setResult({ value: won ? 'green' : 'red' });
-    await spin;
-    // Each win shrinks the green: the next step is the next state.
-    await wheel.nextStep();
-  },
-};
-```
-
 #### from-template
 
 ```ts
 // @ts-nocheck
-// Injected globals: WheelBuilder, WheelTemplates, SpinPresets, app
+// Injected globals: WheelBuilder, WheelTemplates, SpinPresets, createTargetAdapter, app
 
-// Templates are plain configs. Load one, add the ticker, build. Everything
-// the studio exports has this shape too.
+// Templates are plain configs: load one, add the ticker, build. A template
+// also records how its server answers ({ jackpot: { tier } } here), so the
+// adapter comes with it. The builder gives the config back with toConfig(),
+// which is what the studio saves; the console shows the round trip.
 const config = WheelTemplates.jackpots();
 
 // The jackpots template ships the cinematic profile (an eight-second stop);
 // a builder call after fromConfig() overrides any of it. NORMAL keeps the demo brisk.
-const wheel = WheelBuilder.fromConfig(config).speed('normal', SpinPresets.NORMAL).ticker(app.ticker).build();
+const builder = WheelBuilder.fromConfig(config).speed('normal', SpinPresets.NORMAL);
+const wheel = builder.ticker(app.ticker).build();
+console.log('[config]', JSON.stringify(builder.toConfig(), null, 2));
+
+const toTarget = createTargetAdapter(config.adapter);
 
 return {
   wheel,
   onSpin: async () => {
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 300));
-    // The template records how its server answers: { jackpot: { tier } }.
-    wheel.setResult({ section: ['mini', 'minor', 'major', 'grand'][Math.floor(Math.random() * 4)] });
+    const response = { jackpot: { tier: ['mini', 'minor', 'major', 'grand'][Math.floor(Math.random() * 4)] } };
+    wheel.setResult(toTarget(response));
     await spin;
   },
 };
@@ -2614,114 +2570,106 @@ return {
 ### Stopping
 URL: https://pixi-wheels.schmooky.dev/recipes/stopping/
 
-Where the pointer ends up - centre, random or an exact angle - and what happens after it lands.
+Where the pointer ends up - centre, random, an exact offset or angle - and what happens after it lands.
 
 #### stop-modes
 
 ```ts
 // @ts-nocheck
-// Injected globals: WheelBuilder, SpinPresets, DebugRingSkin, app
+// Injected globals: WheelBuilder, SpinPresets, DebugRingSkin, app, PIXI
 
 // Where inside the section the pointer ends up. Each spin cycles the mode:
 // center (the middle), random (anywhere, away from the edges), exact (the
-// offset the server sent: here 0.9, right by the edge).
+// offset the server sent: here 0.9, right by the edge), and angle (a backend
+// that sends degrees instead of a section: `{ angle }` is wheel-local, and
+// the result reports which section that turned out to be).
 const wheel = new WheelBuilder()
-  .radius(220, 30)
+  .radius(200, 30)
   .sections(Array.from({ length: 8 }, (_, i) => ({ id: `s${i}`, label: `${i}`, value: i })))
   .skin(new DebugRingSkin())
   .speed('normal', SpinPresets.TURBO)
   .ticker(app.ticker)
   .build();
 
-const modes = ['center', 'random', 'exact'];
+const readout = new PIXI.Text({ text: '', style: { fill: 0x7b8794, fontFamily: 'Menlo, Consolas, monospace', fontSize: 15 } });
+readout.anchor.set(0.5, 0);
+readout.position.set(0, 218);
+const stage = new PIXI.Container();
+stage.addChild(wheel, readout);
+
+const modes = ['center', 'random', 'exact', 'angle'];
 let i = 0;
 
 return {
   wheel,
+  stage,
   onSpin: async () => {
     const mode = modes[i++ % modes.length];
+    readout.text = `${mode}: spinning...`;
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 200));
-    const target = mode === 'exact' ? { index: 3, offset: 0.9 } : { index: 3 };
-    wheel.setResult(target, { mode });
-    const result = await spin;
-    console.log(`[stop-modes] ${mode}: offset ${result.offset.toFixed(2)} inside ${result.section.id}`);
+    if (mode === 'angle') {
+      const angle = Math.round(Math.random() * 360);
+      wheel.setResult({ angle });
+      const r = await spin;
+      readout.text = `angle ${angle} -> ${r.section.id}, offset ${r.offset.toFixed(2)}`;
+      return;
+    }
+    wheel.setResult(mode === 'exact' ? { index: 3, offset: 0.9 } : { index: 3 }, { mode });
+    const r = await spin;
+    readout.text = `${mode}: offset ${r.offset.toFixed(2)} inside ${r.section.id}`;
   },
 };
 ```
 
-#### settle-center
+#### settle-modes
 
 ```ts
 // @ts-nocheck
-// Injected globals: WheelBuilder, SpinPresets, app
+// Injected globals: WheelBuilder, SpinPresets, app, PIXI
 
-// Land exactly where the server said, pause, then glide to the middle of the
-// section so the prize presentation is centred. The result reports the
-// landing offset; the settle is presentation only.
+// What happens once the pointer is on the landing angle. Each spin cycles:
+// none (stay put), center (pause, then glide to the middle of the section
+// so the prize presentation is centred), bounce (overshoot a few degrees and
+// spring back, a mechanical stop). The result reports the landing offset in
+// every case; the settle is presentation only.
 const wheel = new WheelBuilder()
-  .radius(220, 30)
+  .radius(200, 30)
   .sections(Array.from({ length: 6 }, (_, i) => ({ id: `p${i}`, label: `${(i + 1) * 100}`, value: (i + 1) * 100 })))
-  .landing({
-    mode: 'random',
-    margin: 0.06,
-    settle: { mode: 'center', delayMs: 350, durationMs: 700, ease: 'sine.inOut' },
-  })
+  .landing({ mode: 'random', margin: 0.06 })
   .speed('normal', SpinPresets.NORMAL)
   .ticker(app.ticker)
   .build();
+
+const settles = {
+  none: 'none',
+  center: { mode: 'center', delayMs: 350, durationMs: 700, ease: 'sine.inOut' },
+  bounce: { mode: 'bounce', bounceDeg: 5, durationMs: 520, ease: 'power2.out' },
+};
+const names = Object.keys(settles);
+let i = 0;
+
+const readout = new PIXI.Text({ text: '', style: { fill: 0x7b8794, fontFamily: 'Menlo, Consolas, monospace', fontSize: 15 } });
+readout.anchor.set(0.5, 0);
+readout.position.set(0, 218);
+const stage = new PIXI.Container();
+stage.addChild(wheel, readout);
 
 wheel.events.on('spin:landing', ({ section, landingAngle }) => console.log('[settle] landed', section.id, 'at', landingAngle.toFixed(1)));
-wheel.events.on('spin:settle:start', () => console.log('[settle] centring...'));
-wheel.events.on('spin:settle:end', () => console.log('[settle] centred'));
-
-return { wheel };
-```
-
-#### settle-bounce
-
-```ts
-// @ts-nocheck
-// Injected globals: WheelBuilder, SpinPresets, app
-
-// A mechanical stop: the wheel overshoots by a few degrees and springs back.
-const wheel = new WheelBuilder()
-  .radius(220, 30)
-  .sections(Array.from({ length: 10 }, (_, i) => ({ id: `s${i}`, label: `${i * 5 + 5}` })))
-  .landing({ mode: 'center', settle: { mode: 'bounce', bounceDeg: 5, durationMs: 520, ease: 'power2.out' } })
-  .speed('normal', SpinPresets.NORMAL)
-  .ticker(app.ticker)
-  .build();
-
-return { wheel };
-```
-
-#### stop-exact-angle
-
-```ts
-// @ts-nocheck
-// Injected globals: WheelBuilder, SpinPresets, DebugRingSkin, app
-
-// Some backends send the final angle, not a section. `{ angle }` is
-// wheel-local degrees; the engine reports which section that is.
-const wheel = new WheelBuilder()
-  .radius(220, 30)
-  .startAngle(0)
-  .sections(Array.from({ length: 12 }, (_, i) => ({ id: `s${i}`, label: `${i * 30}`, value: i })))
-  .skin(new DebugRingSkin())
-  .speed('normal', SpinPresets.TURBO)
-  .ticker(app.ticker)
-  .build();
+wheel.events.on('spin:settle:start', ({ mode }) => console.log('[settle]', mode, '...'));
+wheel.events.on('spin:settle:end', () => console.log('[settle] done'));
 
 return {
   wheel,
+  stage,
   onSpin: async () => {
+    const name = names[i++ % names.length];
+    readout.text = `settle: ${name}`;
     const spin = wheel.spin();
     await new Promise((r) => setTimeout(r, 200));
-    const angle = Math.round(Math.random() * 360);
-    wheel.setResult({ angle });
+    wheel.setResult({ index: Math.floor(Math.random() * 6) }, { settle: settles[name] });
     const r = await spin;
-    console.log(`[exact] asked for ${angle} deg -> ${r.section.id}, under pointer now ${wheel.main.localAngleUnderPointer().toFixed(1)}`);
+    readout.text = `settle: ${name}    landed at offset ${r.offset.toFixed(2)}`;
   },
 };
 ```
@@ -2836,7 +2784,7 @@ const wheel = new WheelBuilder()
 const tongue = wheel.main.pointers[0];
 const readout = new PIXI.Text({
   text: '',
-  style: { fill: 0x9fb0c3, fontFamily: 'Menlo, Consolas, monospace', fontSize: 13, align: 'center' },
+  style: { fill: 0x7b8794, fontFamily: 'Menlo, Consolas, monospace', fontSize: 13, align: 'center' },
 });
 readout.anchor.set(0.5, 0);
 readout.position.set(0, 214);
@@ -2902,7 +2850,7 @@ const wheel = new WheelBuilder()
 const tongue = wheel.main.pointers[0];
 const readout = new PIXI.Text({
   text: '',
-  style: { fill: 0x9fb0c3, fontFamily: 'Menlo, Consolas, monospace', fontSize: 13 },
+  style: { fill: 0x7b8794, fontFamily: 'Menlo, Consolas, monospace', fontSize: 13 },
 });
 readout.anchor.set(0.5, 0);
 readout.position.set(0, 224);
@@ -2940,8 +2888,8 @@ return {
 // The tongue is physical. It touches pegs on the rim, one per divider: a peg
 // coming through pushes it aside, carries it on its crown for a moment, and
 // lets go into a spring. Three tongues against the same pegs, three feels:
-// a stiff short one at the top, a floppy one with lots of drag at four
-// o'clock, a rigid triangle at eight. The skin draws the pegs; the Debug
+// a stiff one at the top, a floppy one with heavy friction at four o'clock,
+// a rigid triangle at eight. The skin draws the pegs; the Debug
 // button shows each tongue's contact zone and the peg it is riding. Every
 // peg under any of them fires pointer:tick with the speed, the hook for the
 // ratchet click; the console shows the first tongue's ticks.
@@ -2949,7 +2897,7 @@ const wheel = new WheelBuilder()
   .radius(230, 30)
   .sections(Array.from({ length: 16 }, (_, i) => ({ id: `s${i}`, label: '' })))
   .pegs({ size: 7 })
-  .pointer({ id: 'stiff', angle: -90, flap: { elasticity: 0.8, friction: 0.2, stiffness: 700, damping: 18 } })
+  .pointer({ id: 'stiff', angle: -90, flap: { friction: 0.2, stiffness: 700, damping: 18 } })
   .pointer({
     id: 'floppy',
     angle: 30,
@@ -3001,7 +2949,7 @@ const make = (drag, label) => {
     .build();
   const caption = new PIXI.Text({
     text: label,
-    style: { fill: 0x9fb0c3, fontFamily: 'Menlo, Consolas, monospace', fontSize: 13 },
+    style: { fill: 0x7b8794, fontFamily: 'Menlo, Consolas, monospace', fontSize: 13 },
   });
   caption.anchor.set(0.5, 0);
   caption.position.set(0, 176);
