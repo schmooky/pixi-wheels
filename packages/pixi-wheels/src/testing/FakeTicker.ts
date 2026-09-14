@@ -1,6 +1,5 @@
 import type { Ticker } from 'pixi.js';
-
-type TickerCallback = (ticker: Ticker) => void;
+import type { TickerCallback } from '../utils/TickerRef.js';
 
 /**
  * Minimal drop-in for `PIXI.Ticker` in tests. Exposes the surface the

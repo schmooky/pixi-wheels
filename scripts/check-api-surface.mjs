@@ -39,14 +39,17 @@ const checker = program.getTypeChecker();
 
 const resolve = (s) => (s.flags & ts.SymbolFlags.Alias) ? checker.getAliasedSymbol(s) : s;
 
-// The public name set = everything any published entry point exports.
-const publicNames = new Set();
+// The public set = everything any published entry point exports, keyed by
+// name AND declaring file: a private alias that happens to share a name with
+// an exported type (a second `TickerCallback`, say) is still a leak.
+const publicKeys = new Set();
 const roots = [];
 for (const e of ENTRIES) {
   const sf = program.getSourceFile(`${ROOT}/${e}`);
   const sym = checker.getSymbolAtLocation(sf);
   for (const ex of checker.getExportsOfModule(sym)) {
-    publicNames.add(ex.getName());
+    const decl = resolve(ex).declarations?.[0];
+    publicKeys.add(`${ex.getName()}|${decl?.getSourceFile()?.fileName ?? ''}`);
     roots.push({ entry: e, sym: ex });
   }
 }
@@ -64,7 +67,7 @@ function namedTypeLeaks(type, out, seen = new Set(), depth = 0) {
     const sd = s.declarations?.[0];
     const file = sd?.getSourceFile()?.fileName ?? '';
     const declared = sd && (ts.isClassDeclaration(sd) || ts.isInterfaceDeclaration(sd) || ts.isTypeAliasDeclaration(sd) || ts.isEnumDeclaration(sd));
-    if (file.startsWith(`${ROOT}/src/`) && declared && !publicNames.has(s.getName())) {
+    if (file.startsWith(`${ROOT}/src/`) && declared && !publicKeys.has(`${s.getName()}|${file}`)) {
       out.add(`${s.getName()}|${file.replace(ROOT + '/', '')}`);
     }
   }
@@ -137,7 +140,7 @@ const failures = rows.filter((r) => !ALLOWED_CONSTRUCTOR_LEAKS.has(`${r.owner}.$
 const waived = rows.length - failures.length;
 
 if (failures.length === 0) {
-  console.log(`check-api-surface: public surface clean (${publicNames.size} exported names, ${waived} waived constructor params).`);
+  console.log(`check-api-surface: public surface clean (${publicKeys.size} exported names, ${waived} waived constructor params).`);
   process.exit(0);
 }
 console.error(`check-api-surface: ${failures.length} public member(s) typed with non-exported src types:\n`);

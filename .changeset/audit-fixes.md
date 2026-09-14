@@ -14,3 +14,4 @@ Audit fixes across the package.
 - `Pointer.update()` drops its unused `direction` parameter; the crossing direction comes from the rotation delta.
 - `DebugRingSkin` reuses its labels across layouts instead of re-creating them every frame of a transition.
 - `DEFAULT_ANTICIPATION.maxDistanceDeg` (150) replaces a hard-coded default.
+- `FakeTicker.add()` is typed with the exported `TickerCallback` instead of a private twin of it.
