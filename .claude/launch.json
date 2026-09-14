@@ -2,15 +2,42 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "site-dist",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/serve-dist.mjs",
+        "4399"
+      ],
+      "port": 4399
+    },
+    {
       "name": "site-preview",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@pixi-wheels/site", "exec", "astro", "preview", "--port", "4321", "--host", "127.0.0.1"],
+      "runtimeArgs": [
+        "--filter",
+        "@pixi-wheels/site",
+        "exec",
+        "astro",
+        "preview",
+        "--port",
+        "4321",
+        "--host",
+        "127.0.0.1"
+      ],
       "port": 4321
     },
     {
       "name": "site-dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@pixi-wheels/site", "dev", "--port", "4322", "--host", "127.0.0.1"],
+      "runtimeArgs": [
+        "--filter",
+        "@pixi-wheels/site",
+        "dev",
+        "--port",
+        "4322",
+        "--host",
+        "127.0.0.1"
+      ],
       "port": 4322
     }
   ]
