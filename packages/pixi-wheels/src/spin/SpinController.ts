@@ -8,7 +8,7 @@ import type {
   SkipConfig,
   SpinDirection,
   SpinOptions,
-  SpinProfile,
+  ResolvedSpinProfile,
   WheelSpinResult,
   WheelTarget,
   LandingMode,
@@ -41,7 +41,7 @@ export interface SpinHost {
   /** Screen angle of the pointer results are read against. */
   readonly pointerAngle: number;
   readonly rng: () => number;
-  readonly profile: SpinProfile;
+  readonly profile: ResolvedSpinProfile;
   readonly landingDefaults: LandingOptions;
   readonly skipConfig: Required<SkipConfig>;
   getRotation(): number;
@@ -158,7 +158,7 @@ export class SpinController {
     this._startMs = 0;
     this._spinStartRotation = this._host.getRotation();
     this._accelFrom = this._speed;
-    this._accelEase = resolveEase(this._host.profile.accelerationEase ?? 'power2.in');
+    this._accelEase = resolveEase(this._host.profile.accelerationEase);
     this._state = 'starting';
     const promise = new Promise<WheelSpinResult>((resolve, reject) => {
       this._resolve = resolve;
@@ -201,10 +201,7 @@ export class SpinController {
       ? anticipation?.protectSkip ?? this._host.skipConfig.protectAnticipation
       : false;
     this._host.events.emit('spin:resultSet', { ring: this._host.ringId, target: resolved });
-    if (this._skipQueued) {
-      this._skipQueued = false;
-      this.skip();
-    }
+    this._flushSkip();
     return resolved;
   }
 
@@ -271,19 +268,42 @@ export class SpinController {
       this._host.events.emit('anticipation:end', { ring: this._host.ringId, bait: this._host.geometry.byId(this._anticipation.baitId) });
       this._anticipation = null;
     }
+    const wasStopping = this._state === 'stopping';
     this._state = 'stopping';
     this._host.events.emit('skip:requested', { ring: this._host.ringId, protectedByAnticipation: false });
+    // A skip from the wind-up or the cruise is the deceleration: listeners
+    // that cue the slow-down on `spin:stopping` must hear it here too.
+    if (!wasStopping) {
+      this._host.events.emit('spin:stopping', {
+        ring: this._host.ringId,
+        turns: Math.floor(fast.distance / 360),
+        duration: fast.duration,
+        anticipation: null,
+      });
+    }
     return true;
   }
 
-  /** `skip()` now if the result is in, otherwise the moment it arrives. */
+  /**
+   * `skip()` as soon as it is allowed: once the result is in and the skip
+   * config's `minimumSpinTime` has passed. A press made during the server
+   * round-trip, or too early, is held rather than dropped.
+   */
   requestSkip(): void {
     if (!this.isSpinning) return;
-    if (this._target) {
-      this.skip();
+    this._skipQueued = true;
+    this._flushSkip();
+  }
+
+  private _flushSkip(): void {
+    if (!this._skipQueued || !this._target) return;
+    if (this._state === 'settling') {
+      this._skipQueued = false;
       return;
     }
-    this._skipQueued = true;
+    if (this._elapsedMs < this._host.skipConfig.minimumSpinTime) return;
+    this._skipQueued = false;
+    this.skip();
   }
 
   /**
@@ -370,6 +390,7 @@ export class SpinController {
     }
     const after = this._host.getRotation();
     this._lastFrameSpeed = (after - before) / dt;
+    if (this._skipQueued && this.isSpinning) this._flushSkip();
   }
 
   private _updateIdling(dt: number): void {
@@ -517,6 +538,16 @@ export class SpinController {
   private _onLanding(): void {
     this._landed = true;
     const target = this._target!;
+    // The landing angle was fixed at setResult(); if the weights moved since,
+    // the section now under it may not be the one the server named.
+    const under = this._host.geometry.sectionAt(target.landingAngle);
+    if (under.id !== target.section.id) {
+      noticeWarn(
+        'landing-moved',
+        `Ring "${this._host.ringId}": the weights changed after setResult(), so the pointer lands on "${under.id}" ` +
+          `where "${target.section.id}" used to be. Change weights before spin() or after spin:complete.`,
+      );
+    }
     // The tease is over before the landing beat begins, so a listener can
     // stop its tension loop and start the reveal in that order.
     if (this._anticipation) {
@@ -595,7 +626,7 @@ export class SpinController {
     const landingRotation = rotationForLocalAngle(target.landingAngle, pointer);
     const entry = rotationForLocalAngle(geometry.entryAngle(bait, dir), pointer);
     const exit = rotationForLocalAngle(geometry.exitAngle(bait, dir), pointer);
-    const maxDistance = options.maxDistanceDeg ?? 150;
+    const maxDistance = options.maxDistanceDeg ?? DEFAULT_ANTICIPATION.maxDistanceDeg;
     // How far the pointer travels from the bait's entry to the landing (bait before target)...
     const baitThenTarget = arcDelta(entry, landingRotation, dir);
     // ...and from the landing to the bait's entry (target before bait).

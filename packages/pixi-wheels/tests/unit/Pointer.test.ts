@@ -15,7 +15,7 @@ describe('Pointer crossings', () => {
     const p = new Pointer({ angle: -90, flap: false }, new HeadlessPointerSkin());
     // Pointer at -90: rotation 5 puts local 265 under it (inside s2: 180..270).
     // Turning cw by 190 deg sweeps local 265 -> 75, crossing the dividers at 180 and 90.
-    const crossings = p.update(5, 195, 0.1, g, 'cw');
+    const crossings = p.update(5, 195, 0.1, g);
     expect(crossings.map((c) => `${c.from.id}>${c.to.id}`)).toEqual(['s2>s1', 's1>s0']);
     expect(crossings[0].speed).toBeCloseTo(1900, 6);
     expect(crossings[0].direction).toBe('cw');
@@ -24,18 +24,18 @@ describe('Pointer crossings', () => {
   it('reports the reverse order for a counter-clockwise step', () => {
     const p = new Pointer({ angle: -90, flap: false }, new HeadlessPointerSkin());
     // Local sweeps 270 -> 10: only the divider at 0/360 passes under the pointer.
-    const crossings = p.update(0, -100, 0.1, g, 'ccw');
+    const crossings = p.update(0, -100, 0.1, g);
     expect(crossings.map((c) => `${c.from.id}>${c.to.id}`)).toEqual(['s3>s0']);
-    const two = p.update(0, -200, 0.1, g, 'ccw');
+    const two = p.update(0, -200, 0.1, g);
     expect(two.map((c) => `${c.from.id}>${c.to.id}`)).toEqual(['s3>s0', 's0>s1']);
   });
 
   it('caps a huge frame at one full lap of dividers', () => {
     const p = new Pointer({ angle: -90, flap: false }, new HeadlessPointerSkin());
     // Start off a divider (rotation 5 => local 265) so all four dividers are strictly ahead.
-    expect(p.update(5, 1005, 0.1, g, 'cw')).toHaveLength(4);
+    expect(p.update(5, 1005, 0.1, g)).toHaveLength(4);
     // Starting exactly on a divider, the start divider is not re-counted.
-    expect(p.update(0, 1000, 0.1, g, 'cw')).toHaveLength(3);
+    expect(p.update(0, 1000, 0.1, g)).toHaveLength(3);
   });
 
   it('seats itself on the rim facing the hub, or at the hub facing out', () => {
@@ -57,7 +57,7 @@ function crawl(p: Pointer, from: number, to: number, stepDeg: number): Array<{ r
   let rot = from;
   while (rot < to - 1e-9) {
     const next = Math.min(to, rot + stepDeg);
-    p.update(rot, next, 0.016, g, 'cw', pegs);
+    p.update(rot, next, 0.016, g, pegs);
     rot = next;
     out.push({ rot, d: p.deflection, peg: p.engagedPeg });
   }
@@ -112,7 +112,7 @@ describe('Pointer against pegs', () => {
       let rot = -40;
       while (rot < 40) {
         const next = rot + step;
-        p.update(rot, next, 0.016, g, 'cw', pegs);
+        p.update(rot, next, 0.016, g, pegs);
         worst = Math.max(worst, penetration(p, next));
         rot = next;
       }
@@ -142,7 +142,7 @@ describe('Pointer against pegs', () => {
     expect(released).toBeGreaterThanOrEqual(0);
     for (let i = 0; i < released; i++) expect(Math.abs(after[i].d)).toBeGreaterThan(Math.abs(trace[peakAt].d) * 0.85);
     expect(Math.abs(after[released].d)).toBeLessThan(Math.abs(trace[peakAt].d));
-    for (let i = 0; i < 500; i++) p.update(20, 20, 0.016, g, 'cw', pegs);
+    for (let i = 0; i < 500; i++) p.update(20, 20, 0.016, g, pegs);
     expect(p.deflection).toBe(0);
   });
 
@@ -168,21 +168,21 @@ describe('Pointer against pegs', () => {
     const skin = new HeadlessPointerSkin();
     const p = new Pointer({ angle: -90 }, skin);
     p.layout(200, 0);
-    p.update(0, 100, 0.016, g, 'cw', pegs);
+    p.update(0, 100, 0.016, g, pegs);
     expect(Math.abs(p.deflection)).toBeGreaterThan(4);
     expect(skin.ticks).toBe(1);
-    for (let i = 0; i < 400; i++) p.update(100, 100, 0.016, g, 'cw', pegs);
+    for (let i = 0; i < 400; i++) p.update(100, 100, 0.016, g, pegs);
     expect(p.deflection).toBe(0);
   });
 
   it('stays at rest without pegs, when rigid, and never beyond maxAngle', () => {
     const noPegs = new Pointer({ angle: -90 }, new HeadlessPointerSkin());
     noPegs.layout(200, 0);
-    noPegs.update(0, 100, 0.016, g, 'cw', null);
+    noPegs.update(0, 100, 0.016, g, null);
     expect(noPegs.deflection).toBe(0);
     const rigid = new Pointer({ angle: -90, flap: false }, new HeadlessPointerSkin());
     rigid.layout(200, 0);
-    rigid.update(0, 100, 0.016, g, 'cw', pegs);
+    rigid.update(0, 100, 0.016, g, pegs);
     expect(rigid.deflection).toBe(0);
     expect(rigid.flap).toBeNull();
     const capped = new Pointer({ angle: -90, flap: { maxAngle: 5, elasticity: 3 } }, new HeadlessPointerSkin());
@@ -195,13 +195,13 @@ describe('Pointer against pegs', () => {
     const p = new Pointer({ angle: -90 }, new HeadlessPointerSkin());
     p.layout(200, 0);
     // rotation 0 puts a peg at local 270, dead under the pointer.
-    for (let i = 0; i < 10; i++) p.update(0, 0, 0.016, g, 'cw', pegs);
+    for (let i = 0; i < 10; i++) p.update(0, 0, 0.016, g, pegs);
     expect(Math.abs(p.deflection)).toBeGreaterThan(1);
     expect(penetration(p, 0)).toBeLessThan(0.25);
     // Nothing under it: straight, and it stays straight.
     const clear = new Pointer({ angle: -90 }, new HeadlessPointerSkin());
     clear.layout(200, 0);
-    for (let i = 0; i < 10; i++) clear.update(45, 45, 0.016, g, 'cw', pegs);
+    for (let i = 0; i < 10; i++) clear.update(45, 45, 0.016, g, pegs);
     expect(clear.deflection).toBe(0);
     expect(clear.engagedPeg).toBeNull();
   });

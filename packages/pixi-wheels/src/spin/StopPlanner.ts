@@ -1,4 +1,4 @@
-import type { AnticipationStyle, SettleConfig, SpinDirection, SpinProfile } from '../config/types.js';
+import type { AnticipationStyle, ResolvedSpinProfile, SettleConfig, SpinDirection } from '../config/types.js';
 import { arcDelta, directionSign, normalizeDeg, signedDeg } from '../utils/angles.js';
 import { constantAccelEase, hermiteStopEase, plannerSlope, resolveEase, type EaseFn } from '../utils/easing.js';
 
@@ -76,7 +76,7 @@ export interface PlanStopInput {
   direction: SpinDirection;
   /** Normalised rotation at which the pointer sits on the landing angle. */
   landingRotation: number;
-  profile: SpinProfile;
+  profile: ResolvedSpinProfile;
   anticipation?: ResolvedAnticipation | null;
 }
 
@@ -94,7 +94,7 @@ export function pickTurns(
   base: number,
   slope: number,
   speed: number,
-  profile: SpinProfile,
+  profile: ResolvedSpinProfile,
 ): { turns: number; distance: number; duration: number } {
   const minTurns = Math.max(0, Math.floor(profile.minTurns));
   const maxTurns = Math.max(minTurns, Math.floor(profile.maxTurns));
@@ -130,7 +130,7 @@ export function planStop(input: PlanStopInput): StopPlan {
   const landing = normalizeDeg(input.landingRotation);
   const delta = arcDelta(current, landing, direction);
   const easeLabel = typeof profile.stopEase === 'string' ? profile.stopEase : 'custom';
-  const ease = resolveEase(profile.stopEase ?? 'power3.out');
+  const ease = resolveEase(profile.stopEase);
   const slope = plannerSlope(ease, easeLabel);
   const a = input.anticipation ?? null;
 
@@ -278,7 +278,7 @@ function pickTurnsForDuration(
   base: number,
   v0: number,
   v1: number,
-  profile: SpinProfile,
+  profile: ResolvedSpinProfile,
 ): { turns: number; distance: number; duration: number } {
   const minTurns = Math.max(0, Math.floor(profile.minTurns));
   const maxTurns = Math.max(minTurns, Math.floor(profile.maxTurns));

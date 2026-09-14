@@ -1,9 +1,9 @@
 import type {
   AnticipationStyle,
   ResolvedSection,
+  ResolvedSpinProfile,
   ResolvedTarget,
   SpinDirection,
-  SpinProfile,
   WheelSpinResult,
 } from '../config/types.js';
 
@@ -12,9 +12,11 @@ import type {
  * ring it came from (`'main'` for single-ring wheels), so a two-ring wheel
  * needs no second subscription.
  *
- * Audio, particles, Spine reactions and HUD updates hang off these. Every
- * exit path from a spin (normal stop, skip, slam, destroy) fires the right
- * events, so listening once keeps a game correct on all of them.
+ * Audio, particles, Spine reactions and HUD updates hang off these. A
+ * normal stop, a skip and a slam all reach `spin:landing` and
+ * `spin:complete`, so listening once keeps a game correct on all of them.
+ * `destroy()` fires `destroyed` and nothing else: a spin in flight is
+ * abandoned.
  */
 export interface WheelEvents extends Record<string, unknown[]> {
   /** `spin()` was called. `fromIdle` is true when the ring was already turning. */
@@ -24,7 +26,8 @@ export interface WheelEvents extends Record<string, unknown[]> {
   /** `setResult()` resolved a target. Fires before any deceleration is planned. */
   'spin:resultSet': [info: { ring: string; target: ResolvedTarget }];
   /**
-   * The deceleration begins. `turns` is how many full turns the plan makes,
+   * The deceleration begins: the planned stop, or a skip's fast-forward when
+   * the press came before it. `turns` is how many full turns it makes,
    * `duration` how long it will take in ms. Cue the "slowing down" audio here.
    */
   'spin:stopping': [info: { ring: string; turns: number; duration: number; anticipation: AnticipationStyle | null }];
@@ -78,7 +81,7 @@ export interface WheelEvents extends Record<string, unknown[]> {
   /** An animated weight transition ended. */
   'sections:transition:end': [info: { ring: string; step: number | null }];
   /** `setSpeed()` switched the active profile. */
-  'speed:changed': [info: { ring: string; name: string; profile: SpinProfile; previous: string }];
+  'speed:changed': [info: { ring: string; name: string; profile: ResolvedSpinProfile; previous: string }];
   /** The wheel was destroyed. Every listener is dropped after this fires. */
   'destroyed': [];
 }

@@ -182,7 +182,6 @@ export class Pointer implements Disposable {
     rotation: number,
     dt: number,
     geometry: RingGeometry,
-    direction: SpinDirection,
     pegs: ResolvedPegs | null = null,
     dragOffset = 0,
   ): PointerCrossing[] {
@@ -210,7 +209,6 @@ export class Pointer implements Disposable {
         const to = delta > 0 ? after : before;
         crossings.push({ pointer: this.id, from, to, speed, direction: movingDir });
       }
-      void direction;
     }
     if (this._flap) {
       if (pegs && pegs.angles.length > 0) this._contact(rotation + dragOffset, dt, pegs, delta);
@@ -419,9 +417,9 @@ export class Pointer implements Disposable {
     const uy = Math.sin(dir);
     const L = Math.max(1, this.skin.length);
     return {
-      ax: px + -uy * this._baseHalf,
+      ax: px - uy * this._baseHalf,
       ay: py + ux * this._baseHalf,
-      bx: px - -uy * this._baseHalf,
+      bx: px + uy * this._baseHalf,
       by: py - ux * this._baseHalf,
       cx: px + ux * L,
       cy: py + uy * L,

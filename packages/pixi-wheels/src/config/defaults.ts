@@ -5,6 +5,7 @@ import type {
   ResolvedSectionStyle,
   SettleConfig,
   SkipConfig,
+  SpinProfile,
 } from './types.js';
 
 /**
@@ -78,9 +79,23 @@ export const DEFAULT_ANTICIPATION = {
   dwellMs: 600,
   pushMs: 700,
   approachDeg: 45,
+  maxDistanceDeg: 150,
   /** Fraction of the target's arc between the shared divider and the resting pointer, per style. */
   rest: { creep: 0.22, stutter: 0.22, stall: 0.15 },
 } as const;
+
+/** What a `SpinProfile` leaves out. Only `spinSpeed` has no default. */
+export const DEFAULT_PROFILE: Required<Omit<SpinProfile, 'spinSpeed'>> = {
+  accelerationMs: 900,
+  accelerationEase: 'power2.in',
+  minimumSpinTime: 0,
+  minCruiseMs: 0,
+  stopDuration: 4200,
+  stopEase: 'power3.out',
+  minTurns: 1,
+  maxTurns: 8,
+  skipDuration: 450,
+};
 
 export const DEFAULT_SKIP: Required<SkipConfig> = {
   allowed: true,

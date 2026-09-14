@@ -117,3 +117,42 @@ describe('speed profiles', () => {
     }
   });
 });
+
+describe('idle state', () => {
+  it('idle.isActive follows the ring', async () => {
+    const h = createTestWheel({ sections: 4, idle: { speed: 20, rampMs: 100 } });
+    try {
+      expect(h.wheel.main.idle.isActive).toBe(false);
+      h.wheel.idle.start();
+      expect(h.wheel.main.idle.isActive).toBe(true);
+      await h.spinAndLand({ index: 1 });
+      expect(h.wheel.main.idle.isActive).toBe(true); // resumed
+      h.wheel.idle.stop();
+      h.advance(500);
+      expect(h.wheel.main.idle.isActive).toBe(false);
+    } finally {
+      h.destroy();
+    }
+  });
+});
+
+describe('idle on a two-ring wheel', () => {
+  it('idle.start() without a ring idles every ring, like autoStart', () => {
+    const h = createTestWheel({
+      sections: 4,
+      radius: 300,
+      innerRadius: 200,
+      rings: [{ id: 'inner', outerRadius: 180, innerRadius: 40, sections: [{ id: 'a' }, { id: 'b' }] }],
+      idle: { speed: 15 },
+    });
+    try {
+      h.wheel.idle.start();
+      expect(h.wheel.rings.map((r) => r.idle.isActive)).toEqual([true, true]);
+      h.wheel.idle.stop('inner');
+      h.advance(1000);
+      expect(h.wheel.rings.map((r) => r.idle.isActive)).toEqual([true, false]);
+    } finally {
+      h.destroy();
+    }
+  });
+});

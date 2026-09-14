@@ -23,6 +23,7 @@ export {
   DEFAULT_SETTLE,
   DEFAULT_LANDING,
   DEFAULT_ANTICIPATION,
+  DEFAULT_PROFILE,
   DEFAULT_SKIP,
 } from './config/defaults.js';
 export type {
@@ -41,6 +42,7 @@ export type {
   AnticipationStyle,
   AnticipationOptions,
   SpinProfile,
+  ResolvedSpinProfile,
   IdleConfig,
   SkipConfig,
   WheelTarget,

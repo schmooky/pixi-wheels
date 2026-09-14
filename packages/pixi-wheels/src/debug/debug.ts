@@ -164,6 +164,8 @@ const TRACED_EVENTS = [
 export function enableDebug(wheel: Wheel, key?: string): void {
   if (typeof window === 'undefined') return;
   let overlayHandle: DebugOverlayHandle | null = null;
+  let tracing = false;
+  let tracingTicks = false;
   const debug = {
     wheel,
     snapshot: () => debugSnapshot(wheel),
@@ -174,10 +176,17 @@ export function enableDebug(wheel: Wheel, key?: string): void {
       return snap;
     },
     trace: (ticks = false) => {
-      for (const event of TRACED_EVENTS) {
-        wheel.events.on(event, (...args: unknown[]) => console.log(`[pixi-wheels] ${event}`, ...args));
+      // Idempotent: a second call from the console must not double every line.
+      if (!tracing) {
+        tracing = true;
+        for (const event of TRACED_EVENTS) {
+          wheel.events.on(event, (...args: unknown[]) => console.log(`[pixi-wheels] ${event}`, ...args));
+        }
       }
-      if (ticks) wheel.events.on('pointer:tick', (info) => console.log('[pixi-wheels] pointer:tick', info.from.id, '->', info.to.id, Math.round(info.speed)));
+      if (ticks && !tracingTicks) {
+        tracingTicks = true;
+        wheel.events.on('pointer:tick', (info) => console.log('[pixi-wheels] pointer:tick', info.from.id, '->', info.to.id, Math.round(info.speed)));
+      }
       console.log('[pixi-wheels debug] tracing enabled');
     },
     land: (section: string, ring?: string) => wheel.setResult({ section }, { ring }),

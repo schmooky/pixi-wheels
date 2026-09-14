@@ -129,3 +129,58 @@ describe('skip', () => {
     }
   });
 });
+
+describe('skip timing', () => {
+  it('requestSkip() before minimumSpinTime is held, not dropped', async () => {
+    const h = createTestWheel({ sections: 6, skip: { minimumSpinTime: 1500 } });
+    try {
+      const log = captureEvents(h.wheel, ['skip:requested']);
+      const p = h.wheel.spin();
+      h.advance(200);
+      h.wheel.requestSkip();
+      h.wheel.setResult({ section: 's2' });
+      h.advance(500);
+      expect(log).toHaveLength(0); // too early: still held
+      h.advance(1000);
+      expect(log).toHaveLength(1); // released the frame it became legal
+      h.runUntilIdle();
+      const r = await p;
+      expect(r.wasSkipped).toBe(true);
+      expectPointerOn(h.wheel, 's2');
+    } finally {
+      h.destroy();
+    }
+  });
+
+  it('a skip from the cruise emits spin:stopping once, a skip mid-stop does not repeat it', async () => {
+    const h = createTestWheel({ sections: 6, profile: { ...SpinPresets.NORMAL, minimumSpinTime: 4000 } });
+    try {
+      const log = captureEvents(h.wheel, ['spin:stopping', 'skip:requested', 'spin:landing']);
+      const p = h.wheel.spin();
+      h.wheel.setResult({ section: 's1' });
+      h.advance(1500); // cruising, the stop may not begin before 4000 ms
+      expect(h.wheel.main.state).toBe('cruising');
+      h.wheel.skip();
+      expect(log.map((e) => e.event)).toEqual(['skip:requested', 'spin:stopping']);
+      h.runUntilIdle();
+      await p;
+      expect(log.filter((e) => e.event === 'spin:stopping')).toHaveLength(1);
+    } finally {
+      h.destroy();
+    }
+    const mid = createTestWheel({ sections: 6 });
+    try {
+      const log = captureEvents(mid.wheel, ['spin:stopping']);
+      const p = mid.wheel.spin();
+      mid.wheel.setResult({ section: 's1' });
+      while (log.length === 0) mid.ticker.tick(16);
+      mid.advance(300);
+      mid.wheel.skip();
+      mid.runUntilIdle();
+      await p;
+      expect(log).toHaveLength(1);
+    } finally {
+      mid.destroy();
+    }
+  });
+});

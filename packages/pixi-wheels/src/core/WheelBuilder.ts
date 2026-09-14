@@ -6,11 +6,13 @@ import type {
   PointerConfig,
   SkipConfig,
   SpinDirection,
+  ResolvedSpinProfile,
   SpinProfile,
   WheelSectionConfig,
   PegConfig,
 } from '../config/types.js';
 import { DEFAULT_SKIP, DEFAULTS } from '../config/defaults.js';
+import { resolveProfile } from '../config/profile.js';
 import { SpinPresets } from '../config/SpinPresets.js';
 import { EventEmitter } from '../events/EventEmitter.js';
 import type { WheelEvents } from '../events/WheelEvents.js';
@@ -110,8 +112,8 @@ export class RingBuilder {
 
   /**
    * The pegs the tongues touch: one per divider by default, `size` 6 px,
-   * `inset` 9 px inside the rim. Every ring has them unless you pass `false`,
-   * which leaves flapping pointers at rest.
+   * set just inside the first tongue's tip. Every ring has them unless you
+   * pass `false`, which leaves flapping pointers at rest.
    */
   pegs(config: PegConfig | false = {}): this {
     this._pegs = config;
@@ -140,7 +142,7 @@ export class RingBuilder {
   _build(
     wheelDirection: SpinDirection,
     shared: {
-      profiles: Map<string, SpinProfile>;
+      profiles: Map<string, ResolvedSpinProfile>;
       initialSpeed: string;
       landing: LandingOptions;
       skip: Required<SkipConfig>;
@@ -170,6 +172,10 @@ export class RingBuilder {
         }
       });
       if (this._dynamic.ease !== undefined) resolveEase(this._dynamic.ease);
+      const initial = this._dynamic.initialStep ?? 0;
+      if (!Number.isInteger(initial) || initial < 0 || initial >= this._dynamic.steps.length) {
+        throw new Error(`Ring "${this.id}": dynamic initialStep ${String(initial)} is out of range 0..${this._dynamic.steps.length - 1}.`);
+      }
     }
     const geometry = new RingGeometry(this._sections, { startAngle: this._startAngle, palette: this._palette });
     const direction = this._direction ?? wheelDirection;
@@ -269,20 +275,6 @@ export class RingBuilder {
     return cfg;
   }
 
-  /** @internal */
-  static _fromConfig(cfg: RingConfig): RingBuilder {
-    const b = new RingBuilder(cfg.id);
-    b.radius(cfg.outerRadius, cfg.innerRadius ?? 0);
-    if (cfg.startAngle !== undefined) b.startAngle(cfg.startAngle);
-    if (cfg.direction) b.direction(cfg.direction);
-    b.sections(cfg.sections);
-    for (const p of cfg.pointers ?? []) b.pointer(p);
-    if (cfg.skin) b.skin(cfg.skin);
-    if (cfg.dynamic) b.dynamic(cfg.dynamic);
-    if (cfg.pegs !== undefined) b.pegs(cfg.pegs);
-    if (cfg.palette) b.palette(cfg.palette);
-    return b;
-  }
 }
 
 function isRingSkinConfig(x: RingSkin | RingSkinConfig): x is RingSkinConfig {
@@ -314,7 +306,7 @@ function isPointerSkinConfig(x: PointerSkin | PointerSkinConfig): x is PointerSk
  * `ring(id, ...)` adds further rings around the same centre.
  */
 export class WheelBuilder {
-  private readonly _main = new RingBuilder(DEFAULTS.mainRing);
+  private _main = new RingBuilder(DEFAULTS.mainRing);
   private readonly _rings: RingBuilder[] = [];
   private _direction: SpinDirection = 'cw';
   private readonly _speeds = new Map<string, SpinProfile>();
@@ -386,7 +378,7 @@ export class WheelBuilder {
 
   /** Add a ring around the same centre. The callback configures it. */
   ring(id: string, configure: (ring: RingBuilder) => void): this {
-    if (id === DEFAULTS.mainRing) throw new Error(`"${DEFAULTS.mainRing}" is the main ring; configure it with the builder's own methods.`);
+    if (id === this._main.id) throw new Error(`"${id}" is the main ring; configure it with the builder's own methods.`);
     if (this._rings.some((r) => r.id === id)) throw new Error(`Ring "${id}" was already added.`);
     const rb = new RingBuilder(id);
     configure(rb);
@@ -394,7 +386,11 @@ export class WheelBuilder {
     return this;
   }
 
-  /** Register a spin profile under a name. The first registered is the initial speed unless `initialSpeed()` says otherwise. */
+  /**
+   * Register a spin profile under a name. Only `spinSpeed` is required; the
+   * rest fall back to `DEFAULT_PROFILE`. The first registered is the initial
+   * speed unless `initialSpeed()` says otherwise.
+   */
   speed(name: string, profile: SpinProfile): this {
     this._speeds.set(name, { ...profile });
     return this;
@@ -459,10 +455,13 @@ export class WheelBuilder {
       throw new Error('WheelBuilder: ticker(app.ticker) must be called. The wheel advances on the PixiJS ticker.');
     }
     if (this._speeds.size === 0) this._speeds.set('normal', { ...SpinPresets.NORMAL });
-    for (const [name, p] of this._speeds) validateProfile(name, p);
-    const initialSpeed = this._initialSpeed ?? this._speeds.keys().next().value!;
-    if (!this._speeds.has(initialSpeed)) {
-      throw new Error(`WheelBuilder: initialSpeed("${initialSpeed}") is not a registered speed. Registered: ${[...this._speeds.keys()].join(', ')}.`);
+    // A fresh map per build: two wheels from one builder must not share a
+    // profile table that `ring.addSpeed()` can grow.
+    const profiles = new Map<string, ResolvedSpinProfile>();
+    for (const [name, p] of this._speeds) profiles.set(name, resolveProfile(name, p));
+    const initialSpeed = this._initialSpeed ?? profiles.keys().next().value!;
+    if (!profiles.has(initialSpeed)) {
+      throw new Error(`WheelBuilder: initialSpeed("${initialSpeed}") is not a registered speed. Registered: ${[...profiles.keys()].join(', ')}.`);
     }
     if (this._idle && !(this._idle.speed > 0)) {
       throw new Error(`WheelBuilder: idle speed must be > 0, got ${String(this._idle.speed)}.`);
@@ -489,7 +488,7 @@ export class WheelBuilder {
     }
 
     const shared = {
-      profiles: this._speeds,
+      profiles,
       initialSpeed,
       landing: this._landing,
       skip,
@@ -540,6 +539,8 @@ export class WheelBuilder {
     if (config.idle) b.idle(config.idle);
     if (config.adapter) b.adapter(config.adapter);
     const mainCfg = config.rings.find((r) => r.id === DEFAULTS.mainRing) ?? config.rings[0];
+    // A config whose first ring is not called 'main' keeps its own id.
+    if (mainCfg.id !== b._main.id) b._main = new RingBuilder(mainCfg.id);
     applyRingConfig(b._main, mainCfg);
     for (const r of config.rings) {
       if (r === mainCfg) continue;
@@ -552,7 +553,6 @@ export class WheelBuilder {
 }
 
 function applyRingConfig(rb: RingBuilder, cfg: RingConfig): void {
-  const src = RingBuilder._fromConfig(cfg);
   rb.radius(cfg.outerRadius, cfg.innerRadius ?? 0);
   if (cfg.startAngle !== undefined) rb.startAngle(cfg.startAngle);
   if (cfg.direction) rb.direction(cfg.direction);
@@ -562,25 +562,4 @@ function applyRingConfig(rb: RingBuilder, cfg: RingConfig): void {
   if (cfg.dynamic) rb.dynamic(cfg.dynamic);
   if (cfg.pegs !== undefined) rb.pegs(cfg.pegs);
   if (cfg.palette) rb.palette(cfg.palette);
-  void src;
-}
-
-function validateProfile(name: string, p: SpinProfile): void {
-  const num = (field: keyof SpinProfile, min: number): void => {
-    const v = p[field];
-    if (typeof v !== 'number' || !Number.isFinite(v) || v < min) {
-      throw new Error(`Speed "${name}": ${field} must be a number >= ${min}, got ${String(v)}.`);
-    }
-  };
-  num('spinSpeed', 1);
-  num('accelerationMs', 0);
-  num('minimumSpinTime', 0);
-  num('minCruiseMs', 0);
-  num('stopDuration', 1);
-  num('minTurns', 0);
-  num('maxTurns', 0);
-  num('skipDuration', 1);
-  if (p.maxTurns < p.minTurns) throw new Error(`Speed "${name}": maxTurns (${p.maxTurns}) is below minTurns (${p.minTurns}).`);
-  if (p.accelerationEase !== undefined) resolveEase(p.accelerationEase);
-  if (p.stopEase !== undefined) resolveEase(p.stopEase);
 }

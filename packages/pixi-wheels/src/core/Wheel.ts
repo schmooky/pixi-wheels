@@ -166,13 +166,14 @@ export class Wheel extends Container implements Disposable {
     return this.main.speedNames;
   }
 
+  /** Idle rotation on one ring, or on every ring when `ring` is omitted (as `autoStart` does). */
   readonly idle = {
     start: (config?: IdleConfig, ring?: string): void => {
       if (ring) {
         this.ring(ring).idle.start(config);
         return;
       }
-      this.main.idle.start(config);
+      for (const r of this.rings) r.idle.start(config);
     },
     stop: (ring?: string): void => {
       if (ring) {

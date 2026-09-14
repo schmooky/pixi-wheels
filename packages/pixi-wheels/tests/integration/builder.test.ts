@@ -80,13 +80,8 @@ describe('configs', () => {
     for (const name of WHEEL_TEMPLATE_NAMES) {
       const cfg = WheelTemplates[name]();
       assertWheelConfig(cfg);
-      // Skins in templates are graphics/debug: swap in headless ones so no Text is created in Node.
-      const b = WheelBuilder.fromConfig({
-        ...cfg,
-        rings: cfg.rings.map((r) => ({ ...r, skin: undefined, pointers: (r.pointers ?? [{}]).map((p) => ({ ...p, skin: undefined })) })),
-      }).ticker(ticker());
-      // Replace default graphics skins with headless via a second pass on the built rings is not possible;
-      // instead build with explicit headless skins per ring.
+      // Templates name graphics / debug skins, which create Text; rebuild the
+      // same rings with headless skins so the suite runs in Node.
       const headless = new WheelBuilder().ticker(ticker());
       const main = cfg.rings.find((r) => r.id === 'main') ?? cfg.rings[0];
       headless.radius(main.outerRadius, main.innerRadius ?? 0).sections(main.sections).skin(new HeadlessRingSkin()).pointer({ skin: new HeadlessPointerSkin() });
@@ -105,7 +100,6 @@ describe('configs', () => {
       expect(snap.rings[0].sections.length).toBe(main.sections.length);
       expect(debugArc(wheel)).toContain('main');
       wheel.destroy();
-      void b;
     }
   });
 });
@@ -128,5 +122,66 @@ describe('teardown', () => {
     expect(destroyed).toBe(1);
     expect(wheel.isDestroyed).toBe(true);
     expect(wheel.events.listenerCount('destroyed')).toBe(0);
+  });
+});
+
+describe('profiles', () => {
+  it('fills a partial profile from DEFAULT_PROFILE and validates the result', () => {
+    const base = () => new WheelBuilder().radius(100).sections(two).skin(new HeadlessRingSkin()).pointer({ skin: new HeadlessPointerSkin() }).ticker(ticker());
+    const wheel = base().speed('slow', { spinSpeed: 300 }).build();
+    try {
+      expect(wheel.main.profile).toMatchObject({ spinSpeed: 300, stopDuration: 4200, minTurns: 1, maxTurns: 8, skipDuration: 450 });
+    } finally {
+      wheel.destroy();
+    }
+    expect(() => base().speed('x', { spinSpeed: 300, minTurns: undefined }).build()).toThrow(/minTurns/);
+    const w = base().build();
+    try {
+      expect(() => w.main.addSpeed('bad', { spinSpeed: 0 })).toThrow(/spinSpeed/);
+      w.main.addSpeed('turbo', { spinSpeed: 900, stopDuration: 1500 });
+      expect(w.main.profile.spinSpeed).toBe(540);
+      w.setSpeed('turbo');
+      expect(w.main.profile).toMatchObject({ spinSpeed: 900, stopDuration: 1500, minTurns: 1 });
+    } finally {
+      w.destroy();
+    }
+  });
+
+  it('two wheels from one builder do not share a profile table', () => {
+    const b = new WheelBuilder().radius(100).sections(two).skin(new HeadlessRingSkin()).pointer({ skin: new HeadlessPointerSkin() }).ticker(ticker());
+    const a = b.build();
+    const c = b.build();
+    try {
+      a.main.addSpeed('only-a', { spinSpeed: 200 });
+      expect(a.speedNames).toContain('only-a');
+      expect(c.speedNames).not.toContain('only-a');
+    } finally {
+      a.destroy();
+      c.destroy();
+    }
+  });
+});
+
+describe('fromConfig', () => {
+  it('keeps the id of a main ring that is not called "main"', () => {
+    const wheel = WheelBuilder.fromConfig({
+      version: 1,
+      rings: [{ id: 'bonus', outerRadius: 120, sections: two, skin: { type: 'headless' } }],
+    })
+      .ticker(ticker())
+      .build();
+    try {
+      expect(wheel.rings.map((r) => r.id)).toEqual(['bonus']);
+      expect(wheel.main.id).toBe('bonus');
+      expect(wheel.ring('bonus')).toBe(wheel.main);
+    } finally {
+      wheel.destroy();
+    }
+  });
+
+  it('rejects a dynamic initialStep outside the step list', () => {
+    expect(() =>
+      new WheelBuilder().radius(100).sections(two).dynamic({ steps: [{ a: 1 }], initialStep: 3 }).skin(new HeadlessRingSkin()).ticker(ticker()).build(),
+    ).toThrow(/initialStep 3/);
   });
 });

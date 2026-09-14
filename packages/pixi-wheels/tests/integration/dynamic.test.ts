@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { captureEvents, createTestWheel } from '../../src/testing/testHarness.js';
 
 describe('dynamic sections', () => {
@@ -62,6 +62,28 @@ describe('dynamic sections', () => {
       expect(() => h.wheel.setWeights({ nope: 1 })).toThrow(/unknown section "nope"/);
       expect(() => h.wheel.setWeights({ s0: 0 })).toThrow(/> 0/);
     } finally {
+      h.destroy();
+    }
+  });
+});
+
+describe('weights after setResult', () => {
+  it('warns once at landing when the section under the fixed angle is no longer the target', async () => {
+    const h = createTestWheel({ sections: [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }], startAngle: 0 });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const p = h.wheel.spin();
+      h.wheel.setResult({ section: 'c' }); // lands at 225
+      h.advance(800);
+      void h.wheel.setWeights({ a: 4 }, { durationMs: 0 }); // b now spans 205.7..257.1
+      h.runUntilIdle();
+      const r = await p;
+      expect(r.section.id).toBe('c');
+      expect(h.wheel.sectionUnderPointer().id).toBe('b');
+      const moved = warn.mock.calls.filter((c) => String(c[0]).includes('landing-moved'));
+      expect(moved).toHaveLength(1);
+    } finally {
+      warn.mockRestore();
       h.destroy();
     }
   });

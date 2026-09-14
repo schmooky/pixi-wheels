@@ -1,15 +1,13 @@
+import type { Container } from 'pixi.js';
 import type { Ease } from '../utils/easing.js';
+import type { FitMode, FitOptions, LabelSlot } from '../utils/fit.js';
 
 /**
  * Which way a ring turns. `'cw'` is the direction of increasing PixiJS
  * rotation, which reads as clockwise on screen because y points down.
  */
-import type { Container } from 'pixi.js';
-import type { FitMode, FitOptions, LabelSlot } from '../utils/fit.js';
-
 export type SpinDirection = 'cw' | 'ccw';
 
-/** How a label sits inside its section. */
 /**
  * How a label sits in its wedge.
  *
@@ -41,7 +39,7 @@ export interface SectionStyle {
   labelFont?: string;
   /** Font weight for the label, e.g. `'700'`. */
   labelWeight?: string;
-  /** `'radial'` (default) reads from the hub to the rim, `'tangential'` follows the arc. */
+  /** See {@link LabelOrientation}. Default `'radial'`. */
   labelOrientation?: LabelOrientation;
   /** Where along the radius the label sits, as a fraction of the outer radius (0..1). */
   labelRadius?: number;
@@ -234,8 +232,9 @@ export interface AnticipationOptions {
   rest?: number | 'keep';
   /**
    * The furthest the bait's edge may be from the landing angle for the
-   * tease to be planned, in degrees. Default 150. Beyond it the bait is not
-   * "almost there" and the planner falls back to a plain stop with a warning.
+   * tease to be planned, in degrees. Default 150 (`DEFAULT_ANTICIPATION`).
+   * Beyond it the bait is not "almost there" and the planner falls back to
+   * a plain stop with a warning.
    */
   maxDistanceDeg?: number;
   /**
@@ -248,34 +247,38 @@ export interface AnticipationOptions {
 
 /**
  * A spin's timing. Speeds are degrees per second; times are milliseconds.
+ * Only `spinSpeed` is required; the rest fall back to `DEFAULT_PROFILE`.
  * `SpinPresets` ships a few; `builder.speed(name, profile)` registers your own.
  */
 export interface SpinProfile {
   /** Cruise speed in deg/s. 540 is one and a half turns a second. */
   spinSpeed: number;
-  /** Time to reach cruise speed from rest. */
-  accelerationMs: number;
+  /** Time to reach cruise speed from rest. Default 900. */
+  accelerationMs?: number;
   /** Ease of the acceleration. Default `'power2.in'`. */
   accelerationEase?: Ease;
-  /** The stop may not begin before this much time has passed since `spin()`. */
-  minimumSpinTime: number;
-  /** The stop may not begin before this much time at cruise speed. */
-  minCruiseMs: number;
+  /** The stop may not begin before this much time has passed since `spin()`. Default 0. */
+  minimumSpinTime?: number;
+  /** The stop may not begin before this much time at cruise speed. Default 0. */
+  minCruiseMs?: number;
   /**
-   * How long the deceleration should take. The planner picks the number of
-   * extra turns that gets closest, then matches the ease's start to the
-   * cruise speed, so the actual value differs a little.
+   * How long the deceleration should take. Default 4200. The planner picks
+   * the number of extra turns that gets closest, then matches the ease's
+   * start to the cruise speed, so the actual value differs a little.
    */
-  stopDuration: number;
+  stopDuration?: number;
   /** Ease of the deceleration. Must be an ease-out. Default `'power3.out'`. */
   stopEase?: Ease;
-  /** Fewest full turns the wheel makes while stopping. Default 2. */
-  minTurns: number;
+  /** Fewest full turns the wheel makes while stopping. Default 1. */
+  minTurns?: number;
   /** Most full turns the wheel makes while stopping. Default 8. */
-  maxTurns: number;
+  maxTurns?: number;
   /** Duration of the fast-forward when the player skips. Default 450. */
-  skipDuration: number;
+  skipDuration?: number;
 }
+
+/** A profile with every field filled in, as the wheel keeps it. */
+export type ResolvedSpinProfile = Required<SpinProfile>;
 
 /** Slow rotation while nothing is happening, so a wheel parked beside the reels reads as live. */
 export interface IdleConfig {
@@ -293,7 +296,7 @@ export interface IdleConfig {
 export interface SkipConfig {
   /** Whether `skip()` does anything at all. Default true. */
   allowed?: boolean;
-  /** A press earlier than this many ms into the spin is ignored (not queued). Default 0. */
+  /** `skip()` earlier than this many ms into the spin does nothing; `requestSkip()` waits for it. Default 0. */
   minimumSpinTime?: number;
   /**
    * Default for `AnticipationOptions.protectSkip` when a tease is planned
@@ -398,13 +401,13 @@ export interface ResolvedPegs {
 /**
  * The pointer flap: how the tongue behaves against the pegs.
  *
- * The tongue tip is a point `tipWidth` wide at the peg ring. A peg coming
- * toward it pushes it aside along the peg's rim (the geometric push, scaled
- * by `elasticity`), carries it on its crown until the peg is through plus
- * `friction` of the contact width, then lets go; a spring (`stiffness`, `damping`) brings it back.
- * At speed a peg passes within one frame and the tongue is flicked to the
- * crown deflection instead, so a fast wheel keeps it pinned and jittering
- * and a crawling one bends it slowly over every peg.
+ * The blade is a triangle hinged at the pin, `tipWidth` across at its base
+ * and a point at the tip; a peg is a circle. Each frame the tongue takes the
+ * smallest swing from where it stands that keeps the circle outside the
+ * triangle, rides the peg until it is through, and springs back
+ * (`stiffness`, `damping`) into clear air only. `elasticity` and `friction`
+ * pad the peg. At speed a peg passes within one frame and the tongue is
+ * flicked to the angle that peg would have held it at.
  */
 export interface FlapConfig {
   /**

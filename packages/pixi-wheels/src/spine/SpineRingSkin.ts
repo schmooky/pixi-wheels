@@ -172,7 +172,6 @@ export class SpineRingSkin implements RingSkin {
     this._labelLayer.destroy();
     this.spine.parent?.removeChild(this.spine);
     this.spine.destroy();
-    void this._ctx;
   }
 }
 

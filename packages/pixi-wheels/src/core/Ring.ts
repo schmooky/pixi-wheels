@@ -7,11 +7,16 @@ import type {
   SkipConfig,
   SpinDirection,
   SpinOptions,
+  ResolvedSpinProfile,
   SpinProfile,
   WeightTransitionOptions,
   WheelSpinResult,
-  WheelTarget, PegConfig, ResolvedPegs } from '../config/types.js';
+  WheelTarget,
+  PegConfig,
+  ResolvedPegs,
+} from '../config/types.js';
 import { DEFAULTS, DEFAULT_PEGS, DEFAULT_POINTER } from '../config/defaults.js';
+import { resolveProfile } from '../config/profile.js';
 import type { EventEmitter } from '../events/EventEmitter.js';
 import type { WheelEvents } from '../events/WheelEvents.js';
 import type { Pointer } from '../pointer/Pointer.js';
@@ -31,7 +36,7 @@ export interface RingParams {
   direction: SpinDirection;
   pointers: Pointer[];
   skin: RingSkin;
-  profiles: Map<string, SpinProfile>;
+  profiles: Map<string, ResolvedSpinProfile>;
   initialSpeed: string;
   landing: LandingOptions;
   skip: Required<SkipConfig>;
@@ -65,7 +70,7 @@ export class Ring extends Container implements Disposable {
   readonly pointers: readonly Pointer[];
   readonly skin: RingSkin;
   private readonly _direction: SpinDirection;
-  private readonly _profiles: Map<string, SpinProfile>;
+  private readonly _profiles: Map<string, ResolvedSpinProfile>;
   private _activeSpeed: string;
   private readonly _landing: LandingOptions;
   private readonly _skip: Required<SkipConfig>;
@@ -115,6 +120,8 @@ export class Ring extends Container implements Disposable {
     this.overlay.label = 'pixi-wheels:overlay';
     this.addChild(this.disc, this.overlay);
 
+    // `this` inside an object literal getter is the literal, so the getters below close over `self`.
+    const self = this;
     const host: SpinHost = {
       ringId: this.id,
       events: this.events,
@@ -130,9 +137,21 @@ export class Ring extends Container implements Disposable {
       getRotation: () => this._rotationDeg,
       setRotation: (deg) => this._setRotation(deg),
     };
-    // `self` for the getter above: `this` inside an object literal getter is the literal.
-    const self = this;
     this._controller = new SpinController(host);
+    const controller = this._controller;
+    this.idle = {
+      start: (config?: IdleConfig): void => {
+        const cfg = config ?? this._idleConfig;
+        if (!cfg) {
+          throw new Error(`Ring "${this.id}": idle.start() needs a config, or .idle({ speed }) on the builder.`);
+        }
+        controller.startIdle(cfg);
+      },
+      stop: (): void => controller.stopIdle(),
+      get isActive(): boolean {
+        return controller.isIdling;
+      },
+    };
 
     this.skin.attach({
       ringId: this.id,
@@ -281,7 +300,7 @@ export class Ring extends Container implements Disposable {
     return this._activeSpeed;
   }
 
-  get profile(): SpinProfile {
+  get profile(): ResolvedSpinProfile {
     return this._profiles.get(this._activeSpeed)!;
   }
 
@@ -296,25 +315,15 @@ export class Ring extends Container implements Disposable {
     this.events.emit('speed:changed', { ring: this.id, name, profile, previous });
   }
 
+  /** Register a profile at run time. Validated like `builder.speed()`; throws on a bad field. */
   addSpeed(name: string, profile: SpinProfile): void {
-    this._profiles.set(name, profile);
+    this._profiles.set(name, resolveProfile(name, profile));
   }
 
   // ── Idle ────────────────────────────────────────────────────────────────
 
-  readonly idle = {
-    start: (config?: IdleConfig): void => {
-      const cfg = config ?? this._idleConfig;
-      if (!cfg) {
-        throw new Error(`Ring "${this.id}": idle.start() needs a config, or .idle({ speed }) on the builder.`);
-      }
-      this._controller.startIdle(cfg);
-    },
-    stop: (): void => this._controller.stopIdle(),
-    get isActive(): boolean {
-      return false;
-    },
-  };
+  /** Idle rotation: `start(config?)`, `stop()`, and whether the ring is idling right now. */
+  readonly idle: { start(config?: IdleConfig): void; stop(): void; readonly isActive: boolean };
 
   // ── Dynamic sections ────────────────────────────────────────────────────
 
@@ -430,7 +439,7 @@ export class Ring extends Container implements Disposable {
     const dragOffset = this._dragDeg;
     let drag = 0;
     for (const p of this.pointers) {
-      const crossings = p.update(this._prevRotation, rotation, dt, this.geometry, this._direction, this._pegs, dragOffset);
+      const crossings = p.update(this._prevRotation, rotation, dt, this.geometry, this._pegs, dragOffset);
       drag += p.dragDeg;
       for (const c of crossings) {
         this.events.emit('pointer:tick', { ring: this.id, ...c });

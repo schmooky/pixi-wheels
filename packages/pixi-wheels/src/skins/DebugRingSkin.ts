@@ -40,26 +40,31 @@ export class DebugRingSkin implements RingSkin {
     const { outerRadius: R, innerRadius: r } = ctx;
     const g = this._g;
     g.clear();
-    for (const t of this._texts) t.destroy();
-    this._texts = [];
-    this._labels.removeChildren();
-    ctx.geometry.sections.forEach((s, i) => {
+    const sections = ctx.geometry.sections;
+    // One Text per section, kept between layouts: a dynamic transition lays out every frame.
+    while (this._texts.length > sections.length) this._texts.pop()!.destroy();
+    while (this._texts.length < sections.length) {
+      const t = new Text({
+        text: '',
+        style: { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: Math.max(9, R * 0.045), fill: 0xe6edf3, align: 'center' },
+      });
+      t.anchor.set(0.5);
+      this._labels.addChild(t);
+      this._texts.push(t);
+    }
+    sections.forEach((s, i) => {
       wedgePath(g, s, R, r);
       g.fill({ color: i % 2 === 0 ? 0x3b4252 : 0x2a2f3a, alpha: 1 });
       g.stroke({ color: 0x9aa3b2, width: 1.5, alpha: 0.9 });
       const mid = s.midAngle * DEG_TO_RAD;
       const lr = r + (R - r) * 0.62;
-      const t = new Text({
-        text: `${i} ${s.id}\n${Math.round(s.startAngle)}..${Math.round(s.endAngle)}`,
-        style: { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: Math.max(9, R * 0.045), fill: 0xe6edf3, align: 'center' },
-      });
-      t.anchor.set(0.5);
+      const t = this._texts[i];
+      t.scale.set(1);
+      t.text = `${i} ${s.id}\n${Math.round(s.startAngle)}..${Math.round(s.endAngle)}`;
       t.position.set(Math.cos(mid) * lr, Math.sin(mid) * lr);
       t.rotation = mid + Math.PI / 2;
       const chord = 2 * lr * Math.sin((s.arc * DEG_TO_RAD) / 2);
       if (t.width > chord * 0.95) t.scale.set((chord * 0.95) / t.width);
-      this._labels.addChild(t);
-      this._texts.push(t);
     });
     // Degree marks every 30 on the disc.
     for (let d = 0; d < 360; d += 30) {
